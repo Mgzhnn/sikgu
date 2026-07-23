@@ -210,3 +210,14 @@ test("removes the in-app menu and cart drawer", async () => {
   assert.doesNotMatch(css, /\.menu-drawer|\.menu-groups|\.drawer-footer|\.add-menu|\.stepper/);
   assert.match(page, /이 가게로 방 만들기/);
 });
+
+test("removes the inactive order-detail header button", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.doesNotMatch(page, /className="modal-topbar"[\s\S]{0,220}<span \/>/);
+  assert.match(css, /\.modal-topbar \{[\s\S]*grid-template-columns: 34px minmax\(0, 1fr\) 34px/);
+  assert.match(css, /\.modal-topbar::after \{[\s\S]*content: ""/);
+});

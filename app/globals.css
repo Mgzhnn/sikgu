@@ -1539,12 +1539,18 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 }
 
 .modal-topbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
   align-items: center;
-  justify-content: space-between;
   padding: 14px 17px;
   border-bottom: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.6);
+}
+
+.modal-topbar::after {
+  width: 34px;
+  height: 34px;
+  content: "";
 }
 
 .modal-topbar button {
@@ -1560,6 +1566,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 }
 
 .modal-topbar > span {
+  justify-self: center;
   padding: 5px 9px;
   border-radius: 999px;
   background: var(--orange-soft);

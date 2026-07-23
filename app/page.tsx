@@ -1120,7 +1120,6 @@ function PoolModal({
         <div className="modal-topbar">
           <button onClick={onClose} aria-label="공동주문 닫기">←</button>
           <span>{timeLeft(pool.closesAt, now)}</span>
-          <span />
         </div>
         <div className="pool-modal-hero">
           <RestaurantMark restaurant={restaurant} large />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type View = "home" | "restaurants" | "profile";
 type DeliveryApp = "baemin" | "coupang";
@@ -974,6 +974,189 @@ function RightRail({
   );
 }
 
+const feedbackEmail = "gudwns5863@naver.com";
+const feedbackTypes = [
+  { id: "bug", label: "오류 신고", icon: "!" },
+  { id: "info", label: "정보 수정", icon: "i" },
+  { id: "idea", label: "기능 제안", icon: "+" },
+  { id: "other", label: "기타", icon: "·" },
+] as const;
+
+type FeedbackType = (typeof feedbackTypes)[number]["id"];
+
+function FeedbackModal({
+  currentScreen,
+  onClose,
+}: {
+  currentScreen: string;
+  onClose: () => void;
+}) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const [feedbackType, setFeedbackType] = useState<FeedbackType | "">("");
+  const [details, setDetails] = useState("");
+  const [error, setError] = useState("");
+  const [copyStatus, setCopyStatus] = useState("");
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
+    const focusableSelector = "button:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]";
+    dialog?.querySelector<HTMLElement>(focusableSelector)?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab" || !dialog) return;
+
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector))
+        .filter((element) => !element.hasAttribute("hidden"));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [onClose]);
+
+  const copyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(feedbackEmail);
+      setCopyStatus("이메일 주소를 복사했어요.");
+    } catch {
+      setCopyStatus(`복사하지 못했어요. ${feedbackEmail}을 직접 입력해주세요.`);
+    }
+  };
+
+  const openEmail = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!feedbackType) {
+      setError("제안 유형을 선택해주세요.");
+      return;
+    }
+    if (details.trim().length < 10) {
+      setError("상세 내용을 10자 이상 입력해주세요.");
+      return;
+    }
+
+    const selectedType = feedbackTypes.find((item) => item.id === feedbackType)!;
+    const subject = `[SIKGU ${selectedType.label}] ${details.trim().split("\n")[0].slice(0, 36)}`;
+    const body = [
+      "안녕하세요. SIKGU 서비스에 의견을 보냅니다.",
+      "",
+      `[제안 유형] ${selectedType.label}`,
+      `[확인한 화면] ${currentScreen}`,
+      `[페이지 주소] ${window.location.href}`,
+      "",
+      "[상세 내용]",
+      details.trim(),
+      "",
+      "필요한 경우 이 메일에 스크린샷을 첨부해주세요.",
+    ].join("\r\n");
+
+    setError("");
+    window.location.href = `mailto:${feedbackEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
+  return (
+    <div className="overlay centered feedback-overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section
+        className="feedback-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="feedback-title"
+        aria-describedby="feedback-description"
+        ref={dialogRef}
+      >
+        <header className="feedback-head">
+          <div>
+            <span>HELP SIKGU</span>
+            <h2 id="feedback-title">SIKGU에 의견 보내기</h2>
+            <p id="feedback-description">더 나은 식구를 위해 오류와 개선 아이디어를 알려주세요.</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="의견 보내기 닫기">×</button>
+        </header>
+
+        <div className="feedback-recipient">
+          <span className="feedback-mail-mark" aria-hidden="true">@</span>
+          <div>
+            <small>받는 사람</small>
+            <a href={`mailto:${feedbackEmail}`}>{feedbackEmail}</a>
+          </div>
+          <button type="button" onClick={copyEmail}>주소 복사</button>
+        </div>
+
+        <form className="feedback-form" onSubmit={openEmail}>
+          {error && <div className="feedback-error" role="alert"><span>!</span>{error}</div>}
+
+          <fieldset className="feedback-field">
+            <legend>어떤 의견인가요? <strong>필수</strong></legend>
+            <div className="feedback-type-grid">
+              {feedbackTypes.map((item) => (
+                <button
+                  type="button"
+                  className={feedbackType === item.id ? "active" : ""}
+                  onClick={() => {
+                    setFeedbackType(item.id);
+                    setError("");
+                  }}
+                  aria-pressed={feedbackType === item.id}
+                  key={item.id}
+                >
+                  <span aria-hidden="true">{item.icon}</span>
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          <div className="feedback-field">
+            <label htmlFor="feedback-details">상세 내용 <strong>필수</strong></label>
+            <p id="feedback-details-hint">어느 화면에서 무엇이 불편했는지, 기대한 결과와 함께 적어주세요.</p>
+            <textarea
+              id="feedback-details"
+              value={details}
+              onChange={(event) => {
+                setDetails(event.target.value);
+                setError("");
+              }}
+              rows={6}
+              maxLength={1200}
+              aria-describedby="feedback-details-hint feedback-details-count"
+              placeholder="예: 주문방 만들기에서 픽업 장소를 선택한 뒤..."
+            />
+            <small id="feedback-details-count">{details.length.toLocaleString("ko-KR")} / 1,200자</small>
+          </div>
+
+          <div className="feedback-safety-note">
+            <span aria-hidden="true">!</span>
+            <p><strong>민감한 정보는 적지 마세요.</strong> 비밀번호·결제정보·주민등록번호는 받지 않습니다.</p>
+          </div>
+
+          <button className="primary-button feedback-submit" type="submit">
+            이메일 앱 열기 <span aria-hidden="true">↗</span>
+          </button>
+          <p className="feedback-handoff">메일 작성 화면이 열리면 내용을 확인하고 전송 버튼을 눌러주세요. 스크린샷도 그곳에서 첨부할 수 있어요.</p>
+          {copyStatus && <p className="feedback-copy-status" role="status">{copyStatus}</p>}
+        </form>
+      </section>
+    </div>
+  );
+}
+
 function PoolModal({
   pool,
   now,
@@ -1453,6 +1636,7 @@ export default function Home() {
   const [roomHubId, setRoomHubId] = useState<string | null>(null);
   const [createFor, setCreateFor] = useState<Restaurant | undefined>();
   const [showCreate, setShowCreate] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("전체");
   const [currentPickup, setCurrentPickup] = useState("E3");
@@ -1626,6 +1810,8 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const closeFeedback = useCallback(() => setShowFeedback(false), []);
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -1671,13 +1857,16 @@ export default function Home() {
             </button>
           ))}
         </nav>
-        <button className="help-link"><span>?</span> 도움말 · 제안 보내기</button>
+        <button className="help-link" onClick={() => setShowFeedback(true)}><span>?</span> 도움말 · 제안 보내기</button>
       </aside>
 
       <main className="main-content">
         <div className="mobile-top">
           <Brand />
-          <button onClick={() => openCreate()} aria-label="주문방 만들기">＋</button>
+          <div className="mobile-top-actions">
+            <button className="mobile-help-button" onClick={() => setShowFeedback(true)} aria-label="도움말 및 제안 보내기">?</button>
+            <button className="mobile-create-button" onClick={() => openCreate()} aria-label="주문방 만들기">＋</button>
+          </div>
         </div>
         {view === "home" && (
           <HomeView
@@ -1729,6 +1918,7 @@ export default function Home() {
           onChanged={() => void loadRooms()}
         />
       )}
+      {showFeedback && <FeedbackModal currentScreen={viewCopy} onClose={closeFeedback} />}
 
       {toast && <div className="toast" role="status"><span>✓</span>{toast}</div>}
       <div className="sr-only" aria-live="polite">현재 화면: {viewCopy}</div>

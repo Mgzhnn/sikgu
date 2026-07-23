@@ -110,3 +110,14 @@ test("supports selecting both delivery apps for one order pool", async () => {
   assert.match(page, /하나 또는 두 앱을 모두 선택할 수 있어요/);
   assert.match(css, /\.segmented\.multi-select button/);
 });
+
+test("does not ship the inactive notification control", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.doesNotMatch(page, /aria-label="알림"/);
+  assert.doesNotMatch(page, /className="icon-button notification"/);
+  assert.doesNotMatch(css, /\.notification i/);
+});

@@ -19,11 +19,13 @@ type Restaurant = {
   cuisine: string;
   mark: string;
   tone: string;
-  rating: number;
-  reviews: number;
+  rating?: number;
+  reviews?: number;
   eta: string;
   minimum: Record<DeliveryApp, number>;
   deliveryFee: Record<DeliveryApp, number>;
+  address?: string;
+  verified?: boolean;
   menu: { title: string; items: MenuItem[] }[];
 };
 
@@ -45,11 +47,29 @@ type Pool = {
 };
 
 const money = (value: number) => `${value.toLocaleString("ko-KR")}원`;
+const kakaoMapSearchUrl = (restaurant: Restaurant) =>
+  `https://map.kakao.com/?q=${encodeURIComponent(`${restaurant.name} ${restaurant.address || "현풍 테크노폴리스"}`)}`;
 
 const appLabels: Record<DeliveryApp, { name: string; membership: string }> = {
   baemin: { name: "배민", membership: "배민클럽" },
   coupang: { name: "쿠팡이츠", membership: "쿠팡와우" },
 };
+
+const sampleMenu = (
+  prefix: string,
+  items: [name: string, description: string, price: number][],
+): Restaurant["menu"] => [
+  {
+    title: "대표 메뉴 · 앱에서 최종 확인",
+    items: items.map(([name, description, price], index) => ({
+      id: `${prefix}-${index + 1}`,
+      name,
+      description,
+      price,
+      badge: index === 0 ? "인기" : undefined,
+    })),
+  },
+];
 
 const restaurants: Restaurant[] = [
   {
@@ -170,7 +190,7 @@ const restaurants: Restaurant[] = [
   },
   {
     id: "dosirak",
-    name: "한솥도시락",
+    name: "한솥 테크노폴리스중리점",
     cuisine: "한식",
     mark: "한",
     tone: "sage",
@@ -179,6 +199,8 @@ const restaurants: Restaurant[] = [
     eta: "20–30분",
     minimum: { baemin: 12000, coupang: 13000 },
     deliveryFee: { baemin: 2000, coupang: 2500 },
+    address: "현풍읍 테크노상업로 48",
+    verified: true,
     menu: [
       {
         title: "도시락",
@@ -199,7 +221,7 @@ const restaurants: Restaurant[] = [
   },
   {
     id: "sushi",
-    name: "스시로 현풍점",
+    name: "스시호 현풍",
     cuisine: "초밥",
     mark: "스",
     tone: "plum",
@@ -225,6 +247,261 @@ const restaurants: Restaurant[] = [
         ],
       },
     ],
+  },
+  {
+    id: "mykatsu",
+    name: "마이카츠 현풍테크노폴리스점",
+    cuisine: "돈까스",
+    mark: "카",
+    tone: "coral",
+    eta: "25–40분",
+    minimum: { baemin: 13000, coupang: 15000 },
+    deliveryFee: { baemin: 2800, coupang: 2800 },
+    address: "유가읍 테크노상업로 112",
+    verified: true,
+    menu: sampleMenu("mykatsu", [
+      ["마이카츠", "바삭한 등심 돈카츠", 5900],
+      ["돈코츠라멘", "진한 돈코츠 육수와 생면", 6900],
+      ["가라아게라이스", "바삭한 가라아게와 소스", 10900],
+    ]),
+  },
+  {
+    id: "subway",
+    name: "써브웨이 대구테크노폴리스점",
+    cuisine: "샌드위치",
+    mark: "써",
+    tone: "sage",
+    eta: "20–35분",
+    minimum: { baemin: 12000, coupang: 14000 },
+    deliveryFee: { baemin: 2500, coupang: 2500 },
+    address: "현풍읍 테크노상업로 62",
+    verified: true,
+    menu: sampleMenu("subway", [
+      ["이탈리안 비엠티 15cm", "페퍼로니와 살라미의 클래식 조합", 6900],
+      ["로티세리 바비큐 치킨 15cm", "부드러운 닭가슴살 샌드위치", 7900],
+      ["에그마요 15cm", "고소하고 부드러운 에그마요", 5900],
+    ]),
+  },
+  {
+    id: "stella",
+    name: "스텔라떡볶이 대구테크노현풍점",
+    cuisine: "분식",
+    mark: "별",
+    tone: "gold",
+    eta: "25–40분",
+    minimum: { baemin: 14000, coupang: 15000 },
+    deliveryFee: { baemin: 2800, coupang: 3000 },
+    address: "유가읍 테크노상업로 84",
+    verified: true,
+    menu: sampleMenu("stella", [
+      ["별튀김 떡볶이", "바삭한 별튀김을 곁들이는 떡볶이", 6500],
+      ["로제 떡볶이", "부드럽고 매콤한 로제 소스", 8500],
+      ["모둠튀김", "김말이·만두·오징어튀김 구성", 5500],
+    ]),
+  },
+  {
+    id: "yup",
+    name: "동대문엽기떡볶이 대구테크노폴리스점",
+    cuisine: "분식",
+    mark: "엽",
+    tone: "plum",
+    eta: "30–45분",
+    minimum: { baemin: 15000, coupang: 17000 },
+    deliveryFee: { baemin: 3000, coupang: 3000 },
+    address: "유가읍 테크노상업로 100",
+    verified: true,
+    menu: sampleMenu("yup", [
+      ["엽기떡볶이", "취향대로 매운맛을 고르는 대표 메뉴", 14000],
+      ["마라떡볶이", "알싸한 마라 풍미의 떡볶이", 16000],
+      ["주먹김밥", "매운맛을 달래는 참치마요 주먹김밥", 3500],
+    ]),
+  },
+  {
+    id: "domino",
+    name: "도미노피자 현풍점",
+    cuisine: "피자",
+    mark: "도",
+    tone: "indigo",
+    eta: "30–45분",
+    minimum: { baemin: 18000, coupang: 20000 },
+    deliveryFee: { baemin: 3000, coupang: 2500 },
+    address: "현풍읍 테크노대로 24",
+    verified: true,
+    menu: sampleMenu("domino", [
+      ["포테이토 피자", "담백한 감자와 베이컨 토핑", 27900],
+      ["블랙타이거 슈림프", "통통한 새우와 치즈의 조합", 34900],
+      ["슈퍼디럭스", "고기와 채소를 풍성하게 올린 클래식", 29900],
+    ]),
+  },
+  {
+    id: "youngpizza",
+    name: "청년피자 현풍테크노점",
+    cuisine: "피자",
+    mark: "청",
+    tone: "mint",
+    eta: "30–50분",
+    minimum: { baemin: 17000, coupang: 18000 },
+    deliveryFee: { baemin: 2800, coupang: 3000 },
+    address: "현풍읍 테크노상업로 26",
+    verified: true,
+    menu: sampleMenu("youngpizza", [
+      ["리얼치즈피자", "치즈 풍미에 집중한 베이직 피자", 18900],
+      ["에그콘피자", "달콤한 옥수수와 부드러운 에그소스", 21900],
+      ["매드쉬림프", "탱글한 새우를 올린 시그니처 피자", 24900],
+    ]),
+  },
+  {
+    id: "pizzahut",
+    name: "피자헛 대구현풍점",
+    cuisine: "피자",
+    mark: "헛",
+    tone: "coral",
+    eta: "30–50분",
+    minimum: { baemin: 18000, coupang: 18000 },
+    deliveryFee: { baemin: 3000, coupang: 3000 },
+    address: "현풍읍 테크노상업로 46",
+    verified: true,
+    menu: sampleMenu("pizzahut", [
+      ["수퍼슈프림", "고기와 채소 토핑을 가득 올린 피자", 27900],
+      ["페페로니 러버", "짭짤한 페페로니가 풍성한 피자", 25900],
+      ["치즈킹", "진한 치즈 풍미의 프리미엄 피자", 29900],
+    ]),
+  },
+  {
+    id: "bbq",
+    name: "BBQ 테크노행복점",
+    cuisine: "치킨",
+    mark: "비",
+    tone: "gold",
+    eta: "35–50분",
+    minimum: { baemin: 19000, coupang: 20000 },
+    deliveryFee: { baemin: 3000, coupang: 2500 },
+    address: "현풍읍 테크노공원로 17",
+    verified: true,
+    menu: sampleMenu("bbq", [
+      ["황금올리브치킨", "바삭하고 고소한 시그니처 후라이드", 23000],
+      ["자메이카 통다리구이", "매콤달콤한 소스의 통다리구이", 24000],
+      ["황금올리브 반반", "후라이드와 양념을 한 번에", 24000],
+    ]),
+  },
+  {
+    id: "hosigi",
+    name: "호식이두마리치킨 현풍테크노점",
+    cuisine: "치킨",
+    mark: "호",
+    tone: "mint",
+    eta: "35–55분",
+    minimum: { baemin: 20000, coupang: 21000 },
+    deliveryFee: { baemin: 2800, coupang: 3000 },
+    address: "현풍읍 테크노중앙대로 325-9",
+    verified: true,
+    menu: sampleMenu("hosigi", [
+      ["후라이드+양념 두마리", "함께 나누기 좋은 반반 두마리 세트", 27000],
+      ["간장치킨+후라이드", "달콤짭짤 간장과 바삭한 후라이드", 27000],
+      ["매운간장치킨", "알싸한 매운맛의 간장치킨", 17000],
+    ]),
+  },
+  {
+    id: "ogburger",
+    name: "오지(OG)버거",
+    cuisine: "버거",
+    mark: "OG",
+    tone: "indigo",
+    eta: "25–40분",
+    minimum: { baemin: 14000, coupang: 15000 },
+    deliveryFee: { baemin: 2500, coupang: 2800 },
+    address: "유가읍 테크노상업로 96",
+    verified: true,
+    menu: sampleMenu("ogburger", [
+      ["OG 시그니처 버거 세트", "육즙 가득한 패티와 감자튀김", 10900],
+      ["베이컨 치즈버거 세트", "베이컨과 치즈를 더한 든든한 세트", 11900],
+      ["치킨버거 세트", "바삭한 치킨 패티와 신선한 채소", 9900],
+    ]),
+  },
+  {
+    id: "bonjuk",
+    name: "본죽&비빔밥 대구테크노폴리스점",
+    cuisine: "한식",
+    mark: "본",
+    tone: "sage",
+    eta: "25–40분",
+    minimum: { baemin: 13000, coupang: 15000 },
+    deliveryFee: { baemin: 2500, coupang: 2800 },
+    address: "현풍읍 테크노중앙대로 243",
+    verified: true,
+    menu: sampleMenu("bonjuk", [
+      ["쇠고기야채죽", "쇠고기와 채소를 부드럽게 끓인 죽", 11000],
+      ["낙지김치죽", "매콤한 낙지와 김치의 든든한 조합", 12000],
+      ["곤드레비빔밥", "향긋한 곤드레와 나물 비빔밥", 10500],
+    ]),
+  },
+  {
+    id: "agu",
+    name: "인생아구찜 현풍테크노점",
+    cuisine: "해물",
+    mark: "아",
+    tone: "coral",
+    eta: "35–55분",
+    minimum: { baemin: 22000, coupang: 23000 },
+    deliveryFee: { baemin: 3500, coupang: 3500 },
+    address: "현풍읍 테크노상업로 50",
+    verified: true,
+    menu: sampleMenu("agu", [
+      ["아구찜 소", "매콤한 양념과 아삭한 콩나물", 29000],
+      ["해물찜 소", "다양한 해산물을 푸짐하게 담은 찜", 33000],
+      ["볶음밥", "찜 양념에 볶아 먹는 마무리 메뉴", 3000],
+    ]),
+  },
+  {
+    id: "dakguksu",
+    name: "현풍닭칼국수 대구테크노폴리스점",
+    cuisine: "국수",
+    mark: "닭",
+    tone: "gold",
+    eta: "30–45분",
+    minimum: { baemin: 15000, coupang: 16000 },
+    deliveryFee: { baemin: 2800, coupang: 3000 },
+    address: "현풍읍 테크노상업로 68",
+    verified: true,
+    menu: sampleMenu("dakguksu", [
+      ["닭칼국수", "진한 닭육수와 쫄깃한 면", 9000],
+      ["얼큰닭칼국수", "칼칼한 국물의 닭칼국수", 9500],
+      ["한방수육 소", "부드럽게 삶은 한방 수육", 18000],
+    ]),
+  },
+  {
+    id: "kimchijjim",
+    name: "성서한옥집김치찜 현풍",
+    cuisine: "한식",
+    mark: "찜",
+    tone: "plum",
+    eta: "30–45분",
+    minimum: { baemin: 16000, coupang: 17000 },
+    deliveryFee: { baemin: 3000, coupang: 3000 },
+    address: "현풍읍 테크노상업로2길 15-1",
+    verified: true,
+    menu: sampleMenu("kimchijjim", [
+      ["돼지김치찜", "푹 익은 김치와 부드러운 돼지고기", 11000],
+      ["김치찌개", "얼큰하고 진한 국물의 한 끼", 9000],
+      ["계란말이", "김치찜과 잘 어울리는 도톰한 계란말이", 7000],
+    ]),
+  },
+  {
+    id: "cozy",
+    name: "코지하우스 현풍점",
+    cuisine: "양식",
+    mark: "코",
+    tone: "indigo",
+    eta: "35–55분",
+    minimum: { baemin: 18000, coupang: 20000 },
+    deliveryFee: { baemin: 3500, coupang: 3500 },
+    address: "현풍읍 테크노상업로2길 상권",
+    verified: true,
+    menu: sampleMenu("cozy", [
+      ["10달러 스테이크", "부드러운 스테이크와 구운 채소", 13900],
+      ["새우 로제 파스타", "통통한 새우와 부드러운 로제 소스", 12900],
+      ["관자 오일 파스타", "관자와 마늘 풍미의 오일 파스타", 13900],
+    ]),
   },
 ];
 
@@ -535,21 +812,32 @@ function RestaurantsView({
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("전체");
-  const filters = ["전체", "배달비 0원", "최소금액 낮은 순", "평점 4.8+"];
+  const filters = ["전체", "위치 확인 매장", "최소금액 낮은 순", "평점 4.8+"];
   const visible = restaurants
-    .filter((restaurant) => restaurant.name.toLowerCase().includes(query.toLowerCase()))
-    .filter((restaurant) => filter !== "평점 4.8+" || restaurant.rating >= 4.8)
+    .filter((restaurant) =>
+      `${restaurant.name} ${restaurant.cuisine} ${restaurant.address || ""} ${restaurant.menu.flatMap((group) => group.items).map((item) => item.name).join(" ")}`
+        .toLowerCase()
+        .includes(query.toLowerCase()))
+    .filter((restaurant) => filter !== "위치 확인 매장" || restaurant.verified)
+    .filter((restaurant) => filter !== "평점 4.8+" || (restaurant.rating || 0) >= 4.8)
     .sort((a, b) => filter === "최소금액 낮은 순"
       ? Math.min(...Object.values(a.minimum)) - Math.min(...Object.values(b.minimum))
       : 0);
 
   return (
     <>
-      <Header title="메뉴부터 천천히 골라봐요" subtitle="전체 가게 · 배달앱 가격 비교" onCreate={() => onCreate()} />
+      <Header title="현풍에서 오늘 뭐 먹을까요?" subtitle={`테크노폴리스 상권 · ${restaurants.length}개 가게`} onCreate={() => onCreate()} />
+      <div className="restaurant-directory-note">
+        <div>
+          <span>LOCAL DIRECTORY</span>
+          <strong>현풍·유가 테크노폴리스 상권을 기준으로 정리했어요.</strong>
+        </div>
+        <p>배달 가능 여부와 최소주문·배달비는 시간과 주소에 따라 달라져요. 결제 전 배민·쿠팡이츠에서 한 번 더 확인해 주세요.</p>
+      </div>
       <div className="restaurant-toolbar">
         <label className="search-box">
           <span>⌕</span>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="가게 이름 검색" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="가게·메뉴·카테고리 검색" />
         </label>
         <div className="category-tabs compact-tabs">
           {filters.map((item) => (
@@ -566,18 +854,26 @@ function RestaurantsView({
               <button className="restaurant-summary" onClick={() => onMenu(restaurant)}>
                 <RestaurantMark restaurant={restaurant} large />
                 <div className="restaurant-info">
-                  <span className="cuisine-label">{restaurant.cuisine}</span>
+                  <span className="cuisine-label">{restaurant.cuisine}{restaurant.verified && <em>위치 확인</em>}</span>
                   <h2>{restaurant.name}</h2>
-                  <p><b>★ {restaurant.rating}</b> ({restaurant.reviews}) · {restaurant.eta}</p>
+                  <p>
+                    {restaurant.rating
+                      ? <><b>★ {restaurant.rating}</b> ({restaurant.reviews}) · </>
+                      : <>테크노폴리스 상권 · </>}
+                    {restaurant.eta}
+                  </p>
                 </div>
                 <span className="chevron">›</span>
               </button>
+              <a className="restaurant-location-link" href={kakaoMapSearchUrl(restaurant)} target="_blank" rel="noreferrer">
+                <span>◎</span>{restaurant.address || "현풍 테크노폴리스"}<b>카카오맵 ↗</b>
+              </a>
               <div className="app-price-compare">
                 {(["baemin", "coupang"] as DeliveryApp[]).map((app) => (
                   <div className={bestApp === app ? "best" : ""} key={app}>
                     <span>{appLabels[app].name}{bestApp === app && <em>LOW</em>}</span>
-                    <strong>{money(restaurant.minimum[app])}부터</strong>
-                    <small>배달 {money(restaurant.deliveryFee[app])}</small>
+                    <strong>예상 {money(restaurant.minimum[app])}부터</strong>
+                    <small>예상 배달 {money(restaurant.deliveryFee[app])}</small>
                   </div>
                 ))}
               </div>
@@ -589,6 +885,13 @@ function RestaurantsView({
           );
         })}
       </section>
+      {!visible.length && (
+        <div className="empty-state restaurant-empty">
+          <span>⌕</span>
+          <h3>검색 결과가 없어요</h3>
+          <p>다른 가게 이름이나 메뉴로 다시 찾아보세요.</p>
+        </div>
+      )}
     </>
   );
 }
@@ -929,15 +1232,19 @@ function MenuDrawer({
         <div className="drawer-head">
           <div className="drawer-title">
             <RestaurantMark restaurant={restaurant} large />
-            <div><span>{restaurant.cuisine}</span><h2>{restaurant.name}</h2><p>★ {restaurant.rating} · {restaurant.eta}</p></div>
+            <div>
+              <span>{restaurant.cuisine}</span>
+              <h2>{restaurant.name}</h2>
+              <p>{restaurant.rating ? `★ ${restaurant.rating}` : restaurant.address || "현풍 테크노폴리스"} · {restaurant.eta}</p>
+            </div>
           </div>
           <button onClick={onClose} aria-label="메뉴 닫기">×</button>
         </div>
 
         <div className="drawer-app-note">
-          <div><span>배민 최소주문</span><strong>{money(restaurant.minimum.baemin)}</strong></div>
-          <div><span>쿠팡이츠 최소주문</span><strong>{money(restaurant.minimum.coupang)}</strong></div>
-          <p><b>TIP</b> 주문방에서는 내 메뉴 금액만큼만 결제해요.</p>
+          <div><span>배민 예상 최소주문</span><strong>{money(restaurant.minimum.baemin)}</strong></div>
+          <div><span>쿠팡이츠 예상 최소주문</span><strong>{money(restaurant.minimum.coupang)}</strong></div>
+          <p><b>TIP</b> 금액과 배달 가능 여부는 앱에서 최종 확인해 주세요.</p>
         </div>
 
         <div className="menu-groups">
@@ -1074,7 +1381,21 @@ function CreateModal({
   const [pickup, setPickup] = useState("E3");
   const [app, setApp] = useState<DeliveryApp>("baemin");
   const [minutes, setMinutes] = useState(30);
+  const [restaurantQuery, setRestaurantQuery] = useState("");
+  const [restaurantCategory, setRestaurantCategory] = useState("전체");
   const restaurant = restaurants.find((item) => item.id === restaurantId)!;
+  const restaurantCategories = useMemo(
+    () => ["전체", ...Array.from(new Set(restaurants.map((item) => item.cuisine)))],
+    [],
+  );
+  const visibleRestaurants = useMemo(
+    () => restaurants.filter((item) => {
+      const matchesCategory = restaurantCategory === "전체" || item.cuisine === restaurantCategory;
+      const haystack = `${item.name} ${item.cuisine} ${item.address || ""}`.toLowerCase();
+      return matchesCategory && haystack.includes(restaurantQuery.trim().toLowerCase());
+    }),
+    [restaurantCategory, restaurantQuery],
+  );
 
   return (
     <div className="overlay centered" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
@@ -1085,11 +1406,73 @@ function CreateModal({
         </div>
 
         <div className="form-field">
-          <label htmlFor="restaurant">어디에서 주문할까요?</label>
-          <select id="restaurant" value={restaurantId} onChange={(event) => setRestaurantId(event.target.value)}>
-            {restaurants.map((item) => <option value={item.id} key={item.id}>{item.name} · {item.cuisine}</option>)}
-          </select>
-          <div className="form-hint"><span>{appLabels[app].name} 최소주문</span><strong>{money(restaurant.minimum[app])}</strong></div>
+          <div className="restaurant-picker-label">
+            <label htmlFor="restaurant-search">어디에서 주문할까요?</label>
+            <span>{restaurants.length}개 가게</span>
+          </div>
+          <label className="restaurant-picker-search">
+            <span>⌕</span>
+            <input
+              id="restaurant-search"
+              value={restaurantQuery}
+              onChange={(event) => setRestaurantQuery(event.target.value)}
+              placeholder="가게 이름이나 음식 검색"
+              autoComplete="off"
+            />
+            {restaurantQuery && <button onClick={() => setRestaurantQuery("")} aria-label="가게 검색어 지우기">×</button>}
+          </label>
+          <div className="restaurant-picker-categories" aria-label="가게 카테고리">
+            {restaurantCategories.map((item) => (
+              <button
+                className={restaurantCategory === item ? "active" : ""}
+                onClick={() => setRestaurantCategory(item)}
+                key={item}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+          <div className="restaurant-picker-list" role="listbox" aria-label="현풍 테크노폴리스 가게 목록">
+            {visibleRestaurants.map((item) => (
+              <button
+                className={restaurantId === item.id ? "active" : ""}
+                onClick={() => setRestaurantId(item.id)}
+                role="option"
+                aria-selected={restaurantId === item.id}
+                key={item.id}
+              >
+                <RestaurantMark restaurant={item} />
+                <span className="restaurant-picker-copy">
+                  <strong>{item.name}</strong>
+                  <small>{item.cuisine} · {item.address || "현풍 테크노폴리스"}</small>
+                </span>
+                <span className="restaurant-picker-price">
+                  <small>{appLabels[app].name} 예상</small>
+                  <strong>{money(item.minimum[app])}~</strong>
+                </span>
+                <i aria-hidden="true">{restaurantId === item.id ? "✓" : "›"}</i>
+              </button>
+            ))}
+            {!visibleRestaurants.length && (
+              <div className="restaurant-picker-empty">
+                <span>⌕</span>
+                <strong>찾는 가게가 없어요</strong>
+                <small>다른 이름이나 카테고리를 선택해 보세요.</small>
+              </div>
+            )}
+          </div>
+          <div className="selected-restaurant-row">
+            <div>
+              <span>선택한 가게</span>
+              <strong>{restaurant.name}</strong>
+            </div>
+            <a href={kakaoMapSearchUrl(restaurant)} target="_blank" rel="noreferrer">카카오맵 확인 ↗</a>
+          </div>
+          <div className="form-hint">
+            <span>{appLabels[app].name} 예상 최소주문</span>
+            <strong>{money(restaurant.minimum[app])}</strong>
+          </div>
+          <p className="delivery-data-note">배달앱의 실시간 영업·배달 가능 여부와 금액은 주문 전 최종 확인해 주세요.</p>
         </div>
 
         <div className="form-field">

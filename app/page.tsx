@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type View = "home" | "restaurants" | "map" | "profile";
+type View = "home" | "restaurants" | "profile";
 type DeliveryApp = "baemin" | "coupang";
 
 type MenuItem = {
@@ -568,7 +568,6 @@ const initialPools: Pool[] = [];
 const navItems: { id: View; label: string; compact: string; icon: string }[] = [
   { id: "home", label: "주문 모아보기", compact: "홈", icon: "⌂" },
   { id: "restaurants", label: "가게 · 메뉴", compact: "가게", icon: "⌕" },
-  { id: "map", label: "캠퍼스 지도", compact: "지도", icon: "◎" },
   { id: "profile", label: "내 정보", compact: "MY", icon: "◌" },
 ];
 
@@ -890,106 +889,6 @@ function RestaurantsView({
   );
 }
 
-function MapView({
-  onPool,
-  pools,
-  onCreate,
-  initialPickup,
-  now,
-}: {
-  onPool: (pool: Pool) => void;
-  pools: Pool[];
-  onCreate: () => void;
-  initialPickup: string;
-  now: number;
-}) {
-  const [selected, setSelected] = useState(
-    pickupPoints.find((point) => point.id === initialPickup) || pickupPoints[0],
-  );
-
-  const nearbyPools = pools.filter((pool) => pool.pickup === selected.id);
-  const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${selected.lat},${selected.lng}`;
-  const kakaoUrl = `https://map.kakao.com/link/to/${encodeURIComponent(selected.full)},${selected.lat},${selected.lng}`;
-
-  return (
-    <>
-      <Header title="가까운 픽업 장소를 찾아요" subtitle="LIVE CAMPUS MAP · DGIST" onCreate={onCreate} />
-      <section className="map-layout">
-        <div className="map-panel">
-          <iframe
-            title="DGIST 공동주문 픽업 지도"
-            src={`https://www.google.com/maps?q=${selected.lat},${selected.lng}&z=16&output=embed`}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-          />
-          <div className="map-floating-card">
-            <span className="map-pin-large">{selected.code ?? selected.id}</span>
-            <div>
-              <small>선택한 픽업 장소</small>
-              <strong>{selected.full}</strong>
-              <p>내 위치에서 도보 약 {selected.walk}분</p>
-            </div>
-          </div>
-          <div className="map-provider">Google Maps</div>
-        </div>
-
-        <div className="pickup-panel">
-          <div className="pickup-panel-head">
-            <div>
-              <span>픽업 장소</span>
-              <h2>어디에서 만날까요?</h2>
-            </div>
-            <span className="live-count">{pools.length} live</span>
-          </div>
-          <div className="pickup-list">
-            {pickupPoints.map((point) => (
-              <button
-                className={selected.id === point.id ? "active" : ""}
-                onClick={() => setSelected(point)}
-                key={point.id}
-              >
-                <span className="pickup-code">{point.code ?? point.id}</span>
-                <span>
-                  <strong>{point.full}</strong>
-                  <small>도보 {point.walk}분 · 주문방 {pools.filter((pool) => pool.pickup === point.id).length}개</small>
-                </span>
-                <i>›</i>
-              </button>
-            ))}
-          </div>
-          <div className="map-link-row">
-            <a href={directionsUrl} target="_blank" rel="noreferrer">Google 길찾기 <span>↗</span></a>
-            <a href={kakaoUrl} target="_blank" rel="noreferrer">KakaoMap <span>↗</span></a>
-          </div>
-        </div>
-      </section>
-
-      <section className="section-block map-orders">
-        <div className="section-heading">
-          <div>
-            <span>AT {selected.code ?? selected.id}</span>
-            <h2>{nearbyPools.length ? "이곳에서 받을 수 있는 주문" : "가까운 활성 주문"}</h2>
-          </div>
-        </div>
-        {pools.length ? (
-          <div className="pool-grid">
-            {(nearbyPools.length ? nearbyPools : pools.slice(0, 2)).map((pool) => (
-              <PoolCard pool={pool} now={now} onOpen={onPool} key={pool.id} />
-            ))}
-          </div>
-        ) : (
-          <div className="empty-state">
-            <span>＋</span>
-            <h3>아직 활성 주문방이 없어요</h3>
-            <p>이 픽업 장소의 첫 주문방을 만들어 보세요.</p>
-            <button className="primary-button" onClick={onCreate}>주문방 만들기</button>
-          </div>
-        )}
-      </section>
-    </>
-  );
-}
-
 function ProfileView({
   onCreate,
   currentPickup,
@@ -1020,7 +919,6 @@ function RightRail({
   pools,
   now,
   onPool,
-  onMap,
   currentPickup,
   user,
   onAuth,
@@ -1028,7 +926,6 @@ function RightRail({
   pools: Pool[];
   now: number;
   onPool: (pool: Pool) => void;
-  onMap: () => void;
   currentPickup: string;
   user: AuthUser | null;
   onAuth: () => void;
@@ -1037,10 +934,6 @@ function RightRail({
   const restaurant = closest
     ? restaurants.find((item) => item.id === closest.restaurantId)
     : undefined;
-  const e1Count = pools.filter((pool) => pool.pickup === "E1").length;
-  const e3Count = pools.filter((pool) => pool.pickup === "E3").length;
-  const dormCount = pools.filter((pool) => pool.pickup === "201·202" || pool.pickup === "대학원").length;
-
   return (
     <aside className="right-rail">
       <section className="rail-profile">
@@ -1075,21 +968,6 @@ function RightRail({
             <small>첫 주문방이 열리면 여기에 바로 보여드릴게요.</small>
           </div>
         )}
-      </section>
-
-      <section className="campus-glance">
-        <div className="rail-section-head"><span>캠퍼스 한눈에</span><button onClick={onMap}>지도 보기</button></div>
-        <button className="mini-map" onClick={onMap} aria-label="캠퍼스 지도 열기">
-          <span className="road road-one" />
-          <span className="road road-two" />
-          <span className="mini-building e1">E1</span>
-          <span className="mini-building e3">E3</span>
-          <span className="mini-building dorm">생활관</span>
-          {e1Count > 0 && <span className="map-dot dot-one"><i />{e1Count}</span>}
-          {e3Count > 0 && <span className="map-dot dot-two"><i />{e3Count}</span>}
-          {dormCount > 0 && <span className="map-dot dot-three"><i />{dormCount}</span>}
-          <small>활성 주문 {pools.length}개</small>
-        </button>
       </section>
 
     </aside>
@@ -1674,7 +1552,6 @@ export default function Home() {
 
   const viewCopy = useMemo(() => {
     if (view === "restaurants") return "가게 · 메뉴";
-    if (view === "map") return "캠퍼스 지도";
     if (view === "profile") return "내 정보";
     return "주문 모아보기";
   }, [view]);
@@ -1816,16 +1693,6 @@ export default function Home() {
           />
         )}
         {view === "restaurants" && <RestaurantsView onCreate={openCreate} />}
-        {view === "map" && (
-          <MapView
-            key={currentPickup}
-            pools={pools}
-            initialPickup={currentPickup}
-            now={now}
-            onPool={setSelectedPool}
-            onCreate={() => openCreate()}
-          />
-        )}
         {view === "profile" && <ProfileView currentPickup={currentPickup} user={user} onCreate={() => openCreate()} />}
       </main>
 
@@ -1835,7 +1702,6 @@ export default function Home() {
         currentPickup={currentPickup}
         user={user}
         onPool={setSelectedPool}
-        onMap={() => navigate("map")}
         onAuth={() => window.location.assign(user ? "/signout-with-chatgpt?return_to=/" : "/signin-with-chatgpt?return_to=/")}
       />
 

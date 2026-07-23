@@ -46,6 +46,10 @@ type Pool = {
   myStatus?: "requested" | "approved" | null;
   isHost?: boolean;
   pendingCount?: number;
+  estimatedArrival?: string | null;
+  orderTotal?: number | null;
+  receiptUrl?: string | null;
+  receiptUploadedAt?: number | null;
 };
 
 type AuthUser = {
@@ -70,6 +74,17 @@ type ChatMessage = {
 };
 
 const money = (value: number) => `${value.toLocaleString("ko-KR")}원`;
+const estimatedArrivalLabel = (value?: string | null) => {
+  if (!value) return "미정";
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) return value;
+  return parsed.toLocaleString("ko-KR", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 const kakaoMapSearchUrl = (restaurant: Restaurant) =>
   `https://map.kakao.com/?q=${encodeURIComponent(`${restaurant.name} ${restaurant.address || "현풍 테크노폴리스"}`)}`;
 
@@ -1241,10 +1256,12 @@ function RoomHubModal({
   roomId,
   onClose,
   onChanged,
+  onDeleted,
 }: {
   roomId: string;
   onClose: () => void;
   onChanged: () => void;
+  onDeleted: () => void;
 }) {
   const [room, setRoom] = useState<Pool | null>(null);
   const [members, setMembers] = useState<RoomMember[]>([]);
@@ -1254,6 +1271,14 @@ function RoomHubModal({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [editingOrderInfo, setEditingOrderInfo] = useState(false);
+  const [estimatedArrival, setEstimatedArrival] = useState("");
+  const [orderTotal, setOrderTotal] = useState("");
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [savingOrderInfo, setSavingOrderInfo] = useState(false);
+  const [orderInfoStatus, setOrderInfoStatus] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const restaurant = room
     ? restaurants.find((item) => item.id === room.restaurantId)
@@ -1342,6 +1367,71 @@ function RoomHubModal({
     }
   };
 
+  const openOrderEditor = () => {
+    setEstimatedArrival(room?.estimatedArrival || "");
+    setOrderTotal(room?.orderTotal == null ? "" : String(room.orderTotal));
+    setReceiptFile(null);
+    setOrderInfoStatus("");
+    setError("");
+    setEditingOrderInfo(true);
+  };
+
+  const saveOrderInfo = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (savingOrderInfo) return;
+    if (receiptFile) {
+      if (!["image/jpeg", "image/png", "image/webp"].includes(receiptFile.type)) {
+        setError("영수증은 JPG, PNG, WebP 이미지로 올려주세요.");
+        return;
+      }
+      if (receiptFile.size > 8 * 1024 * 1024) {
+        setError("영수증 이미지는 8MB 이하만 올릴 수 있어요.");
+        return;
+      }
+    }
+
+    setSavingOrderInfo(true);
+    setError("");
+    try {
+      const form = new FormData();
+      form.set("action", "update_order_info");
+      form.set("roomId", roomId);
+      form.set("estimatedArrival", estimatedArrival);
+      form.set("orderTotal", orderTotal);
+      if (receiptFile) form.set("receipt", receiptFile);
+      const response = await fetch("/api/sikgu", { method: "PUT", body: form });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "주문 정보를 저장하지 못했어요.");
+      setEditingOrderInfo(false);
+      setReceiptFile(null);
+      setOrderInfoStatus("방장이 주문 정보를 업데이트했어요.");
+      await loadRoom(true);
+      onChanged();
+    } catch (orderError) {
+      setError(orderError instanceof Error ? orderError.message : "주문 정보를 저장하지 못했어요.");
+    } finally {
+      setSavingOrderInfo(false);
+    }
+  };
+
+  const deleteRoom = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/sikgu?roomId=${encodeURIComponent(roomId)}`, {
+        method: "DELETE",
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "주문방을 삭제하지 못했어요.");
+      onDeleted();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "주문방을 삭제하지 못했어요.");
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  };
+
   return (
     <div className="overlay centered" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="room-hub" role="dialog" aria-modal="true" aria-label="비공개 주문방 채팅">
@@ -1351,8 +1441,25 @@ function RoomHubModal({
             <h2>{restaurant?.name || "주문방"}</h2>
             <p>{room ? `${room.pickupFull} · ${room.people}/${room.capacity}명` : "주문방 정보를 불러오는 중"}</p>
           </div>
-          <button onClick={onClose} aria-label="주문방 채팅 닫기">×</button>
+          <div className="room-hub-head-actions">
+            {room?.isHost && (
+              <button className="delete-room-trigger" onClick={() => setConfirmDelete(true)}>방 삭제</button>
+            )}
+            <button className="room-hub-close" onClick={onClose} aria-label="주문방 채팅 닫기">×</button>
+          </div>
         </div>
+        {room?.isHost && confirmDelete && (
+          <div className="room-delete-confirm" role="alert">
+            <div>
+              <strong>이 주문방을 영구 삭제할까요?</strong>
+              <p>참여자, 채팅, 초대 링크, 영수증 이미지가 모두 삭제되며 되돌릴 수 없어요.</p>
+            </div>
+            <span>
+              <button onClick={() => setConfirmDelete(false)} disabled={deleting}>취소</button>
+              <button onClick={deleteRoom} disabled={deleting}>{deleting ? "삭제 중…" : "영구 삭제"}</button>
+            </span>
+          </div>
+        )}
 
         {loading ? (
           <div className="room-hub-loading">주문방을 불러오고 있어요…</div>
@@ -1390,6 +1497,101 @@ function RoomHubModal({
             </aside>
 
             <section className="chat-panel">
+              <section className="order-info-card" aria-label="배달 주문 정보">
+                <div className="order-info-head">
+                  <div>
+                    <span>ORDER UPDATE</span>
+                    <strong>배달 주문 정보</strong>
+                    <small>승인된 식구만 볼 수 있어요.</small>
+                  </div>
+                  {room.isHost && (
+                    <button onClick={editingOrderInfo ? () => setEditingOrderInfo(false) : openOrderEditor}>
+                      {editingOrderInfo ? "닫기" : room.estimatedArrival || room.orderTotal || room.receiptUrl ? "수정" : "정보 등록"}
+                    </button>
+                  )}
+                </div>
+
+                <div className="order-info-summary">
+                  <div>
+                    <span className="order-info-icon" aria-hidden="true">◷</span>
+                    <p><small>도착 예상</small><strong>{estimatedArrivalLabel(room.estimatedArrival)}</strong></p>
+                  </div>
+                  <div>
+                    <span className="order-info-icon" aria-hidden="true">₩</span>
+                    <p><small>최종 결제 금액</small><strong>{room.orderTotal == null ? "미정" : money(room.orderTotal)}</strong></p>
+                  </div>
+                  {room.receiptUrl ? (
+                    <a
+                      className="receipt-thumb"
+                      href={room.receiptUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="영수증 원본 이미지 열기"
+                    >
+                      {/* Protected room images must load directly so the member's auth cookie reaches the API. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={room.receiptUrl} alt="방장이 올린 영수증 또는 주문 화면 캡처" />
+                      <span>원본 보기 ↗</span>
+                    </a>
+                  ) : (
+                    <div className="receipt-empty">
+                      <span aria-hidden="true">▧</span>
+                      <p><strong>영수증 없음</strong><small>방장이 올리면 여기에 표시돼요.</small></p>
+                    </div>
+                  )}
+                </div>
+
+                {orderInfoStatus && <p className="order-info-status" role="status">✓ {orderInfoStatus}</p>}
+
+                {room.isHost && editingOrderInfo && (
+                  <form className="order-info-form" onSubmit={saveOrderInfo}>
+                    <div className="order-info-fields">
+                      <label>
+                        <span>도착 예상 시각</span>
+                        <input
+                          type="datetime-local"
+                          value={estimatedArrival}
+                          onChange={(event) => setEstimatedArrival(event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        <span>최종 결제 금액</span>
+                        <span className="price-input">
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min="0"
+                            max="10000000"
+                            step="100"
+                            value={orderTotal}
+                            onChange={(event) => setOrderTotal(event.target.value)}
+                            placeholder="예: 28500"
+                          />
+                          <b>원</b>
+                        </span>
+                      </label>
+                    </div>
+                    <label className="receipt-upload">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        capture="environment"
+                        onChange={(event) => setReceiptFile(event.target.files?.[0] || null)}
+                      />
+                      <span aria-hidden="true">＋</span>
+                      <p>
+                        <strong>{receiptFile ? receiptFile.name : room.receiptUrl ? "새 이미지로 교체" : "영수증·주문 화면 올리기"}</strong>
+                        <small>JPG, PNG, WebP · 최대 8MB</small>
+                      </p>
+                    </label>
+                    <p className="receipt-privacy">주소·전화번호·주문번호 등 개인정보는 가린 뒤 올려주세요.</p>
+                    <button className="primary-button order-info-save" type="submit" disabled={savingOrderInfo}>
+                      {savingOrderInfo ? "저장 중…" : "주문 정보 저장"}
+                    </button>
+                  </form>
+                )}
+              </section>
+
               <div className="chat-head">
                 <div><span className="lock-mark">⌁</span><strong>주문방 채팅</strong></div>
                 <small>초대·승인된 구성원 전용</small>
@@ -1916,6 +2118,11 @@ export default function Home() {
           roomId={roomHubId}
           onClose={() => setRoomHubId(null)}
           onChanged={() => void loadRooms()}
+          onDeleted={() => {
+            setRoomHubId(null);
+            void loadRooms();
+            notify("주문방과 관련 기록을 모두 삭제했어요.");
+          }}
         />
       )}
       {showFeedback && <FeedbackModal currentScreen={viewCopy} onClose={closeFeedback} />}

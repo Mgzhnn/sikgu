@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
+import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import {
   deliveryAppIds,
@@ -357,4 +358,59 @@ test("the browser receives only a public user shape and clears revoked room stat
   assert.match(roomLoader, /setRoom\(null\)/);
   assert.match(roomLoader, /setMembers\(\[\]\)/);
   assert.match(roomLoader, /setMessages\(\[\]\)/);
+});
+
+test("the review-token migration works whether the production column already exists or not", async () => {
+  const migration = await readFile(
+    new URL("drizzle/0002_military_forgotten_one.sql", root),
+    "utf8",
+  );
+  const statements = migration
+    .split("--> statement-breakpoint")
+    .map((statement) => statement.trim())
+    .filter(Boolean);
+
+  for (const alreadyHasColumn of [false, true]) {
+    const database = new DatabaseSync(":memory:");
+    database.exec("CREATE TABLE rooms (id text PRIMARY KEY NOT NULL)");
+    database.exec(`
+      CREATE TABLE room_members (
+        room_id text NOT NULL,
+        user_email text NOT NULL,
+        display_name text NOT NULL,
+        role text DEFAULT 'member' NOT NULL,
+        status text DEFAULT 'requested' NOT NULL,
+        created_at integer NOT NULL,
+        ${alreadyHasColumn ? "review_token text," : ""}
+        PRIMARY KEY(room_id, user_email),
+        FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE cascade
+      )
+    `);
+    database.exec("CREATE INDEX room_members_user_idx ON room_members (user_email, status)");
+    database.exec("CREATE INDEX room_members_room_status_idx ON room_members (room_id, status)");
+    database.exec("INSERT INTO rooms (id) VALUES ('room_1')");
+    database.exec(`
+      INSERT INTO room_members (
+        room_id, user_email, display_name, role, status, created_at
+        ${alreadyHasColumn ? ", review_token" : ""}
+      )
+      VALUES ('room_1', 'member@example.com', 'Member', 'member', 'approved', 1
+        ${alreadyHasColumn ? ", 'legacy-token'" : ""}
+      )
+    `);
+
+    for (const statement of statements) database.exec(statement);
+
+    const columns = database.prepare("PRAGMA table_info(room_members)").all();
+    assert.ok(columns.some((column) => column.name === "review_token"));
+    assert.equal(database.prepare("SELECT COUNT(*) AS count FROM room_members").get().count, 1);
+    assert.equal(
+      database.prepare("SELECT display_name FROM room_members").get().display_name,
+      "Member",
+    );
+    const indexes = database.prepare("PRAGMA index_list(room_members)").all();
+    assert.ok(indexes.some((index) => index.name === "room_members_user_idx"));
+    assert.ok(indexes.some((index) => index.name === "room_members_room_status_idx"));
+    database.close();
+  }
 });

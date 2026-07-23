@@ -222,17 +222,47 @@ test("removes the inactive order-detail header button", async () => {
   assert.match(css, /\.modal-topbar::after \{[\s\S]*content: ""/);
 });
 
-test("removes the nonfunctional internal campus map", async () => {
-  const [page, css] = await Promise.all([
+test("opens an accessible campus order map with guarded join actions", async () => {
+  const [page, css, api] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/sikgu/route.ts", import.meta.url), "utf8"),
   ]);
 
   assert.doesNotMatch(page, /function MapView/);
   assert.doesNotMatch(page, /id: "map"/);
-  assert.doesNotMatch(page, /캠퍼스 지도|캠퍼스 지도 열기|지도 보기/);
-  assert.doesNotMatch(page, /onMap/);
-  assert.doesNotMatch(css, /\.map-layout|\.map-panel|\.mini-map|\.pickup-panel|\.map-link-row/);
+  assert.match(page, /function CampusMapPreview/);
+  assert.match(page, /function CampusMapModal/);
+  assert.match(page, /className="campus-map-expand"[\s\S]{0,180}onClick=\{\(\) => onOpen\(currentPickup\)\}/);
+  assert.match(page, /aria-label="캠퍼스 주문 지도 크게 보기"/);
+  assert.match(page, /aria-haspopup="dialog"/);
+  assert.match(page, /className="campus-map-preview-marker"[\s\S]{0,220}onClick=\{\(\) => onOpen\(point\.id\)\}/);
+  assert.match(page, /role="dialog"[\s\S]*aria-modal="true"[\s\S]*aria-labelledby="campus-map-title"/);
+  assert.match(page, /aria-label="캠퍼스 지도 닫기"/);
+  assert.match(page, /event\.key === "Escape"/);
+  assert.match(page, /onClick=\{\(\) => void joinPool\(pool\)\}/);
+  assert.match(page, /disabled=\{busyRoomId !== null \|\| isPending \|\| isFull\}/);
+  assert.match(page, /pool\.people >= pool\.capacity/);
+  assert.match(page, /방장 승인 대기 중/);
+  assert.match(page, /정원 마감/);
+  assert.match(page, /onJoin=\{async \(pool\) =>/);
+  assert.match(page, /sessionStorage\.setItem\(pendingJoinStorageKey/);
+  assert.match(page, /로그인 후 참여 신청을 이어서 보냈어요/);
+  assert.match(page, /loadRoomsRequestRef/);
+  assert.match(page, /roomDialogRef\.current\?\.querySelector<HTMLElement>\("\.room-hub-close"\)\?\.focus\(\)/);
+  assert.match(api, /if \(action === "request_join"\)/);
+  assert.match(api, /approvedCount\(id\) >= room\.capacity/);
+  assert.match(api, /주문방 정원이 모두 찼습니다\./);
+  for (const selector of [
+    "campus-map-preview",
+    "campus-map-modal",
+    "campus-map-marker",
+    "campus-map-order-card",
+  ]) {
+    assert.match(css, new RegExp(`\\.${selector}`));
+  }
+  assert.match(css, /\.campus-map-modal :focus-visible/);
+  assert.match(css, /\.mobile-campus-glance \{ display: block/);
   assert.match(css, /\.mobile-nav \{[\s\S]*grid-template-columns: repeat\(3, 1fr\)/);
 });
 

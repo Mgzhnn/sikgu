@@ -32,6 +32,7 @@ export const roomMembers = sqliteTable("room_members", {
   displayName: text("display_name").notNull(),
   role: text("role").notNull().default("member"),
   status: text("status").notNull().default("requested"),
+  reviewToken: text("review_token"),
   createdAt: integer("created_at").notNull(),
 }, (table) => [
   primaryKey({ columns: [table.roomId, table.userEmail] }),

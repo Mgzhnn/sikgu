@@ -93,10 +93,11 @@ test("supports selecting both delivery apps for one order pool", async () => {
   ]);
 
   assert.match(page, /apps: DeliveryApp\[\]/);
-  assert.match(page, /const \[apps, setApps\] = useState<DeliveryApp\[\]>\(\["baemin"\]\)/);
+  assert.match(page, /const \[apps, setApps\] = useState<DeliveryApp\[\]>\(\[\]\)/);
   assert.match(page, /aria-label="주문 앱 복수 선택"/);
   assert.match(page, /aria-pressed=\{apps\.includes\(value\)\}/);
   assert.match(page, /하나 또는 두 앱을 모두 선택할 수 있어요/);
+  assert.match(page, /apps\.length \? "식구 찾기 시작" : "주문 앱을 선택해 주세요"/);
   assert.match(css, /\.segmented\.multi-select button/);
 });
 
@@ -148,7 +149,7 @@ test("shows membership-backed delivery as free", async () => {
   assert.match(page, /membership: "배민클럽"/);
   assert.match(page, /membership: "쿠팡 와우"/);
   assert.match(page, /const membershipApplied = membershipApp !== null && pool\.apps\.includes\(membershipApp\)/);
-  assert.match(page, /membership,\s*\}\)}/);
+  assert.match(page, /await onCreate\(\{\s*restaurantId,\s*pickup,\s*apps,\s*minutes,\s*capacity,\s*membership,?\s*\}\)/);
   assert.match(page, /\{hasFreeDelivery \? "무료" : money\(eachFee\)\}/);
   assert.match(page, /\{!hasFreeDelivery && <small> \/ 1인<\/small>\}/);
   assert.match(api, /if \(membership && !apps\.includes\(membership\)\)/);
@@ -239,7 +240,8 @@ test("persists rooms, approvals, invitations, and private chat in D1", async () 
   }
 
   assert.match(page, /aria-label="주문방 최대 인원"/);
-  assert.match(page, /\[2, 3, 4, 5, 6, 7, 8\]/);
+  assert.match(page, /import \{ roomCapacities, roomDurations \} from "\.\/sikgu-rules\.mjs"/);
+  assert.match(page, /\{roomCapacities\.map\(\(value\) =>/);
   assert.match(page, /action: "request_join"/);
   assert.match(page, /action: "review_member"/);
   assert.match(page, /action: "create_invite"/);
@@ -307,7 +309,9 @@ test("opens an accessible campus order map with guarded join actions", async () 
   assert.match(page, /sessionStorage\.setItem\(pendingJoinStorageKey/);
   assert.match(page, /로그인 후 참여 신청을 이어서 보냈어요/);
   assert.match(page, /loadRoomsRequestRef/);
-  assert.match(page, /roomDialogRef\.current\?\.querySelector<HTMLElement>\("\.room-hub-close"\)\?\.focus\(\)/);
+  assert.match(page, /function useDialogLifecycle/);
+  assert.match(page, /useDialogLifecycle\(roomDialogRef, onClose\)/);
+  assert.match(page, /previouslyFocused\?\.focus\(\)/);
   assert.match(api, /if \(action === "request_join"\)/);
   assert.match(api, /approvedCount\(id\) >= room\.capacity/);
   assert.match(api, /주문방 정원이 모두 찼습니다\./);
@@ -366,7 +370,9 @@ test("lets hosts manage private order receipts and delete their rooms", async ()
   assert.match(api, /room\.host_email !== auth\.email/);
   assert.match(api, /maxReceiptBytes = 8 \* 1024 \* 1024/);
   assert.match(api, /detectReceiptType/);
-  assert.match(api, /receipts\/\$\{id\}\/\$\{crypto\.randomUUID\(\)\}/);
+  assert.match(api, /room\.receipt_key\?\.endsWith\("\/a"\)[\s\S]*`receipts\/\$\{id\}\/b`[\s\S]*`receipts\/\$\{id\}\/a`/);
+  assert.doesNotMatch(api, /receipts\/\$\{id\}\/\$\{crypto\.randomUUID\(\)\}/);
+  assert.match(api, /normalizeReceiptImage\(receipt, detectedType\)/);
   assert.match(api, /action === "receipt"/);
   assert.match(api, /room\.my_status !== "approved"/);
   assert.match(api, /"Cache-Control": "private, no-store"/);
@@ -402,7 +408,8 @@ test("masks Korean and English display names consistently", async () => {
   assert.match(page, /maskDisplayName\(user\.displayName\)/);
   assert.match(page, /maskDisplayName\(member\.display_name\)/);
   assert.match(page, /maskDisplayName\(item\.sender_name\)/);
-  assert.match(api, /displayName: maskDisplayName\(displayName\(user\)\)/);
+  assert.match(api, /displayName: maskDisplayName\(await displayName\(user\)\)/);
+  assert.match(api, /crypto\.subtle\.digest\([\s\S]*return `User-\$\{suffix\}`/);
   assert.match(api, /host: maskDisplayName\(String\(row\.host_name\)\)/);
   assert.match(api, /sender_name: maskDisplayName\(String\(message\.sender_name\)\)/);
 });

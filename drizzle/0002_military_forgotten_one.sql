@@ -1,0 +1,1 @@
+ALTER TABLE `room_members` ADD `review_token` text;

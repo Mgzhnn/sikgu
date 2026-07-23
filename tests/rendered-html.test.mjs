@@ -133,3 +133,18 @@ test("removes the delivery-app-owned order tracking section", async () => {
   assert.doesNotMatch(css, /\.order-timeline/);
   assert.doesNotMatch(css, /\.settlement-card/);
 });
+
+test("supports a persistent current pickup location selector", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /aria-label="현재 위치 선택"/);
+  assert.match(page, /pickupPoints\.map\(\(point\)/);
+  assert.match(page, /localStorage\.setItem\(currentPickupStorageKey, currentPickup\)/);
+  assert.match(page, /preferredPickup=\{currentPickup\}/);
+  assert.match(page, /initialPickup=\{currentPickup\}/);
+  assert.match(css, /\.location-menu/);
+  assert.match(css, /\.location-option\.active/);
+});

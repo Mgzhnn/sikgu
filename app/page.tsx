@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 import { maskDisplayName } from "./name-mask.mjs";
+import { roomCapacities, roomDurations } from "./sikgu-rules.mjs";
 
 type View = "home" | "restaurants" | "profile";
 type DeliveryApp = "baemin" | "coupang";
@@ -71,12 +72,11 @@ type Pool = {
 };
 
 type AuthUser = {
-  email: string;
   displayName: string;
 };
 
 type RoomMember = {
-  user_email?: string;
+  member_ref?: string;
   display_name: string;
   role: "host" | "member";
   status: "requested" | "approved";
@@ -105,6 +105,67 @@ const estimatedArrivalLabel = (value?: string | null) => {
 };
 const kakaoMapSearchUrl = (restaurant: Restaurant) =>
   `https://map.kakao.com/?q=${encodeURIComponent(`${restaurant.name} ${restaurant.address || "현풍 테크노폴리스"}`)}`;
+
+const dialogFocusableSelector = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])",
+].join(", ");
+
+function useDialogLifecycle(
+  dialogRef: { current: HTMLElement | null },
+  onClose: () => void,
+) {
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.requestAnimationFrame(() => {
+      dialog?.querySelector<HTMLElement>(dialogFocusableSelector)?.focus();
+    });
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab" || !dialog) return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(dialogFocusableSelector))
+        .filter((element) => !element.hasAttribute("hidden") && element.getAttribute("aria-hidden") !== "true");
+      if (!focusable.length) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previouslyFocused?.focus();
+    };
+  }, [dialogRef]);
+}
 
 const appLabels: Record<DeliveryApp, { name: string; membership: string }> = {
   baemin: { name: "배민", membership: "배민클럽" },
@@ -651,6 +712,83 @@ function Brand() {
   );
 }
 
+function LocationPicker({
+  currentPickup,
+  onSelect,
+  compact = false,
+}: {
+  currentPickup: string;
+  onSelect: (point: PickupPoint) => void;
+  compact?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const point = pickupPoints.find((item) => item.id === currentPickup) || pickupPoints[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (target && !rootRef.current?.contains(target)) setOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className={`location-card ${compact ? "compact" : ""}`} ref={rootRef}>
+      {!compact && <span>현재 위치</span>}
+      <button
+        type="button"
+        className="location-trigger"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        aria-controls={compact ? "mobile-location-options" : "desktop-location-options"}
+        ref={triggerRef}
+      >
+        <i aria-hidden="true" />
+        <span>{compact ? point.code ?? point.id : `DGIST ${point.code ?? point.id}`}</span>
+        <b aria-hidden="true">{open ? "⌃" : "⌄"}</b>
+      </button>
+      {open && (
+        <div
+          className="location-menu"
+          id={compact ? "mobile-location-options" : "desktop-location-options"}
+          aria-label="현재 위치 선택"
+        >
+          {pickupPoints.map((item) => (
+            <button
+              type="button"
+              className={`location-option ${currentPickup === item.id ? "active" : ""}`}
+              onClick={() => {
+                onSelect(item);
+                setOpen(false);
+              }}
+              aria-pressed={currentPickup === item.id}
+              key={item.id}
+            >
+              <span className="location-code">{item.code ?? item.id}</span>
+              <span><strong>{item.full}</strong><small>도보 기준 {item.walk}분</small></span>
+              <b aria-hidden="true">{currentPickup === item.id ? "✓" : ""}</b>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RestaurantMark({ restaurant, large = false }: { restaurant: Restaurant; large?: boolean }) {
   return (
     <div className={`restaurant-mark ${restaurant.tone} ${large ? "large" : ""}`}>
@@ -829,6 +967,9 @@ function HomeView({
   currentPickup,
   filters,
   setFilters,
+  loading,
+  loadError,
+  onRetry,
   onOpenPool,
   onMap,
   onCreate,
@@ -843,6 +984,9 @@ function HomeView({
   currentPickup: string;
   filters: PoolFilters;
   setFilters: Dispatch<SetStateAction<PoolFilters>>;
+  loading: boolean;
+  loadError: string;
+  onRetry: () => void;
   onOpenPool: (pool: Pool) => void;
   onMap: (pickupId: string) => void;
   onCreate: () => void;
@@ -967,6 +1111,7 @@ function HomeView({
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="가게, 메뉴, 픽업 장소 검색"
+            aria-label="주문방 검색"
           />
           {search && <button onClick={() => setSearch("")} aria-label="검색어 지우기">×</button>}
         </label>
@@ -1071,7 +1216,14 @@ function HomeView({
 
       <div className="category-tabs" aria-label="음식 카테고리">
         {categories.map((item) => (
-          <button className={category === item ? "active" : ""} onClick={() => setCategory(item)} key={item}>{item}</button>
+          <button
+            className={category === item ? "active" : ""}
+            onClick={() => setCategory(item)}
+            aria-pressed={category === item}
+            key={item}
+          >
+            {item}
+          </button>
         ))}
       </div>
 
@@ -1083,7 +1235,20 @@ function HomeView({
           </div>
           <button onClick={onRestaurants}>가게 전체보기 <span>→</span></button>
         </div>
-        {filtered.length ? (
+        {loading ? (
+          <div className="rooms-loading" role="status">
+            <span aria-hidden="true" />
+            <strong>주문방을 확인하고 있어요</strong>
+            <p>로그인 상태와 최신 모집 정보를 불러오는 중입니다.</p>
+          </div>
+        ) : loadError ? (
+          <div className="empty-state load-error" role="alert">
+            <span>!</span>
+            <h3>주문방을 불러오지 못했어요</h3>
+            <p>{loadError}</p>
+            <button className="primary-button" type="button" onClick={onRetry}>다시 시도</button>
+          </div>
+        ) : filtered.length ? (
           <div className="pool-grid">
             {filtered.map((pool) => <PoolCard key={pool.id} pool={pool} now={now} onOpen={onOpenPool} />)}
           </div>
@@ -1134,11 +1299,23 @@ function RestaurantsView({
       <div className="restaurant-toolbar">
         <label className="search-box">
           <span>⌕</span>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="가게·메뉴·카테고리 검색" />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="가게·메뉴·카테고리 검색"
+            aria-label="가게와 메뉴 검색"
+          />
         </label>
         <div className="category-tabs compact-tabs">
           {filters.map((item) => (
-            <button className={filter === item ? "active" : ""} onClick={() => setFilter(item)} key={item}>{item}</button>
+            <button
+              className={filter === item ? "active" : ""}
+              onClick={() => setFilter(item)}
+              aria-pressed={filter === item}
+              key={item}
+            >
+              {item}
+            </button>
           ))}
         </div>
       </div>
@@ -1195,10 +1372,18 @@ function ProfileView({
   onCreate,
   currentPickup,
   user,
+  rooms,
+  now,
+  onRoom,
+  onAuth,
 }: {
   onCreate: () => void;
   currentPickup: string;
   user: AuthUser | null;
+  rooms: Pool[];
+  now: number;
+  onRoom: (roomId: string) => void;
+  onAuth: () => void;
 }) {
   const profileName = user ? maskDisplayName(user.displayName) : "게스트";
 
@@ -1209,9 +1394,48 @@ function ProfileView({
         <div className="profile-avatar">{profileName.slice(0, 1).toUpperCase()}</div>
         <div>
           <h2>{profileName}</h2>
-          <p>{user ? user.email : "주문방 참여와 채팅에는 로그인이 필요해요"} · {currentPickup}</p>
+          <p>{user ? "안전하게 로그인됨" : "주문방 참여와 채팅에는 로그인이 필요해요"} · {currentPickup}</p>
           <span>이 기기의 현재 위치 <b>{currentPickup}</b></span>
         </div>
+        <button className="profile-auth-button" type="button" onClick={onAuth}>
+          {user ? "로그아웃" : "로그인"}
+        </button>
+      </section>
+
+      <section className="my-room-section">
+        <div className="section-heading">
+          <div>
+            <span>MY ORDER ROOMS</span>
+            <h2>내 주문방</h2>
+          </div>
+          <small>마감 후 30일 동안 다시 열 수 있어요.</small>
+        </div>
+        {user && rooms.length ? (
+          <div className="my-room-list">
+            {rooms.map((room) => {
+              const restaurant = restaurants.find((item) => item.id === room.restaurantId);
+              if (!restaurant) return null;
+              const isClosed = room.closesAt <= now;
+              return (
+                <button type="button" onClick={() => onRoom(room.id)} key={room.id}>
+                  <RestaurantMark restaurant={restaurant} />
+                  <span>
+                    <strong>{restaurant.name}</strong>
+                    <small>{room.pickupFull} · {room.people}/{room.capacity}명</small>
+                  </span>
+                  <em className={isClosed ? "closed" : ""}>{isClosed ? "마감됨" : timeLeft(room.closesAt, now)}</em>
+                  <b aria-hidden="true">›</b>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="my-room-empty">
+            <strong>{user ? "아직 참여한 주문방이 없어요." : "로그인하면 내 주문방을 다시 열 수 있어요."}</strong>
+            <p>{user ? "주문방을 만들거나 참여하면 이곳에 안전하게 모아드려요." : "승인된 주문방의 채팅과 영수증은 구성원만 볼 수 있어요."}</p>
+            <button type="button" onClick={user ? onCreate : onAuth}>{user ? "주문방 만들기" : "로그인"}</button>
+          </div>
+        )}
       </section>
     </>
   );
@@ -1308,39 +1532,7 @@ function CampusMapModal({
     (pool) => !pickupPoints.some((point) => point.id === pool.pickup),
   ).length;
 
-  useEffect(() => {
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    const dialog = dialogRef.current;
-    const focusableSelector = "button:not([disabled])";
-    dialog?.querySelector<HTMLElement>(focusableSelector)?.focus();
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-        return;
-      }
-      if (event.key !== "Tab" || !dialog) return;
-
-      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector));
-      if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      previouslyFocused?.focus();
-    };
-  }, [onClose]);
+  useDialogLifecycle(dialogRef, onClose);
 
   const joinPool = async (pool: Pool) => {
     if (pool.myStatus === "requested") return;
@@ -1502,40 +1694,7 @@ function FeedbackModal({
   const [error, setError] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
 
-  useEffect(() => {
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    const dialog = dialogRef.current;
-    const focusableSelector = "button:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]";
-    dialog?.querySelector<HTMLElement>(focusableSelector)?.focus();
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-        return;
-      }
-      if (event.key !== "Tab" || !dialog) return;
-
-      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector))
-        .filter((element) => !element.hasAttribute("hidden"));
-      if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      previouslyFocused?.focus();
-    };
-  }, [onClose]);
+  useDialogLifecycle(dialogRef, onClose);
 
   const copyEmail = async () => {
     try {
@@ -1671,8 +1830,11 @@ function PoolModal({
   pool: Pool;
   now: number;
   onClose: () => void;
-  onToggleJoin: (pool: Pool) => void;
+  onToggleJoin: (pool: Pool) => Promise<void>;
 }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  useDialogLifecycle(dialogRef, onClose);
+  const [joining, setJoining] = useState(false);
   const restaurant = restaurants.find((item) => item.id === pool.restaurantId)!;
   const gap = Math.max(0, pool.target - pool.total);
   const ready = gap === 0;
@@ -1688,7 +1850,7 @@ function PoolModal({
 
   return (
     <div className="overlay centered" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="pool-modal" role="dialog" aria-modal="true" aria-label={`${restaurant.name} 공동주문`}>
+      <section className="pool-modal" role="dialog" aria-modal="true" aria-label={`${restaurant.name} 공동주문`} ref={dialogRef}>
         <div className="modal-topbar">
           <button onClick={onClose} aria-label="공동주문 닫기">←</button>
           <span>{timeLeft(pool.closesAt, now)}</span>
@@ -1738,10 +1900,20 @@ function PoolModal({
           </div>
           <button
             className={pool.myStatus === "requested" ? "secondary-button" : "primary-button"}
-            onClick={() => onToggleJoin(pool)}
-            disabled={pool.myStatus === "requested"}
+            onClick={async () => {
+              if (joining) return;
+              setJoining(true);
+              try {
+                await onToggleJoin(pool);
+              } finally {
+                setJoining(false);
+              }
+            }}
+            disabled={pool.myStatus === "requested" || joining}
           >
-            {pool.isHost
+            {joining
+              ? "처리 중…"
+              : pool.isHost
               ? `참여자 관리${pool.pendingCount ? ` · ${pool.pendingCount}명 대기` : ""}`
               : pool.myStatus === "approved"
                 ? "채팅방 열기"
@@ -1762,64 +1934,90 @@ function RoomHubModal({
   onClose,
   onChanged,
   onDeleted,
+  onLeft,
 }: {
   roomId: string;
   onClose: () => void;
   onChanged: () => void;
   onDeleted: () => void;
+  onLeft: () => void;
 }) {
   const [room, setRoom] = useState<Pool | null>(null);
   const [members, setMembers] = useState<RoomMember[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [message, setMessage] = useState("");
   const [inviteLink, setInviteLink] = useState("");
+  const [inviteStatus, setInviteStatus] = useState("");
+  const [creatingInvite, setCreatingInvite] = useState(false);
+  const [chatStatus, setChatStatus] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [editingOrderInfo, setEditingOrderInfo] = useState(false);
   const [estimatedArrival, setEstimatedArrival] = useState("");
   const [orderTotal, setOrderTotal] = useState("");
+  const [collectedTotal, setCollectedTotal] = useState("");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [savingOrderInfo, setSavingOrderInfo] = useState(false);
   const [orderInfoStatus, setOrderInfoStatus] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [reviewingMember, setReviewingMember] = useState("");
   const roomDialogRef = useRef<HTMLElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const loadRoomRequestRef = useRef(0);
   const restaurant = room
     ? restaurants.find((item) => item.id === room.restaurantId)
     : undefined;
 
-  useEffect(() => {
-    roomDialogRef.current?.querySelector<HTMLElement>(".room-hub-close")?.focus();
-  }, []);
+  useDialogLifecycle(roomDialogRef, onClose);
 
   const loadRoom = useCallback(async (quiet = false) => {
+    const requestId = ++loadRoomRequestRef.current;
     if (!quiet) setLoading(true);
-    const response = await fetch(`/api/sikgu?action=room&roomId=${encodeURIComponent(roomId)}`, {
-      cache: "no-store",
-    });
-    const data = await response.json() as {
-      error?: string;
-      room?: Pool;
-      members?: RoomMember[];
-      messages?: ChatMessage[];
-    };
-    if (!response.ok || !data.room) {
-      setError(data.error || "주문방을 불러오지 못했어요.");
+    try {
+      const response = await fetch(`/api/sikgu?action=room&roomId=${encodeURIComponent(roomId)}`, {
+        cache: "no-store",
+      });
+      const data = await response.json() as {
+        error?: string;
+        room?: Pool;
+        members?: RoomMember[];
+        messages?: ChatMessage[];
+      };
+      if (requestId !== loadRoomRequestRef.current) return false;
+      if (!response.ok || !data.room) {
+        if (response.status === 401 || response.status === 403) {
+          setRoom(null);
+          setMembers([]);
+          setMessages([]);
+          setReceiptFile(null);
+        }
+        setError(data.error || "주문방을 불러오지 못했어요.");
+        setLoading(false);
+        return false;
+      }
+      setRoom(data.room);
+      setMembers(data.members || []);
+      setMessages(data.messages || []);
+      setError("");
       setLoading(false);
-      return;
+      return true;
+    } catch {
+      if (requestId !== loadRoomRequestRef.current) return false;
+      setError("네트워크 연결을 확인한 뒤 다시 시도해주세요.");
+      setLoading(false);
+      return false;
     }
-    setRoom(data.room);
-    setMembers(data.members || []);
-    setMessages(data.messages || []);
-    setError("");
-    setLoading(false);
   }, [roomId]);
 
   useEffect(() => {
     const initialTimer = window.setTimeout(() => void loadRoom(), 0);
-    const timer = window.setInterval(() => void loadRoom(true), 3000);
+    const timer = window.setInterval(() => {
+      if (!document.hidden) void loadRoom(true);
+    }, 10000);
     return () => {
       window.clearTimeout(initialTimer);
       window.clearInterval(timer);
@@ -1833,7 +2031,7 @@ function RoomHubModal({
   const post = async (payload: Record<string, unknown>) => {
     const response = await fetch("/api/sikgu", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-sikgu-request": "1" },
       body: JSON.stringify({ ...payload, roomId }),
     });
     const data = await response.json() as { error?: string; token?: string };
@@ -1841,24 +2039,64 @@ function RoomHubModal({
     return data;
   };
 
-  const review = async (memberEmail: string, decision: "approve" | "reject") => {
+  const review = async (memberRef: string, decision: "approve" | "reject") => {
+    if (reviewingMember) return;
+    setReviewingMember(memberRef);
+    setError("");
     try {
-      await post({ action: "review_member", memberEmail, decision });
+      await post({ action: "review_member", memberRef, decision });
       await loadRoom(true);
       onChanged();
     } catch (reviewError) {
       setError(reviewError instanceof Error ? reviewError.message : "참여자 상태를 변경하지 못했어요.");
+    } finally {
+      setReviewingMember("");
+    }
+  };
+
+  const removeMember = async (memberRef: string) => {
+    if (reviewingMember) return;
+    setReviewingMember(memberRef);
+    setError("");
+    try {
+      await post({ action: "remove_member", memberRef });
+      await loadRoom(true);
+      onChanged();
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : "참여자를 내보내지 못했어요.");
+    } finally {
+      setReviewingMember("");
     }
   };
 
   const createInvite = async () => {
+    if (creatingInvite) return;
+    setCreatingInvite(true);
+    setError("");
     try {
       const data = await post({ action: "create_invite" });
       const link = `${window.location.origin}/?room=${encodeURIComponent(roomId)}&invite=${encodeURIComponent(data.token || "")}`;
       setInviteLink(link);
-      await navigator.clipboard.writeText(link);
+      try {
+        await navigator.clipboard.writeText(link);
+        setInviteStatus("초대 링크를 복사했어요.");
+      } catch {
+        setInviteStatus("초대 링크를 만들었어요. 아래 주소를 직접 복사해주세요.");
+      }
     } catch (inviteError) {
       setError(inviteError instanceof Error ? inviteError.message : "초대 링크를 만들지 못했어요.");
+    } finally {
+      setCreatingInvite(false);
+    }
+  };
+
+  const copyInvite = async () => {
+    if (!inviteLink) return;
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setInviteStatus("초대 링크를 복사했어요.");
+    } catch {
+      setError("자동 복사가 차단됐어요. 링크를 길게 눌러 직접 복사해주세요.");
     }
   };
 
@@ -1866,10 +2104,13 @@ function RoomHubModal({
     const body = message.trim();
     if (!body || sending) return;
     setSending(true);
+    setError("");
+    setChatStatus("");
     try {
       await post({ action: "send_message", body });
       setMessage("");
-      await loadRoom(true);
+      const refreshed = await loadRoom(true);
+      if (!refreshed) setChatStatus("메시지는 전송됐어요. 새 메시지는 잠시 후 다시 확인해주세요.");
     } catch (messageError) {
       setError(messageError instanceof Error ? messageError.message : "메시지를 보내지 못했어요.");
     } finally {
@@ -1880,6 +2121,7 @@ function RoomHubModal({
   const openOrderEditor = () => {
     setEstimatedArrival(room?.estimatedArrival || "");
     setOrderTotal(room?.orderTotal == null ? "" : String(room.orderTotal));
+    setCollectedTotal(room ? String(room.total) : "");
     setReceiptFile(null);
     setOrderInfoStatus("");
     setError("");
@@ -1908,14 +2150,19 @@ function RoomHubModal({
       form.set("roomId", roomId);
       form.set("estimatedArrival", estimatedArrival);
       form.set("orderTotal", orderTotal);
+      form.set("collectedTotal", collectedTotal);
       if (receiptFile) form.set("receipt", receiptFile);
-      const response = await fetch("/api/sikgu", { method: "PUT", body: form });
+      const response = await fetch(
+        `/api/sikgu?action=update_order_info&roomId=${encodeURIComponent(roomId)}`,
+        { method: "PUT", headers: { "x-sikgu-request": "1" }, body: form },
+      );
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error || "주문 정보를 저장하지 못했어요.");
       setEditingOrderInfo(false);
       setReceiptFile(null);
       setOrderInfoStatus("방장이 주문 정보를 업데이트했어요.");
-      await loadRoom(true);
+      const refreshed = await loadRoom(true);
+      if (!refreshed) setOrderInfoStatus("주문 정보는 저장됐어요. 화면은 잠시 후 새로고침됩니다.");
       onChanged();
     } catch (orderError) {
       setError(orderError instanceof Error ? orderError.message : "주문 정보를 저장하지 못했어요.");
@@ -1931,6 +2178,7 @@ function RoomHubModal({
     try {
       const response = await fetch(`/api/sikgu?roomId=${encodeURIComponent(roomId)}`, {
         method: "DELETE",
+        headers: { "x-sikgu-request": "1" },
       });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error || "주문방을 삭제하지 못했어요.");
@@ -1939,6 +2187,20 @@ function RoomHubModal({
       setError(deleteError instanceof Error ? deleteError.message : "주문방을 삭제하지 못했어요.");
       setDeleting(false);
       setConfirmDelete(false);
+    }
+  };
+
+  const leaveRoom = async () => {
+    if (leaving) return;
+    setLeaving(true);
+    setError("");
+    try {
+      await post({ action: "leave_room" });
+      onLeft();
+    } catch (leaveError) {
+      setError(leaveError instanceof Error ? leaveError.message : "주문방에서 나가지 못했어요.");
+      setLeaving(false);
+      setConfirmLeave(false);
     }
   };
 
@@ -1955,6 +2217,9 @@ function RoomHubModal({
             {room?.isHost && (
               <button className="delete-room-trigger" onClick={() => setConfirmDelete(true)}>방 삭제</button>
             )}
+            {room && !room.isHost && (
+              <button className="leave-room-trigger" onClick={() => setConfirmLeave(true)}>방 나가기</button>
+            )}
             <button className="room-hub-close" onClick={onClose} aria-label="주문방 채팅 닫기">×</button>
           </div>
         </div>
@@ -1970,35 +2235,83 @@ function RoomHubModal({
             </span>
           </div>
         )}
+        {room && !room.isHost && confirmLeave && (
+          <div className="room-delete-confirm leave" role="alert">
+            <div>
+              <strong>이 주문방에서 나갈까요?</strong>
+              <p>나가면 채팅과 영수증을 더 이상 볼 수 없어요.</p>
+            </div>
+            <span>
+              <button onClick={() => setConfirmLeave(false)} disabled={leaving}>취소</button>
+              <button onClick={leaveRoom} disabled={leaving}>{leaving ? "나가는 중…" : "방 나가기"}</button>
+            </span>
+          </div>
+        )}
 
         {loading ? (
           <div className="room-hub-loading">주문방을 불러오고 있어요…</div>
         ) : error && !room ? (
-          <div className="room-hub-error"><strong>접근할 수 없어요</strong><p>{error}</p></div>
+          <div className="room-hub-error">
+            <strong>주문방을 열 수 없어요</strong>
+            <p>{error}</p>
+            <button type="button" onClick={() => void loadRoom()}>다시 시도</button>
+          </div>
         ) : room ? (
           <div className="room-hub-body">
             <aside className="member-panel">
               <div className="member-panel-head">
                 <div><strong>함께할 식구</strong><small>승인된 사람만 채팅 가능</small></div>
-                {room.isHost && <button onClick={createInvite}>초대 링크</button>}
+                {room.isHost && (
+                  <button onClick={createInvite} disabled={creatingInvite}>
+                    {creatingInvite ? "만드는 중…" : "초대 링크"}
+                  </button>
+                )}
               </div>
               {inviteLink && (
                 <div className="invite-success">
                   <span>✓</span>
-                  <div><strong>초대 링크를 복사했어요</strong><small>24시간 동안 사용할 수 있어요.</small></div>
+                  <div>
+                    <strong>{inviteStatus || "초대 링크를 만들었어요."}</strong>
+                    <small>24시간 동안 사용할 수 있어요.</small>
+                    <label>
+                      <span className="sr-only">초대 링크</span>
+                      <input value={inviteLink} readOnly onFocus={(event) => event.currentTarget.select()} />
+                    </label>
+                    <button type="button" onClick={copyInvite}>링크 복사</button>
+                  </div>
                 </div>
               )}
               <div className="member-list">
                 {members.map((member) => {
                   const maskedMemberName = maskDisplayName(member.display_name);
                   return (
-                    <div className={member.status === "requested" ? "pending" : ""} key={`${member.user_email || member.display_name}-${member.created_at}`}>
+                    <div className={member.status === "requested" ? "pending" : ""} key={`${member.member_ref || member.display_name}-${member.created_at}`}>
                       <span className="avatar">{maskedMemberName.slice(0, 1).toUpperCase()}</span>
                       <span><strong>{maskedMemberName}</strong><small>{member.role === "host" ? "방장" : member.status === "approved" ? "참여 확정" : "참여 신청"}</small></span>
-                      {room.isHost && member.status === "requested" && member.user_email ? (
+                      {room.isHost && member.status === "requested" && member.member_ref ? (
                         <span className="member-actions">
-                          <button onClick={() => review(member.user_email!, "approve")}>승인</button>
-                          <button onClick={() => review(member.user_email!, "reject")}>거절</button>
+                          <button
+                            onClick={() => review(member.member_ref!, "approve")}
+                            disabled={Boolean(reviewingMember)}
+                          >
+                            {reviewingMember === member.member_ref ? "처리 중" : "승인"}
+                          </button>
+                          <button
+                            onClick={() => review(member.member_ref!, "reject")}
+                            disabled={Boolean(reviewingMember)}
+                          >
+                            거절
+                          </button>
+                        </span>
+                      ) : room.isHost && member.role === "member" && member.member_ref ? (
+                        <span className="member-actions">
+                          <button
+                            className="remove"
+                            onClick={() => void removeMember(member.member_ref!)}
+                            disabled={Boolean(reviewingMember)}
+                          >
+                            {reviewingMember === member.member_ref ? "처리 중" : "내보내기"}
+                          </button>
                         </span>
                       ) : (
                         <b>{member.status === "approved" ? "✓" : ""}</b>
@@ -2025,6 +2338,10 @@ function RoomHubModal({
                 </div>
 
                 <div className="order-info-summary">
+                  <div>
+                    <span className="order-info-icon" aria-hidden="true">Σ</span>
+                    <p><small>현재 모인 주문금액</small><strong>{money(room.total)}</strong></p>
+                  </div>
                   <div>
                     <span className="order-info-icon" aria-hidden="true">◷</span>
                     <p><small>도착 예상</small><strong>{estimatedArrivalLabel(room.estimatedArrival)}</strong></p>
@@ -2059,6 +2376,22 @@ function RoomHubModal({
                 {room.isHost && editingOrderInfo && (
                   <form className="order-info-form" onSubmit={saveOrderInfo}>
                     <div className="order-info-fields">
+                      <label>
+                        <span>현재 모인 주문금액</span>
+                        <span className="price-input">
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min="0"
+                            max="10000000"
+                            step="100"
+                            value={collectedTotal}
+                            onChange={(event) => setCollectedTotal(event.target.value)}
+                            placeholder="예: 15000"
+                          />
+                          <b>원</b>
+                        </span>
+                      </label>
                       <label>
                         <span>도착 예상 시각</span>
                         <input
@@ -2125,17 +2458,24 @@ function RoomHubModal({
                 ))}
                 <div className="chat-scroll-anchor" ref={messagesEndRef} />
               </div>
+              {chatStatus && <p className="chat-status" role="status">{chatStatus}</p>}
               <div className="chat-composer">
                 <textarea
                   value={message}
                   disabled={sending}
                   onChange={(event) => setMessage(event.target.value)}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
+                    if (
+                      event.key === "Enter"
+                      && !event.shiftKey
+                      && !event.nativeEvent.isComposing
+                      && event.nativeEvent.keyCode !== 229
+                    ) {
                       event.preventDefault();
                       void sendMessage();
                     }
                   }}
+                  aria-label="채팅 메시지"
                   placeholder="메시지를 입력하세요"
                   maxLength={1000}
                   rows={1}
@@ -2167,16 +2507,19 @@ function CreateModal({
     minutes: number;
     capacity: number;
     membership: MembershipApp;
-  }) => void;
+  }) => Promise<void>;
 }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  useDialogLifecycle(dialogRef, onClose);
   const [restaurantId, setRestaurantId] = useState(preferredRestaurant?.id || restaurants[0].id);
   const [pickup, setPickup] = useState(
     pickupPoints.some((point) => point.id === preferredPickup) ? preferredPickup : "E3",
   );
-  const [apps, setApps] = useState<DeliveryApp[]>(["baemin"]);
+  const [apps, setApps] = useState<DeliveryApp[]>([]);
   const [minutes, setMinutes] = useState(30);
   const [capacity, setCapacity] = useState(4);
   const [membership, setMembership] = useState<MembershipApp>("");
+  const [creating, setCreating] = useState(false);
   const [restaurantQuery, setRestaurantQuery] = useState("");
   const [restaurantCategory, setRestaurantCategory] = useState("전체");
   const restaurant = restaurants.find((item) => item.id === restaurantId)!;
@@ -2203,10 +2546,19 @@ function CreateModal({
       : [...current, app]);
     if (removing && membership === app) setMembership("");
   };
+  const submit = async () => {
+    if (!apps.length || creating) return;
+    setCreating(true);
+    try {
+      await onCreate({ restaurantId, pickup, apps, minutes, capacity, membership });
+    } finally {
+      setCreating(false);
+    }
+  };
 
   return (
     <div className="overlay centered" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="create-modal" role="dialog" aria-modal="true" aria-label="새 주문방 만들기">
+      <section className="create-modal" role="dialog" aria-modal="true" aria-label="새 주문방 만들기" ref={dialogRef}>
         <div className="create-head">
           <div><span>NEW POOL</span><h2>새 주문방 만들기</h2><p>가게와 약속 장소만 정하면 바로 식구를 찾아드려요.</p></div>
           <button onClick={onClose} aria-label="주문방 만들기 닫기">×</button>
@@ -2239,13 +2591,12 @@ function CreateModal({
               </button>
             ))}
           </div>
-          <div className="restaurant-picker-list" role="listbox" aria-label="현풍 테크노폴리스 가게 목록">
+          <div className="restaurant-picker-list" aria-label="현풍 테크노폴리스 가게 목록">
             {visibleRestaurants.map((item) => (
               <button
                 className={restaurantId === item.id ? "active" : ""}
                 onClick={() => setRestaurantId(item.id)}
-                role="option"
-                aria-selected={restaurantId === item.id}
+                aria-pressed={restaurantId === item.id}
                 key={item.id}
               >
                 <RestaurantMark restaurant={item} />
@@ -2297,7 +2648,7 @@ function CreateModal({
           <div className="form-field">
             <label>모집 시간</label>
             <div className="segmented">
-              {[20, 30, 45].map((value) => <button className={minutes === value ? "active" : ""} onClick={() => setMinutes(value)} key={value}>{value}분</button>)}
+              {roomDurations.map((value) => <button className={minutes === value ? "active" : ""} onClick={() => setMinutes(value)} key={value}>{value}분</button>)}
             </div>
           </div>
           <div className="form-field">
@@ -2347,7 +2698,7 @@ function CreateModal({
         <div className="form-field">
           <label>모집 인원 <small>방장 포함 최대 인원</small></label>
           <div className="segmented capacity-selector" role="group" aria-label="주문방 최대 인원">
-            {[2, 3, 4, 5, 6, 7, 8].map((value) => (
+            {roomCapacities.map((value) => (
               <button
                 className={capacity === value ? "active" : ""}
                 onClick={() => setCapacity(value)}
@@ -2362,17 +2713,10 @@ function CreateModal({
 
         <button
           className="primary-button create-submit"
-          disabled={!apps.length}
-          onClick={() => onCreate({
-            restaurantId,
-            pickup,
-            apps,
-            minutes,
-            capacity,
-            membership,
-          })}
+          disabled={!apps.length || creating}
+          onClick={() => void submit()}
         >
-          {apps.length ? "식구 찾기 시작" : "주문 앱을 선택해 주세요"}
+          {creating ? "주문방 만드는 중…" : apps.length ? "식구 찾기 시작" : "주문 앱을 선택해 주세요"}
         </button>
       </section>
     </div>
@@ -2382,7 +2726,10 @@ function CreateModal({
 export default function Home() {
   const [view, setView] = useState<View>("home");
   const [pools, setPools] = useState<Pool[]>(initialPools);
+  const [myRooms, setMyRooms] = useState<Pool[]>([]);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [bootstrapState, setBootstrapState] = useState<"loading" | "ready" | "error">("loading");
+  const [bootstrapError, setBootstrapError] = useState("");
   const [selectedPool, setSelectedPool] = useState<Pool | null>(null);
   const [roomHubId, setRoomHubId] = useState<string | null>(null);
   const [createFor, setCreateFor] = useState<Restaurant | undefined>();
@@ -2394,19 +2741,29 @@ export default function Home() {
   const [category, setCategory] = useState("전체");
   const [filters, setFilters] = useState<PoolFilters>(defaultPoolFilters);
   const [currentPickup, setCurrentPickup] = useState("E3");
-  const [locationOpen, setLocationOpen] = useState(false);
   const [locationReady, setLocationReady] = useState(false);
-  const [toast, setToast] = useState("");
+  const [toast, setToast] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const loadRoomsRequestRef = useRef(0);
-  const currentPoint = pickupPoints.find((point) => point.id === currentPickup) || pickupPoints[0];
+  const toastTimerRef = useRef<number | null>(null);
   const latestSelectedPool = selectedPool
     ? pools.find((pool) => pool.id === selectedPool.id) || null
     : null;
 
-  const notify = useCallback((message: string) => {
-    setToast(message);
-    window.setTimeout(() => setToast(""), 2600);
+  const notify = useCallback((
+    message: string,
+    tone: "success" | "error" | "info" = "info",
+  ) => {
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    setToast({ message, tone });
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 3600);
+  }, []);
+
+  useEffect(() => () => {
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
   }, []);
 
   const signIn = useCallback(() => {
@@ -2417,7 +2774,7 @@ export default function Home() {
   const postAction = useCallback(async (payload: Record<string, unknown>) => {
     const response = await fetch("/api/sikgu", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-sikgu-request": "1" },
       body: JSON.stringify(payload),
     });
     const data = await response.json() as { error?: string; signInPath?: string; roomId?: string };
@@ -2432,11 +2789,24 @@ export default function Home() {
   const loadRooms = useCallback(async () => {
     const requestId = ++loadRoomsRequestRef.current;
     const response = await fetch("/api/sikgu?action=bootstrap", { cache: "no-store" });
-    const data = await response.json() as { user: AuthUser | null; rooms: Pool[]; error?: string };
+    const data = await response.json() as {
+      user: AuthUser | null;
+      rooms: Pool[];
+      myRooms?: Pool[];
+      error?: string;
+    };
     if (!response.ok) throw new Error(data.error || "주문방을 불러오지 못했어요.");
     if (requestId === loadRoomsRequestRef.current) {
+      const isValidRoom = (room: Pool) => (
+        restaurants.some((restaurant) => restaurant.id === room.restaurantId)
+        && pickupPoints.some((point) => point.id === room.pickup)
+        && room.apps.length > 0
+      );
       setUser(data.user);
-      setPools(data.rooms || []);
+      setPools((data.rooms || []).filter(isValidRoom));
+      setMyRooms((data.myRooms || []).filter(isValidRoom));
+      setBootstrapError("");
+      setBootstrapState("ready");
     }
     return data;
   }, []);
@@ -2449,9 +2819,18 @@ export default function Home() {
   useEffect(() => {
     let active = true;
     const initialize = async () => {
+      let data: Awaited<ReturnType<typeof loadRooms>>;
       try {
-        const data = await loadRooms();
+        data = await loadRooms();
+      } catch (loadError) {
         if (!active) return;
+        setBootstrapState("error");
+        setBootstrapError(loadError instanceof Error ? loadError.message : "네트워크 연결을 확인해주세요.");
+        return;
+      }
+      if (!active) return;
+
+      try {
         const params = new URLSearchParams(window.location.search);
         const invite = params.get("invite");
         const invitedRoomId = params.get("room");
@@ -2464,59 +2843,71 @@ export default function Home() {
           window.history.replaceState({}, "", window.location.pathname);
           await loadRooms();
           setRoomHubId(invitedRoomId);
-          notify("주문방 초대를 수락했어요.");
+          notify("주문방 초대를 수락했어요.", "success");
           return;
         }
 
         const pendingJoinRaw = window.sessionStorage.getItem(pendingJoinStorageKey);
         let pendingJoinRoomId = "";
         if (pendingJoinRaw && data.user) {
-          window.sessionStorage.removeItem(pendingJoinStorageKey);
           try {
             const pendingJoin = JSON.parse(pendingJoinRaw) as { roomId?: string; createdAt?: number };
             const isFresh = typeof pendingJoin.createdAt === "number"
               && Date.now() - pendingJoin.createdAt < 10 * 60 * 1000;
             if (isFresh && typeof pendingJoin.roomId === "string") pendingJoinRoomId = pendingJoin.roomId;
+            else window.sessionStorage.removeItem(pendingJoinStorageKey);
           } catch {
+            window.sessionStorage.removeItem(pendingJoinStorageKey);
             pendingJoinRoomId = "";
           }
         }
         if (pendingJoinRoomId && data.user) {
           const pendingPool = data.rooms.find((pool) => pool.id === pendingJoinRoomId);
           if (!pendingPool) {
-            notify("참여하려던 주문방이 마감되었거나 삭제됐어요.");
+            window.sessionStorage.removeItem(pendingJoinStorageKey);
+            notify("참여하려던 주문방이 마감되었거나 삭제됐어요.", "error");
             return;
           }
           if (pendingPool.isHost || pendingPool.myStatus === "approved") {
+            window.sessionStorage.removeItem(pendingJoinStorageKey);
             setRoomHubId(pendingPool.id);
             return;
           }
           if (pendingPool.myStatus === "requested") {
-            notify("이미 참여 승인을 기다리고 있어요.");
+            window.sessionStorage.removeItem(pendingJoinStorageKey);
+            notify("이미 참여 승인을 기다리고 있어요.", "info");
             return;
           }
 
           try {
             await postAction({ action: "request_join", roomId: pendingPool.id });
+            window.sessionStorage.removeItem(pendingJoinStorageKey);
             setPools((currentPools) => currentPools.map((pool) => (
               pool.id === pendingPool.id ? { ...pool, myStatus: "requested" } : pool
             )));
             try {
               await loadRooms();
-              notify("로그인 후 참여 신청을 이어서 보냈어요. 방장이 승인하면 채팅방이 열립니다.");
+              notify("로그인 후 참여 신청을 이어서 보냈어요. 방장이 승인하면 채팅방이 열립니다.", "success");
             } catch {
-              notify("참여 신청은 접수됐어요. 주문방 상태는 잠시 후 자동으로 갱신됩니다.");
+              notify("참여 신청은 접수됐어요. 주문방 상태는 잠시 후 자동으로 갱신됩니다.", "info");
             }
           } catch (joinError) {
-            notify(joinError instanceof Error ? joinError.message : "참여 신청을 보내지 못했어요.");
+            notify(joinError instanceof Error ? joinError.message : "참여 신청을 보내지 못했어요.", "error");
           }
         }
-      } catch (loadError) {
-        if (active) notify(loadError instanceof Error ? loadError.message : "주문방을 불러오지 못했어요.");
+      } catch (interactionError) {
+        if (active) {
+          notify(
+            interactionError instanceof Error ? interactionError.message : "요청을 처리하지 못했어요.",
+            "error",
+          );
+        }
       }
     };
     void initialize();
-    const timer = window.setInterval(() => void loadRooms().catch(() => undefined), 10000);
+    const timer = window.setInterval(() => {
+      if (!document.hidden) void loadRooms().catch(() => undefined);
+    }, 30000);
     return () => {
       active = false;
       window.clearInterval(timer);
@@ -2547,6 +2938,14 @@ export default function Home() {
   }, [view]);
 
   const openCreate = (restaurant?: Restaurant) => {
+    if (bootstrapState === "loading") {
+      notify("로그인 상태를 확인하고 있어요. 잠시만 기다려주세요.", "info");
+      return;
+    }
+    if (bootstrapState === "error") {
+      notify("먼저 주문방 정보를 다시 불러와주세요.", "error");
+      return;
+    }
     if (!user) {
       signIn();
       return;
@@ -2573,7 +2972,7 @@ export default function Home() {
     try {
       await postAction({ action: "request_join", roomId: pool.id });
     } catch (joinError) {
-      notify(joinError instanceof Error ? joinError.message : "참여 신청을 보내지 못했어요.");
+      notify(joinError instanceof Error ? joinError.message : "참여 신청을 보내지 못했어요.", "error");
       return;
     }
 
@@ -2583,9 +2982,9 @@ export default function Home() {
     )));
     try {
       await loadRooms();
-      notify("참여 신청을 보냈어요. 방장이 승인하면 채팅방이 열립니다.");
+      notify("참여 신청을 보냈어요. 방장이 승인하면 채팅방이 열립니다.", "success");
     } catch {
-      notify("참여 신청은 접수됐어요. 주문방 상태는 잠시 후 자동으로 갱신됩니다.");
+      notify("참여 신청은 접수됐어요. 주문방 상태는 잠시 후 자동으로 갱신됩니다.", "info");
     }
   };
 
@@ -2597,32 +2996,49 @@ export default function Home() {
     capacity: number;
     membership: MembershipApp;
   }) => {
-    const restaurant = restaurants.find((item) => item.id === values.restaurantId)!;
     const point = pickupPoints.find((item) => item.id === values.pickup)
       || pickupPoints.find((item) => item.id === "E3")
       || pickupPoints[0];
+    let result: { roomId?: string };
     try {
-      const result = await postAction({
+      result = await postAction({
         action: "create_room",
         restaurantId: values.restaurantId,
         pickup: point.id,
-        pickupFull: point.full,
         apps: values.apps,
         closesAt: Date.now() + values.minutes * 60 * 1000,
-        total: 0,
-        target: Math.min(...values.apps.map((app) => restaurant.minimum[app])),
         capacity: values.capacity,
         membership: values.membership,
         note: "같이 맛있게 먹어요!",
       });
-      setShowCreate(false);
-      setView("home");
-      await loadRooms();
-      if (result.roomId) setRoomHubId(result.roomId);
-      notify("새 주문방을 열었어요. 참여자를 선택하고 초대할 수 있어요.");
     } catch (createError) {
-      notify(createError instanceof Error ? createError.message : "주문방을 만들지 못했어요.");
+      notify(createError instanceof Error ? createError.message : "주문방을 만들지 못했어요.", "error");
+      return;
     }
+
+    setShowCreate(false);
+    setView("home");
+    if (result.roomId) setRoomHubId(result.roomId);
+    try {
+      await loadRooms();
+      notify("새 주문방을 열었어요. 참여자를 선택하고 초대할 수 있어요.", "success");
+    } catch {
+      notify("주문방은 만들어졌어요. 목록은 잠시 후 자동으로 갱신됩니다.", "info");
+    }
+  };
+
+  const retryBootstrap = () => {
+    setBootstrapState("loading");
+    setBootstrapError("");
+    void loadRooms().catch((error) => {
+      setBootstrapState("error");
+      setBootstrapError(error instanceof Error ? error.message : "네트워크 연결을 확인해주세요.");
+    });
+  };
+
+  const selectCurrentPickup = (point: PickupPoint) => {
+    setCurrentPickup(point.id);
+    notify(`현재 위치를 ${point.full}(으)로 설정했어요.`, "success");
   };
 
   const navigate = (next: View) => {
@@ -2641,42 +3057,16 @@ export default function Home() {
     <div className="app-shell">
       <aside className="sidebar">
         <Brand />
-        <div className="location-card">
-          <span>현재 위치</span>
-          <button
-            className="location-trigger"
-            onClick={() => setLocationOpen((open) => !open)}
-            aria-expanded={locationOpen}
-            aria-haspopup="listbox"
-          >
-            <i /> DGIST {currentPoint.code ?? currentPoint.id} <b>{locationOpen ? "⌃" : "⌄"}</b>
-          </button>
-          {locationOpen && (
-            <div className="location-menu" role="listbox" aria-label="현재 위치 선택">
-              {pickupPoints.map((point) => (
-                <button
-                  className={`location-option ${currentPickup === point.id ? "active" : ""}`}
-                  onClick={() => {
-                    setCurrentPickup(point.id);
-                    setLocationOpen(false);
-                    notify(`현재 위치를 ${point.full}(으)로 설정했어요.`);
-                  }}
-                  role="option"
-                  aria-selected={currentPickup === point.id}
-                  key={point.id}
-                >
-                  <span className="location-code">{point.code ?? point.id}</span>
-                  <span><strong>{point.full}</strong><small>도보 기준 {point.walk}분</small></span>
-                  <b>{currentPickup === point.id ? "✓" : ""}</b>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <LocationPicker currentPickup={currentPickup} onSelect={selectCurrentPickup} />
         <nav className="side-nav" aria-label="주 메뉴">
           <span className="nav-label">MENU</span>
           {navItems.map((item) => (
-            <button className={view === item.id ? "active" : ""} onClick={() => navigate(item.id)} key={item.id}>
+            <button
+              className={view === item.id ? "active" : ""}
+              onClick={() => navigate(item.id)}
+              aria-current={view === item.id ? "page" : undefined}
+              key={item.id}
+            >
               <span className="nav-icon">{item.icon}</span>
               <span>{item.label}</span>
             </button>
@@ -2689,6 +3079,7 @@ export default function Home() {
         <div className="mobile-top">
           <Brand />
           <div className="mobile-top-actions">
+            <LocationPicker currentPickup={currentPickup} onSelect={selectCurrentPickup} compact />
             <button className="mobile-help-button" onClick={() => setShowFeedback(true)} aria-label="도움말 및 제안 보내기">?</button>
             <button className="mobile-create-button" onClick={() => openCreate()} aria-label="주문방 만들기">＋</button>
           </div>
@@ -2704,6 +3095,9 @@ export default function Home() {
             currentPickup={currentPickup}
             filters={filters}
             setFilters={setFilters}
+            loading={bootstrapState === "loading"}
+            loadError={bootstrapState === "error" ? bootstrapError : ""}
+            onRetry={retryBootstrap}
             onOpenPool={setSelectedPool}
             onMap={openCampusMap}
             onCreate={() => openCreate()}
@@ -2711,7 +3105,17 @@ export default function Home() {
           />
         )}
         {view === "restaurants" && <RestaurantsView onCreate={openCreate} />}
-        {view === "profile" && <ProfileView currentPickup={currentPickup} user={user} onCreate={() => openCreate()} />}
+        {view === "profile" && (
+          <ProfileView
+            currentPickup={currentPickup}
+            user={user}
+            rooms={myRooms}
+            now={now}
+            onRoom={setRoomHubId}
+            onCreate={() => openCreate()}
+            onAuth={() => window.location.assign(user ? "/signout-with-chatgpt?return_to=/" : "/signin-with-chatgpt?return_to=/")}
+          />
+        )}
       </main>
 
       <RightRail
@@ -2726,7 +3130,12 @@ export default function Home() {
 
       <nav className="mobile-nav" aria-label="모바일 주 메뉴">
         {navItems.map((item) => (
-          <button className={view === item.id ? "active" : ""} onClick={() => navigate(item.id)} key={item.id}>
+          <button
+            className={view === item.id ? "active" : ""}
+            onClick={() => navigate(item.id)}
+            aria-current={view === item.id ? "page" : undefined}
+            key={item.id}
+          >
             <span>{item.icon}</span><small>{item.compact}</small>
           </button>
         ))}
@@ -2761,13 +3170,23 @@ export default function Home() {
           onDeleted={() => {
             setRoomHubId(null);
             void loadRooms();
-            notify("주문방과 관련 기록을 모두 삭제했어요.");
+            notify("주문방과 관련 기록을 모두 삭제했어요.", "success");
+          }}
+          onLeft={() => {
+            setRoomHubId(null);
+            void loadRooms();
+            notify("주문방에서 나왔어요.", "success");
           }}
         />
       )}
       {showFeedback && <FeedbackModal currentScreen={viewCopy} onClose={closeFeedback} />}
 
-      {toast && <div className="toast" role="status"><span>✓</span>{toast}</div>}
+      {toast && (
+        <div className={`toast ${toast.tone}`} role={toast.tone === "error" ? "alert" : "status"}>
+          <span>{toast.tone === "success" ? "✓" : toast.tone === "error" ? "!" : "i"}</span>
+          {toast.message}
+        </div>
+      )}
       <div className="sr-only" aria-live="polite">현재 화면: {viewCopy}</div>
     </div>
   );

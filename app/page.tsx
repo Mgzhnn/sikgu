@@ -516,6 +516,7 @@ const pickupPoints = [
   { id: "대학원", full: "대학원생활관 정문", walk: 8, lat: 35.703, lng: 128.4568 },
 ];
 
+const currentPickupStorageKey = "sikgu-current-pickup";
 const initialPools: Pool[] = [];
 
 const navItems: { id: View; label: string; compact: string; icon: string }[] = [
@@ -843,12 +844,22 @@ function MapView({
   onPool,
   pools,
   onCreate,
+  initialPickup,
 }: {
   onPool: (pool: Pool) => void;
   pools: Pool[];
   onCreate: () => void;
+  initialPickup: string;
 }) {
-  const [selected, setSelected] = useState(pickupPoints.find((point) => point.id === "E3") || pickupPoints[0]);
+  const [selected, setSelected] = useState(
+    pickupPoints.find((point) => point.id === initialPickup) || pickupPoints[0],
+  );
+
+  useEffect(() => {
+    const nextPoint = pickupPoints.find((point) => point.id === initialPickup);
+    if (nextPoint) setSelected(nextPoint);
+  }, [initialPickup]);
+
   const nearbyPools = pools.filter((pool) => pool.pickup === selected.id);
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${selected.lat},${selected.lng}`;
   const kakaoUrl = `https://map.kakao.com/link/to/${encodeURIComponent(selected.full)},${selected.lat},${selected.lng}`;
@@ -936,10 +947,12 @@ function ProfileView({
   membership,
   setMembership,
   onCreate,
+  currentPickup,
 }: {
   membership: string;
   setMembership: (value: string) => void;
   onCreate: () => void;
+  currentPickup: string;
 }) {
   return (
     <>
@@ -948,7 +961,7 @@ function ProfileView({
         <div className="profile-avatar">민</div>
         <div>
           <h2>김민수</h2>
-          <p>DGIST 대학원생 · E3</p>
+          <p>DGIST 대학원생 · {currentPickup}</p>
           <span>이번 달 식구 레벨 <b>단골식구</b></span>
         </div>
         <div className="profile-stats">
@@ -1011,8 +1024,20 @@ function ProfileView({
   );
 }
 
-function RightRail({ pools, now, onPool, onMap }: { pools: Pool[]; now: number; onPool: (pool: Pool) => void; onMap: () => void }) {
-  const closest = pools[0];
+function RightRail({
+  pools,
+  now,
+  onPool,
+  onMap,
+  currentPickup,
+}: {
+  pools: Pool[];
+  now: number;
+  onPool: (pool: Pool) => void;
+  onMap: () => void;
+  currentPickup: string;
+}) {
+  const closest = pools.find((pool) => pool.pickup === currentPickup) || pools[0];
   const restaurant = closest
     ? restaurants.find((item) => item.id === closest.restaurantId)
     : undefined;
@@ -1024,7 +1049,7 @@ function RightRail({ pools, now, onPool, onMap }: { pools: Pool[]; now: number; 
     <aside className="right-rail">
       <section className="rail-profile">
         <div className="avatar">민</div>
-        <div><strong>김민수</strong><small>E3 · 배민클럽</small></div>
+        <div><strong>김민수</strong><small>{currentPickup} · 배민클럽</small></div>
         <button aria-label="프로필 메뉴">•••</button>
       </section>
 
@@ -1248,15 +1273,19 @@ function PoolModal({
 
 function CreateModal({
   preferredRestaurant,
+  preferredPickup,
   onClose,
   onCreate,
 }: {
   preferredRestaurant?: Restaurant;
+  preferredPickup: string;
   onClose: () => void;
   onCreate: (values: { restaurantId: string; pickup: string; apps: DeliveryApp[]; minutes: number }) => void;
 }) {
   const [restaurantId, setRestaurantId] = useState(preferredRestaurant?.id || restaurants[0].id);
-  const [pickup, setPickup] = useState("E3");
+  const [pickup, setPickup] = useState(
+    pickupPoints.some((point) => point.id === preferredPickup) ? preferredPickup : "E3",
+  );
   const [apps, setApps] = useState<DeliveryApp[]>(["baemin"]);
   const [minutes, setMinutes] = useState(30);
   const [restaurantQuery, setRestaurantQuery] = useState("");
@@ -1430,13 +1459,31 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("전체");
   const [membership, setMembership] = useState("baemin");
+  const [currentPickup, setCurrentPickup] = useState("E3");
+  const [locationOpen, setLocationOpen] = useState(false);
+  const [locationReady, setLocationReady] = useState(false);
   const [toast, setToast] = useState("");
   const [now, setNow] = useState(Date.now());
+  const currentPoint = pickupPoints.find((point) => point.id === currentPickup) || pickupPoints[0];
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const savedPickup = window.localStorage.getItem(currentPickupStorageKey);
+    if (savedPickup && pickupPoints.some((point) => point.id === savedPickup)) {
+      setCurrentPickup(savedPickup);
+    }
+    setLocationReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (locationReady) {
+      window.localStorage.setItem(currentPickupStorageKey, currentPickup);
+    }
+  }, [currentPickup, locationReady]);
 
   const viewCopy = useMemo(() => {
     if (view === "restaurants") return "가게 · 메뉴";
@@ -1511,7 +1558,35 @@ export default function Home() {
         <Brand />
         <div className="location-card">
           <span>현재 위치</span>
-          <button><i /> DGIST E3 <b>⌄</b></button>
+          <button
+            className="location-trigger"
+            onClick={() => setLocationOpen((open) => !open)}
+            aria-expanded={locationOpen}
+            aria-haspopup="listbox"
+          >
+            <i /> DGIST {currentPoint.id} <b>{locationOpen ? "⌃" : "⌄"}</b>
+          </button>
+          {locationOpen && (
+            <div className="location-menu" role="listbox" aria-label="현재 위치 선택">
+              {pickupPoints.map((point) => (
+                <button
+                  className={`location-option ${currentPickup === point.id ? "active" : ""}`}
+                  onClick={() => {
+                    setCurrentPickup(point.id);
+                    setLocationOpen(false);
+                    notify(`현재 위치를 ${point.full}(으)로 설정했어요.`);
+                  }}
+                  role="option"
+                  aria-selected={currentPickup === point.id}
+                  key={point.id}
+                >
+                  <span className="location-code">{point.id}</span>
+                  <span><strong>{point.full}</strong><small>도보 기준 {point.walk}분</small></span>
+                  <b>{currentPickup === point.id ? "✓" : ""}</b>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <nav className="side-nav" aria-label="주 메뉴">
           <span className="nav-label">MENU</span>
@@ -1544,11 +1619,11 @@ export default function Home() {
           />
         )}
         {view === "restaurants" && <RestaurantsView onMenu={(restaurant) => { setSelectedRestaurant(restaurant); setCart({}); }} onCreate={openCreate} />}
-        {view === "map" && <MapView pools={pools} onPool={setSelectedPool} onCreate={() => openCreate()} />}
-        {view === "profile" && <ProfileView membership={membership} onCreate={() => openCreate()} setMembership={(value) => { setMembership(value); notify("배달 멤버십 정보를 저장했어요."); }} />}
+        {view === "map" && <MapView pools={pools} initialPickup={currentPickup} onPool={setSelectedPool} onCreate={() => openCreate()} />}
+        {view === "profile" && <ProfileView membership={membership} currentPickup={currentPickup} onCreate={() => openCreate()} setMembership={(value) => { setMembership(value); notify("배달 멤버십 정보를 저장했어요."); }} />}
       </main>
 
-      <RightRail pools={pools} now={now} onPool={setSelectedPool} onMap={() => navigate("map")} />
+      <RightRail pools={pools} now={now} currentPickup={currentPickup} onPool={setSelectedPool} onMap={() => navigate("map")} />
 
       <nav className="mobile-nav" aria-label="모바일 주 메뉴">
         {navItems.map((item) => (
@@ -1572,7 +1647,14 @@ export default function Home() {
         />
       )}
       {selectedPool && <PoolModal pool={selectedPool} now={now} onClose={() => setSelectedPool(null)} onToggleJoin={handleToggleJoin} />}
-      {showCreate && <CreateModal preferredRestaurant={createFor} onClose={() => setShowCreate(false)} onCreate={handleCreate} />}
+      {showCreate && (
+        <CreateModal
+          preferredRestaurant={createFor}
+          preferredPickup={currentPickup}
+          onClose={() => setShowCreate(false)}
+          onCreate={handleCreate}
+        />
+      )}
 
       {toast && <div className="toast" role="status"><span>✓</span>{toast}</div>}
       <div className="sr-only" aria-live="polite">현재 화면: {viewCopy}</div>

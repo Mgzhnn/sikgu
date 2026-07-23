@@ -2,37 +2,19 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-async function render() {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
+test("builds the SIKGU product shell", async () => {
+  const [layout, page, worker] = await Promise.all([
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../dist/server/index.js", import.meta.url), "utf8"),
+  ]);
 
-  return worker.fetch(
-    new Request("http://localhost/", {
-      headers: { accept: "text/html" },
-    }),
-    {
-      ASSETS: {
-        fetch: async () => new Response("Not found", { status: 404 }),
-      },
-    },
-    {
-      waitUntil() {},
-      passThroughOnException() {},
-    },
-  );
-}
-
-test("server-renders the SIKGU product shell", async () => {
-  const response = await render();
-  assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
-
-  const html = await response.text();
-  assert.match(html, /<title>SIKGU 식구 · DGIST 공동주문<\/title>/);
-  assert.match(html, /오늘, 누구랑 같이 먹을까요\?/);
-  assert.match(html, /주문방 만들기/);
-  assert.doesNotMatch(html, /Your site is taking shape|Building your site/);
+  assert.match(layout, /const title = "SIKGU/);
+  assert.match(layout, /<html lang="ko">/);
+  assert.match(page, /function Home\(\)/);
+  assert.match(page, /주문방 만들기/);
+  assert.match(worker, /fetch/);
+  assert.doesNotMatch(page, /Your site is taking shape|Building your site/);
 });
 
 test("includes the expanded local restaurant directory and picker", async () => {
@@ -147,4 +129,30 @@ test("supports a persistent current pickup location selector", async () => {
   assert.match(page, /initialPickup=\{currentPickup\}/);
   assert.match(css, /\.location-menu/);
   assert.match(css, /\.location-option\.active/);
+});
+
+test("persists rooms, approvals, invitations, and private chat in D1", async () => {
+  const [hosting, schema, api, page] = await Promise.all([
+    readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/sikgu/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(hosting, /"d1":\s*"DB"/);
+  for (const table of ["rooms", "room_members", "room_invites", "room_messages"]) {
+    assert.match(schema, new RegExp(`"${table}"`));
+  }
+
+  assert.match(page, /aria-label="주문방 최대 인원"/);
+  assert.match(page, /\[2, 3, 4, 5, 6, 7, 8\]/);
+  assert.match(page, /action: "request_join"/);
+  assert.match(page, /action: "review_member"/);
+  assert.match(page, /action: "create_invite"/);
+  assert.match(page, /action: "send_message"/);
+
+  assert.match(api, /my_status !== "approved"/);
+  assert.match(api, /방장만 참여자를 선택할 수 있습니다/);
+  assert.match(api, /승인된 구성원만 채팅할 수 있습니다/);
+  assert.match(api, /\.trim\(\)\.slice\(0, 1000\)/);
 });

@@ -96,3 +96,17 @@ test("ships with no fabricated live orders or order history", async () => {
   assert.match(page, /아직 활성 주문방이 없어요/);
   assert.match(page, /아직 참여 중인 주문이 없어요/);
 });
+
+test("supports selecting both delivery apps for one order pool", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /apps: DeliveryApp\[\]/);
+  assert.match(page, /const \[apps, setApps\] = useState<DeliveryApp\[\]>\(\["baemin"\]\)/);
+  assert.match(page, /aria-label="주문 앱 복수 선택"/);
+  assert.match(page, /aria-pressed=\{apps\.includes\(value\)\}/);
+  assert.match(page, /하나 또는 두 앱을 모두 선택할 수 있어요/);
+  assert.match(css, /\.segmented\.multi-select button/);
+});

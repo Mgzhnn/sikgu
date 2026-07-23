@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { maskDisplayName } from "./name-mask.mjs";
 
 type View = "home" | "restaurants" | "profile";
 type DeliveryApp = "baemin" | "coupang";
@@ -913,7 +914,7 @@ function ProfileView({
   currentPickup: string;
   user: AuthUser | null;
 }) {
-  const profileName = user?.displayName || "게스트";
+  const profileName = user ? maskDisplayName(user.displayName) : "게스트";
 
   return (
     <>
@@ -946,14 +947,15 @@ function RightRail({
   onAuth: () => void;
 }) {
   const closest = pools.find((pool) => pool.pickup === currentPickup) || pools[0];
+  const maskedUserName = user ? maskDisplayName(user.displayName) : "";
   const restaurant = closest
     ? restaurants.find((item) => item.id === closest.restaurantId)
     : undefined;
   return (
     <aside className="right-rail">
       <section className="rail-profile">
-        <div className="avatar">{(user?.displayName || "?").slice(0, 1).toUpperCase()}</div>
-        <div><strong>{user?.displayName || "로그인이 필요해요"}</strong><small>{user ? `${currentPickup} · 인증됨` : "주문방·채팅 이용하기"}</small></div>
+        <div className="avatar">{(maskedUserName || "?").slice(0, 1).toUpperCase()}</div>
+        <div><strong>{maskedUserName || "로그인이 필요해요"}</strong><small>{user ? `${currentPickup} · 인증됨` : "주문방·채팅 이용하기"}</small></div>
         <button onClick={onAuth} aria-label={user ? "로그아웃" : "로그인"}>{user ? "↗" : "로그인"}</button>
       </section>
 
@@ -1226,7 +1228,7 @@ function PoolModal({
         </div>
 
         <div className="host-note">
-          <span>“</span><p>{pool.note}</p><small>— 방장 {pool.host}</small>
+          <span>“</span><p>{pool.note}</p><small>— 방장 {maskDisplayName(pool.host)}</small>
         </div>
 
         <div className="modal-footer">
@@ -1479,20 +1481,23 @@ function RoomHubModal({
                 </div>
               )}
               <div className="member-list">
-                {members.map((member) => (
-                  <div className={member.status === "requested" ? "pending" : ""} key={`${member.user_email || member.display_name}-${member.created_at}`}>
-                    <span className="avatar">{member.display_name.slice(0, 1).toUpperCase()}</span>
-                    <span><strong>{member.display_name}</strong><small>{member.role === "host" ? "방장" : member.status === "approved" ? "참여 확정" : "참여 신청"}</small></span>
-                    {room.isHost && member.status === "requested" && member.user_email ? (
-                      <span className="member-actions">
-                        <button onClick={() => review(member.user_email!, "approve")}>승인</button>
-                        <button onClick={() => review(member.user_email!, "reject")}>거절</button>
-                      </span>
-                    ) : (
-                      <b>{member.status === "approved" ? "✓" : ""}</b>
-                    )}
-                  </div>
-                ))}
+                {members.map((member) => {
+                  const maskedMemberName = maskDisplayName(member.display_name);
+                  return (
+                    <div className={member.status === "requested" ? "pending" : ""} key={`${member.user_email || member.display_name}-${member.created_at}`}>
+                      <span className="avatar">{maskedMemberName.slice(0, 1).toUpperCase()}</span>
+                      <span><strong>{maskedMemberName}</strong><small>{member.role === "host" ? "방장" : member.status === "approved" ? "참여 확정" : "참여 신청"}</small></span>
+                      {room.isHost && member.status === "requested" && member.user_email ? (
+                        <span className="member-actions">
+                          <button onClick={() => review(member.user_email!, "approve")}>승인</button>
+                          <button onClick={() => review(member.user_email!, "reject")}>거절</button>
+                        </span>
+                      ) : (
+                        <b>{member.status === "approved" ? "✓" : ""}</b>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </aside>
 
@@ -1606,7 +1611,7 @@ function RoomHubModal({
                 )}
                 {messages.map((item) => (
                   <article className={item.mine ? "mine" : ""} key={item.id}>
-                    {!item.mine && <small>{item.sender_name}</small>}
+                    {!item.mine && <small>{maskDisplayName(item.sender_name)}</small>}
                     <div><p>{item.body}</p><time>{new Date(item.created_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}</time></div>
                   </article>
                 ))}

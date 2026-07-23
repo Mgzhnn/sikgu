@@ -424,8 +424,14 @@ export async function POST(request: Request) {
       const apps = Array.isArray(payload.apps)
         ? payload.apps.filter((item) => item === "baemin" || item === "coupang")
         : [];
+      const membership = payload.membership === "baemin" || payload.membership === "coupang"
+        ? payload.membership
+        : "";
       if (!payload.restaurantId || !payload.pickup || !apps.length) {
         return json({ error: "가게, 픽업 장소, 주문 앱을 확인해 주세요." }, 400);
+      }
+      if (membership && !apps.includes(membership)) {
+        return json({ error: "선택한 주문 앱과 무료배달 멤버십이 일치하지 않습니다." }, 400);
       }
       const id = roomId();
       const now = Date.now();
@@ -447,7 +453,7 @@ export async function POST(request: Request) {
           Number(payload.total || 0),
           Number(payload.target),
           capacity,
-          String(payload.membership || ""),
+          membership,
           String(payload.note || "같이 맛있게 먹어요!").slice(0, 300),
           now,
         ),

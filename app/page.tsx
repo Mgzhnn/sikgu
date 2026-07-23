@@ -14,6 +14,7 @@ import { maskDisplayName } from "./name-mask.mjs";
 
 type View = "home" | "restaurants" | "profile";
 type DeliveryApp = "baemin" | "coupang";
+type MembershipApp = DeliveryApp | "";
 type PoolSort = "default" | "deadline" | "remaining";
 
 type PoolFilters = {
@@ -105,9 +106,9 @@ const estimatedArrivalLabel = (value?: string | null) => {
 const kakaoMapSearchUrl = (restaurant: Restaurant) =>
   `https://map.kakao.com/?q=${encodeURIComponent(`${restaurant.name} ${restaurant.address || "현풍 테크노폴리스"}`)}`;
 
-const appLabels: Record<DeliveryApp, { name: string }> = {
-  baemin: { name: "배민" },
-  coupang: { name: "쿠팡이츠" },
+const appLabels: Record<DeliveryApp, { name: string; membership: string }> = {
+  baemin: { name: "배민", membership: "배민클럽" },
+  coupang: { name: "쿠팡이츠", membership: "쿠팡 와우" },
 };
 
 const sampleMenu = (
@@ -1676,8 +1677,14 @@ function PoolModal({
   const gap = Math.max(0, pool.target - pool.total);
   const ready = gap === 0;
   const fee = Math.min(...pool.apps.map((app) => restaurant.deliveryFee[app]));
-  const eachFee = Math.ceil(fee / pool.people);
+  const membershipApp = pool.membership === "baemin" || pool.membership === "coupang"
+    ? pool.membership
+    : null;
+  const membershipApplied = membershipApp !== null && pool.apps.includes(membershipApp);
+  const hasFreeDelivery = fee === 0 || membershipApplied;
+  const eachFee = hasFreeDelivery ? 0 : Math.ceil(fee / Math.max(pool.people, 1));
   const appNames = pool.apps.map((app) => appLabels[app].name).join(" · ");
+  const membershipName = membershipApp ? appLabels[membershipApp].membership : "";
 
   return (
     <div className="overlay centered" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
@@ -1709,8 +1716,14 @@ function PoolModal({
           <span className="spark">✦</span>
           <div>
             <small>선택 가능 주문 앱</small>
-            <strong>{appNames}</strong>
-            <p>{fee === 0 ? "선택한 앱의 예상 배달비는 0원이에요." : `배달비를 나누면 1인당 약 ${money(eachFee)}이에요.`}</p>
+            <strong>{appNames}{membershipApplied && ` · ${membershipName}`}</strong>
+            <p>
+              {membershipApplied
+                ? `${membershipName} 적용 시 예상 배달비는 무료예요. 결제 전 배달앱에서 확인해 주세요.`
+                : fee === 0
+                  ? "선택한 앱의 예상 배달비는 무료예요."
+                  : `배달비를 나누면 1인당 약 ${money(eachFee)}이에요.`}
+            </p>
           </div>
         </div>
 
@@ -1719,7 +1732,10 @@ function PoolModal({
         </div>
 
         <div className="modal-footer">
-          <div><span>예상 배달비</span><strong>{eachFee === 0 ? "0원" : money(eachFee)}<small> / 1인</small></strong></div>
+          <div>
+            <span>예상 배달비</span>
+            <strong>{hasFreeDelivery ? "무료" : money(eachFee)}{!hasFreeDelivery && <small> / 1인</small>}</strong>
+          </div>
           <button
             className={pool.myStatus === "requested" ? "secondary-button" : "primary-button"}
             onClick={() => onToggleJoin(pool)}
@@ -2150,6 +2166,7 @@ function CreateModal({
     apps: DeliveryApp[];
     minutes: number;
     capacity: number;
+    membership: MembershipApp;
   }) => void;
 }) {
   const [restaurantId, setRestaurantId] = useState(preferredRestaurant?.id || restaurants[0].id);
@@ -2159,6 +2176,7 @@ function CreateModal({
   const [apps, setApps] = useState<DeliveryApp[]>(["baemin"]);
   const [minutes, setMinutes] = useState(30);
   const [capacity, setCapacity] = useState(4);
+  const [membership, setMembership] = useState<MembershipApp>("");
   const [restaurantQuery, setRestaurantQuery] = useState("");
   const [restaurantCategory, setRestaurantCategory] = useState("전체");
   const restaurant = restaurants.find((item) => item.id === restaurantId)!;
@@ -2179,9 +2197,11 @@ function CreateModal({
     ? Math.min(...apps.map((app) => restaurant.minimum[app]))
     : null;
   const toggleApp = (app: DeliveryApp) => {
-    setApps((current) => current.includes(app)
+    const removing = apps.includes(app);
+    setApps((current) => removing
       ? current.filter((item) => item !== app)
       : [...current, app]);
+    if (removing && membership === app) setMembership("");
   };
 
   return (
@@ -2300,6 +2320,31 @@ function CreateModal({
         </div>
 
         <div className="form-field">
+          <label>무료배달 멤버십 <small>선택 사항</small></label>
+          <div className="membership-picker" role="group" aria-label="무료배달 멤버십 선택">
+            {apps.map((app) => (
+              <button
+                type="button"
+                className={`membership-toggle ${membership === app ? "active" : ""}`}
+                onClick={() => setMembership((current) => current === app ? "" : app)}
+                aria-pressed={membership === app}
+                key={app}
+              >
+                <span className="membership-toggle-check" aria-hidden="true">
+                  {membership === app ? "✓" : ""}
+                </span>
+                <span className="membership-toggle-copy">
+                  <strong>{appLabels[app].membership}</strong>
+                  <small>{appLabels[app].name} 무료배달 혜택 적용</small>
+                </span>
+                <em>{membership === app ? "무료 적용" : "선택"}</em>
+              </button>
+            ))}
+          </div>
+          <small className="multi-select-help">보유한 멤버십을 선택하면 예상 배달비를 무료로 표시해요.</small>
+        </div>
+
+        <div className="form-field">
           <label>모집 인원 <small>방장 포함 최대 인원</small></label>
           <div className="segmented capacity-selector" role="group" aria-label="주문방 최대 인원">
             {[2, 3, 4, 5, 6, 7, 8].map((value) => (
@@ -2318,7 +2363,14 @@ function CreateModal({
         <button
           className="primary-button create-submit"
           disabled={!apps.length}
-          onClick={() => onCreate({ restaurantId, pickup, apps, minutes, capacity })}
+          onClick={() => onCreate({
+            restaurantId,
+            pickup,
+            apps,
+            minutes,
+            capacity,
+            membership,
+          })}
         >
           {apps.length ? "식구 찾기 시작" : "주문 앱을 선택해 주세요"}
         </button>
@@ -2543,6 +2595,7 @@ export default function Home() {
     apps: DeliveryApp[];
     minutes: number;
     capacity: number;
+    membership: MembershipApp;
   }) => {
     const restaurant = restaurants.find((item) => item.id === values.restaurantId)!;
     const point = pickupPoints.find((item) => item.id === values.pickup)
@@ -2559,7 +2612,7 @@ export default function Home() {
         total: 0,
         target: Math.min(...values.apps.map((app) => restaurant.minimum[app])),
         capacity: values.capacity,
-        membership: "",
+        membership: values.membership,
         note: "같이 맛있게 먹어요!",
       });
       setShowCreate(false);

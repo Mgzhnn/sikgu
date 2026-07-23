@@ -579,7 +579,6 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 }
 
 .section-heading > div > span,
-.settlement-head > div > span,
 .impact-card > div > span {
   display: block;
   margin-bottom: 5px;
@@ -590,8 +589,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 }
 
 .section-heading h2,
-.pickup-panel-head h2,
-.settlement-head h2 {
+.pickup-panel-head h2 {
   margin: 0;
   color: var(--deep);
   font-size: 20px;
@@ -1429,182 +1427,12 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .map-link-row a span { color: var(--orange); }
 .map-orders { margin-top: 28px; }
 
-.active-order-card,
-.settlement-card,
 .settings-card {
   padding: 22px;
   border: 1px solid rgba(16, 52, 59, 0.075);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.9);
   box-shadow: var(--shadow-soft);
-}
-
-.active-order-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
-.active-order-top h2 { margin: 13px 0 4px; color: var(--deep); font-size: 21px; font-weight: 860; }
-.active-order-top p { margin: 0; color: var(--muted); font-size: 9px; }
-.order-total { display: flex; flex-direction: column; align-items: flex-end; }
-.order-total small { color: var(--muted); font-size: 8px; }
-.order-total strong { margin-top: 5px; color: var(--deep); font-size: 17px; }
-
-.order-timeline {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  margin: 29px 0 25px;
-}
-
-.order-timeline > div {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.order-timeline > div::before {
-  position: absolute;
-  top: 10px;
-  right: 0;
-  left: 0;
-  height: 2px;
-  background: #e7e5df;
-  content: "";
-}
-
-.order-timeline > div.done::before { background: var(--mint); }
-
-.order-timeline i {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  width: 21px;
-  height: 21px;
-  place-items: center;
-  border: 2px solid #d8dcda;
-  border-radius: 50%;
-  background: white;
-  color: white;
-  font-size: 8px;
-  font-style: normal;
-}
-
-.order-timeline .done i { border-color: var(--mint); background: var(--mint); }
-.order-timeline > div > span { display: flex; flex-direction: column; margin-top: 8px; }
-.order-timeline strong { color: var(--deep); font-size: 9px; }
-.order-timeline small { margin-top: 3px; color: var(--muted); font-size: 7.5px; }
-
-.arrival-note {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 13px;
-  border-radius: 15px;
-  background: #f8f6f1;
-}
-
-.arrival-note > div { display: flex; min-width: 0; flex: 1; flex-direction: column; }
-.arrival-note strong { color: var(--deep); font-size: 10px; }
-.arrival-note p { margin: 4px 0 0; color: var(--muted); font-size: 8px; }
-.arrival-note a { flex: 0 0 auto; color: var(--orange); font-size: 8.5px; font-weight: 800; }
-
-.settlement-card { margin-top: 15px; }
-.settlement-head { display: flex; align-items: flex-start; justify-content: space-between; }
-
-.free-delivery-badge {
-  display: grid;
-  grid-template-columns: auto auto;
-  column-gap: 7px;
-  align-items: center;
-  padding: 9px 11px;
-  border-radius: 12px;
-  background: var(--mint-soft);
-}
-
-.free-delivery-badge span { color: #5d826f; font-size: 7px; }
-.free-delivery-badge strong { color: #3c8465; font-size: 13px; }
-.free-delivery-badge small { grid-column: 1 / -1; margin-top: 2px; color: #79a08c; font-size: 6.5px; }
-.settlement-list { margin: 18px 0; border-top: 1px solid var(--line); }
-
-.settlement-list > div {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto auto;
-  gap: 10px;
-  align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.settlement-list .avatar { width: 32px; height: 32px; border-radius: 10px; background: #eaf0ee; color: var(--deep); font-size: 9px; }
-.settlement-person { display: flex; min-width: 0; flex-direction: column; }
-.settlement-person strong { color: var(--deep); font-size: 9.5px; }
-.settlement-person small { margin-top: 2px; color: var(--muted); font-size: 7.5px; }
-.settlement-list > div > strong { color: var(--deep); font-size: 9.5px; }
-
-.payment-status {
-  width: 47px;
-  padding: 5px 0;
-  border-radius: 999px;
-  background: var(--orange-soft);
-  color: var(--orange);
-  font-size: 7px;
-  font-weight: 800;
-  text-align: center;
-}
-
-.payment-status.complete { background: var(--mint-soft); color: #43866a; }
-.settlement-card > .primary-button { width: 100%; }
-
-.success-message {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px;
-  border-radius: 12px;
-  background: var(--mint-soft);
-  color: #3d8164;
-  font-size: 9px;
-  font-weight: 750;
-}
-
-.success-message span {
-  display: grid;
-  width: 17px;
-  height: 17px;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--mint);
-  color: white;
-  font-size: 8px;
-}
-
-.history-list {
-  overflow: hidden;
-  border: 1px solid rgba(16, 52, 59, 0.075);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.85);
-}
-
-.history-list article {
-  display: grid;
-  grid-template-columns: 43px minmax(120px, 1.2fr) minmax(90px, 1fr) auto 20px;
-  gap: 11px;
-  align-items: center;
-  padding: 13px 15px;
-  border-bottom: 1px solid var(--line);
-}
-
-.history-list article:last-child { border-bottom: 0; }
-.history-list article > div:nth-child(2) { display: flex; min-width: 0; flex-direction: column; }
-.history-list strong { color: var(--deep); font-size: 10px; }
-.history-list small { margin-top: 3px; color: var(--muted); font-size: 7.5px; }
-.history-list article > span { color: var(--muted); font-size: 8.5px; }
-.history-list article > b { color: var(--deep); font-size: 9px; }
-
-.history-list article > button {
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  color: var(--faint);
-  font-size: 20px;
 }
 
 .profile-hero {
@@ -2628,15 +2456,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   .map-panel, .map-panel iframe { min-height: 350px; }
   .pickup-panel { padding: 16px; }
 
-  .active-order-card,
-  .settlement-card,
   .settings-card { padding: 17px; }
-
-  .order-timeline strong { font-size: 7.5px; }
-  .arrival-note { align-items: flex-start; flex-wrap: wrap; }
-  .arrival-note a { width: 100%; margin-left: 55px; }
-  .history-list article { grid-template-columns: 43px minmax(0, 1fr) auto 18px; }
-  .history-list article > span { display: none; }
 
   .profile-hero {
     grid-template-columns: 63px 1fr;

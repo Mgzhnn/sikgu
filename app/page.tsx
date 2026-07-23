@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type View = "home" | "restaurants" | "map" | "profile";
 type DeliveryApp = "baemin" | "coupang";
@@ -42,8 +42,31 @@ type Pool = {
   capacity: number;
   apps: DeliveryApp[];
   membership: string;
-  joined?: boolean;
   note: string;
+  myStatus?: "requested" | "approved" | null;
+  isHost?: boolean;
+  pendingCount?: number;
+};
+
+type AuthUser = {
+  email: string;
+  displayName: string;
+};
+
+type RoomMember = {
+  user_email?: string;
+  display_name: string;
+  role: "host" | "member";
+  status: "requested" | "approved";
+  created_at: number;
+};
+
+type ChatMessage = {
+  id: string;
+  sender_name: string;
+  body: string;
+  created_at: number;
+  mine: number;
 };
 
 const money = (value: number) => `${value.toLocaleString("ko-KR")}원`;
@@ -573,6 +596,15 @@ function PoolCard({
   const restaurant = restaurants.find((item) => item.id === pool.restaurantId)!;
   const gap = Math.max(0, pool.target - pool.total);
   const ready = gap === 0;
+  const statusLabel = pool.isHost && pool.pendingCount
+    ? `${pool.pendingCount}명 승인 대기`
+    : pool.myStatus === "requested"
+      ? "승인 대기"
+      : pool.myStatus === "approved"
+        ? "참여 중"
+        : ready
+          ? "주문 가능"
+          : "모집중";
 
   return (
     <article className="pool-card">
@@ -582,7 +614,7 @@ function PoolCard({
           <div className="pool-identity">
             <div className="pool-title-line">
               <h3>{restaurant.name}</h3>
-              <span className={`status-pill ${ready ? "ready" : ""}`}>{ready ? "주문 가능" : "모집중"}</span>
+              <span className={`status-pill ${pool.myStatus === "approved" || ready ? "ready" : ""}`}>{statusLabel}</span>
             </div>
             <p>{restaurant.cuisine} · {restaurant.eta}</p>
           </div>
@@ -845,20 +877,17 @@ function MapView({
   pools,
   onCreate,
   initialPickup,
+  now,
 }: {
   onPool: (pool: Pool) => void;
   pools: Pool[];
   onCreate: () => void;
   initialPickup: string;
+  now: number;
 }) {
   const [selected, setSelected] = useState(
     pickupPoints.find((point) => point.id === initialPickup) || pickupPoints[0],
   );
-
-  useEffect(() => {
-    const nextPoint = pickupPoints.find((point) => point.id === initialPickup);
-    if (nextPoint) setSelected(nextPoint);
-  }, [initialPickup]);
 
   const nearbyPools = pools.filter((pool) => pool.pickup === selected.id);
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${selected.lat},${selected.lng}`;
@@ -927,7 +956,7 @@ function MapView({
         {pools.length ? (
           <div className="pool-grid">
             {(nearbyPools.length ? nearbyPools : pools.slice(0, 2)).map((pool) => (
-              <PoolCard pool={pool} now={Date.now()} onOpen={onPool} key={pool.id} />
+              <PoolCard pool={pool} now={now} onOpen={onPool} key={pool.id} />
             ))}
           </div>
         ) : (
@@ -948,26 +977,30 @@ function ProfileView({
   setMembership,
   onCreate,
   currentPickup,
+  user,
 }: {
   membership: string;
   setMembership: (value: string) => void;
   onCreate: () => void;
   currentPickup: string;
+  user: AuthUser | null;
 }) {
+  const profileName = user?.displayName || "게스트";
+
   return (
     <>
-      <Header title="반가워요, 민수님" subtitle="PROFILE · 나의 식구 생활" onCreate={onCreate} />
+      <Header title={user ? `반가워요, ${profileName}님` : "로그인하고 식구를 만나보세요"} subtitle="PROFILE · 나의 식구 생활" onCreate={onCreate} />
       <section className="profile-hero">
-        <div className="profile-avatar">민</div>
+        <div className="profile-avatar">{profileName.slice(0, 1).toUpperCase()}</div>
         <div>
-          <h2>김민수</h2>
-          <p>DGIST 대학원생 · {currentPickup}</p>
-          <span>이번 달 식구 레벨 <b>단골식구</b></span>
+          <h2>{profileName}</h2>
+          <p>{user ? user.email : "주문방 참여와 채팅에는 로그인이 필요해요"} · {currentPickup}</p>
+          <span>현재 위치 <b>{currentPickup}</b></span>
         </div>
         <div className="profile-stats">
-          <span><strong>18</strong><small>함께한 주문</small></span>
-          <span><strong>34,800원</strong><small>누적 절약</small></span>
-          <span><strong>4.9</strong><small>식구 매너</small></span>
+          <span><strong>—</strong><small>함께한 주문</small></span>
+          <span><strong>—</strong><small>누적 절약</small></span>
+          <span><strong>—</strong><small>식구 매너</small></span>
         </div>
       </section>
 
@@ -1030,12 +1063,16 @@ function RightRail({
   onPool,
   onMap,
   currentPickup,
+  user,
+  onAuth,
 }: {
   pools: Pool[];
   now: number;
   onPool: (pool: Pool) => void;
   onMap: () => void;
   currentPickup: string;
+  user: AuthUser | null;
+  onAuth: () => void;
 }) {
   const closest = pools.find((pool) => pool.pickup === currentPickup) || pools[0];
   const restaurant = closest
@@ -1048,9 +1085,9 @@ function RightRail({
   return (
     <aside className="right-rail">
       <section className="rail-profile">
-        <div className="avatar">민</div>
-        <div><strong>김민수</strong><small>{currentPickup} · 배민클럽</small></div>
-        <button aria-label="프로필 메뉴">•••</button>
+        <div className="avatar">{(user?.displayName || "?").slice(0, 1).toUpperCase()}</div>
+        <div><strong>{user?.displayName || "로그인이 필요해요"}</strong><small>{user ? `${currentPickup} · 인증됨` : "주문방·채팅 이용하기"}</small></div>
+        <button onClick={onAuth} aria-label={user ? "로그아웃" : "로그인"}>{user ? "↗" : "로그인"}</button>
       </section>
 
       <section className="smart-match">
@@ -1262,10 +1299,210 @@ function PoolModal({
 
         <div className="modal-footer">
           <div><span>예상 배달비</span><strong>{eachFee === 0 ? "0원" : money(eachFee)}<small> / 1인</small></strong></div>
-          <button className={pool.joined ? "secondary-button" : "primary-button"} onClick={() => onToggleJoin(pool)}>
-            {pool.joined ? "참여 취소" : ready ? "메뉴 담고 참여하기" : "이 주문에 참여하기"}
+          <button
+            className={pool.myStatus === "requested" ? "secondary-button" : "primary-button"}
+            onClick={() => onToggleJoin(pool)}
+            disabled={pool.myStatus === "requested"}
+          >
+            {pool.isHost
+              ? `참여자 관리${pool.pendingCount ? ` · ${pool.pendingCount}명 대기` : ""}`
+              : pool.myStatus === "approved"
+                ? "채팅방 열기"
+                : pool.myStatus === "requested"
+                  ? "방장 승인 대기 중"
+                  : ready
+                    ? "참여 신청하기"
+                    : "이 주문에 참여 신청"}
           </button>
         </div>
+      </section>
+    </div>
+  );
+}
+
+function RoomHubModal({
+  roomId,
+  onClose,
+  onChanged,
+}: {
+  roomId: string;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const [room, setRoom] = useState<Pool | null>(null);
+  const [members, setMembers] = useState<RoomMember[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [message, setMessage] = useState("");
+  const [inviteLink, setInviteLink] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const restaurant = room
+    ? restaurants.find((item) => item.id === room.restaurantId)
+    : undefined;
+
+  const loadRoom = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
+    const response = await fetch(`/api/sikgu?action=room&roomId=${encodeURIComponent(roomId)}`, {
+      cache: "no-store",
+    });
+    const data = await response.json() as {
+      error?: string;
+      room?: Pool;
+      members?: RoomMember[];
+      messages?: ChatMessage[];
+    };
+    if (!response.ok || !data.room) {
+      setError(data.error || "주문방을 불러오지 못했어요.");
+      setLoading(false);
+      return;
+    }
+    setRoom(data.room);
+    setMembers(data.members || []);
+    setMessages(data.messages || []);
+    setError("");
+    setLoading(false);
+  }, [roomId]);
+
+  useEffect(() => {
+    const initialTimer = window.setTimeout(() => void loadRoom(), 0);
+    const timer = window.setInterval(() => void loadRoom(true), 3000);
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(timer);
+    };
+  }, [loadRoom]);
+
+  const post = async (payload: Record<string, unknown>) => {
+    const response = await fetch("/api/sikgu", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...payload, roomId }),
+    });
+    const data = await response.json() as { error?: string; token?: string };
+    if (!response.ok) throw new Error(data.error || "요청을 처리하지 못했어요.");
+    return data;
+  };
+
+  const review = async (memberEmail: string, decision: "approve" | "reject") => {
+    try {
+      await post({ action: "review_member", memberEmail, decision });
+      await loadRoom(true);
+      onChanged();
+    } catch (reviewError) {
+      setError(reviewError instanceof Error ? reviewError.message : "참여자 상태를 변경하지 못했어요.");
+    }
+  };
+
+  const createInvite = async () => {
+    try {
+      const data = await post({ action: "create_invite" });
+      const link = `${window.location.origin}/?room=${encodeURIComponent(roomId)}&invite=${encodeURIComponent(data.token || "")}`;
+      setInviteLink(link);
+      await navigator.clipboard.writeText(link);
+    } catch (inviteError) {
+      setError(inviteError instanceof Error ? inviteError.message : "초대 링크를 만들지 못했어요.");
+    }
+  };
+
+  const sendMessage = async () => {
+    const body = message.trim();
+    if (!body) return;
+    try {
+      await post({ action: "send_message", body });
+      setMessage("");
+      await loadRoom(true);
+    } catch (messageError) {
+      setError(messageError instanceof Error ? messageError.message : "메시지를 보내지 못했어요.");
+    }
+  };
+
+  return (
+    <div className="overlay centered" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className="room-hub" role="dialog" aria-modal="true" aria-label="비공개 주문방 채팅">
+        <div className="room-hub-head">
+          <div>
+            <span>PRIVATE ORDER ROOM</span>
+            <h2>{restaurant?.name || "주문방"}</h2>
+            <p>{room ? `${room.pickupFull} · ${room.people}/${room.capacity}명` : "주문방 정보를 불러오는 중"}</p>
+          </div>
+          <button onClick={onClose} aria-label="주문방 채팅 닫기">×</button>
+        </div>
+
+        {loading ? (
+          <div className="room-hub-loading">주문방을 불러오고 있어요…</div>
+        ) : error && !room ? (
+          <div className="room-hub-error"><strong>접근할 수 없어요</strong><p>{error}</p></div>
+        ) : room ? (
+          <div className="room-hub-body">
+            <aside className="member-panel">
+              <div className="member-panel-head">
+                <div><strong>함께할 식구</strong><small>승인된 사람만 채팅 가능</small></div>
+                {room.isHost && <button onClick={createInvite}>초대 링크</button>}
+              </div>
+              {inviteLink && (
+                <div className="invite-success">
+                  <span>✓</span>
+                  <div><strong>초대 링크를 복사했어요</strong><small>24시간 동안 사용할 수 있어요.</small></div>
+                </div>
+              )}
+              <div className="member-list">
+                {members.map((member) => (
+                  <div className={member.status === "requested" ? "pending" : ""} key={`${member.user_email || member.display_name}-${member.created_at}`}>
+                    <span className="avatar">{member.display_name.slice(0, 1).toUpperCase()}</span>
+                    <span><strong>{member.display_name}</strong><small>{member.role === "host" ? "방장" : member.status === "approved" ? "참여 확정" : "참여 신청"}</small></span>
+                    {room.isHost && member.status === "requested" && member.user_email ? (
+                      <span className="member-actions">
+                        <button onClick={() => review(member.user_email!, "approve")}>승인</button>
+                        <button onClick={() => review(member.user_email!, "reject")}>거절</button>
+                      </span>
+                    ) : (
+                      <b>{member.status === "approved" ? "✓" : ""}</b>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </aside>
+
+            <section className="chat-panel">
+              <div className="chat-head">
+                <div><span className="lock-mark">⌁</span><strong>주문방 채팅</strong></div>
+                <small>초대·승인된 구성원 전용</small>
+              </div>
+              <div className="chat-messages" aria-live="polite">
+                {!messages.length && (
+                  <div className="chat-empty">
+                    <span>식</span>
+                    <strong>첫 메시지를 남겨보세요</strong>
+                    <p>메뉴와 픽업 시간을 안전하게 조율할 수 있어요.</p>
+                  </div>
+                )}
+                {messages.map((item) => (
+                  <article className={item.mine ? "mine" : ""} key={item.id}>
+                    {!item.mine && <small>{item.sender_name}</small>}
+                    <div><p>{item.body}</p><time>{new Date(item.created_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}</time></div>
+                  </article>
+                ))}
+              </div>
+              <div className="chat-composer">
+                <textarea
+                  value={message}
+                  onChange={(event) => setMessage(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      void sendMessage();
+                    }
+                  }}
+                  placeholder="메시지를 입력하세요"
+                  maxLength={1000}
+                  rows={1}
+                />
+                <button onClick={sendMessage} disabled={!message.trim()} aria-label="메시지 보내기">↑</button>
+              </div>
+            </section>
+          </div>
+        ) : null}
+        {error && room && <div className="room-hub-inline-error" role="status">{error}</div>}
       </section>
     </div>
   );
@@ -1280,7 +1517,13 @@ function CreateModal({
   preferredRestaurant?: Restaurant;
   preferredPickup: string;
   onClose: () => void;
-  onCreate: (values: { restaurantId: string; pickup: string; apps: DeliveryApp[]; minutes: number }) => void;
+  onCreate: (values: {
+    restaurantId: string;
+    pickup: string;
+    apps: DeliveryApp[];
+    minutes: number;
+    capacity: number;
+  }) => void;
 }) {
   const [restaurantId, setRestaurantId] = useState(preferredRestaurant?.id || restaurants[0].id);
   const [pickup, setPickup] = useState(
@@ -1288,6 +1531,7 @@ function CreateModal({
   );
   const [apps, setApps] = useState<DeliveryApp[]>(["baemin"]);
   const [minutes, setMinutes] = useState(30);
+  const [capacity, setCapacity] = useState(4);
   const [restaurantQuery, setRestaurantQuery] = useState("");
   const [restaurantCategory, setRestaurantCategory] = useState("전체");
   const restaurant = restaurants.find((item) => item.id === restaurantId)!;
@@ -1428,6 +1672,22 @@ function CreateModal({
           </div>
         </div>
 
+        <div className="form-field">
+          <label>모집 인원 <small>방장 포함 최대 인원</small></label>
+          <div className="segmented capacity-selector" role="group" aria-label="주문방 최대 인원">
+            {[2, 3, 4, 5, 6, 7, 8].map((value) => (
+              <button
+                className={capacity === value ? "active" : ""}
+                onClick={() => setCapacity(value)}
+                aria-pressed={capacity === value}
+                key={value}
+              >
+                {value}명
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="membership-callout">
           <span>{apps.length === 2 ? "✓" : apps[0] === "baemin" ? "✓" : "✦"}</span>
           <div>
@@ -1439,7 +1699,7 @@ function CreateModal({
         <button
           className="primary-button create-submit"
           disabled={!apps.length}
-          onClick={() => onCreate({ restaurantId, pickup, apps, minutes })}
+          onClick={() => onCreate({ restaurantId, pickup, apps, minutes, capacity })}
         >
           {apps.length ? "식구 찾기 시작" : "주문 앱을 선택해 주세요"}
         </button>
@@ -1451,7 +1711,9 @@ function CreateModal({
 export default function Home() {
   const [view, setView] = useState<View>("home");
   const [pools, setPools] = useState<Pool[]>(initialPools);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [selectedPool, setSelectedPool] = useState<Pool | null>(null);
+  const [roomHubId, setRoomHubId] = useState<string | null>(null);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [createFor, setCreateFor] = useState<Restaurant | undefined>();
   const [showCreate, setShowCreate] = useState(false);
@@ -1463,8 +1725,42 @@ export default function Home() {
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationReady, setLocationReady] = useState(false);
   const [toast, setToast] = useState("");
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   const currentPoint = pickupPoints.find((point) => point.id === currentPickup) || pickupPoints[0];
+
+  const notify = useCallback((message: string) => {
+    setToast(message);
+    window.setTimeout(() => setToast(""), 2600);
+  }, []);
+
+  const signIn = useCallback(() => {
+    const returnTo = `${window.location.pathname}${window.location.search}`;
+    window.location.assign(`/signin-with-chatgpt?return_to=${encodeURIComponent(returnTo)}`);
+  }, []);
+
+  const postAction = useCallback(async (payload: Record<string, unknown>) => {
+    const response = await fetch("/api/sikgu", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json() as { error?: string; signInPath?: string; roomId?: string };
+    if (response.status === 401) {
+      signIn();
+      throw new Error("로그인이 필요합니다.");
+    }
+    if (!response.ok) throw new Error(data.error || "요청을 처리하지 못했어요.");
+    return data;
+  }, [signIn]);
+
+  const loadRooms = useCallback(async () => {
+    const response = await fetch("/api/sikgu?action=bootstrap", { cache: "no-store" });
+    const data = await response.json() as { user: AuthUser | null; rooms: Pool[]; error?: string };
+    if (!response.ok) throw new Error(data.error || "주문방을 불러오지 못했어요.");
+    setUser(data.user);
+    setPools(data.rooms || []);
+    return data;
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30000);
@@ -1472,11 +1768,46 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const savedPickup = window.localStorage.getItem(currentPickupStorageKey);
-    if (savedPickup && pickupPoints.some((point) => point.id === savedPickup)) {
-      setCurrentPickup(savedPickup);
-    }
-    setLocationReady(true);
+    let active = true;
+    const initialize = async () => {
+      try {
+        const data = await loadRooms();
+        if (!active) return;
+        const params = new URLSearchParams(window.location.search);
+        const invite = params.get("invite");
+        const invitedRoomId = params.get("room");
+        if (invite && invitedRoomId) {
+          if (!data.user) {
+            signIn();
+            return;
+          }
+          await postAction({ action: "accept_invite", roomId: invitedRoomId, token: invite });
+          window.history.replaceState({}, "", window.location.pathname);
+          await loadRooms();
+          setRoomHubId(invitedRoomId);
+          notify("주문방 초대를 수락했어요.");
+        }
+      } catch (loadError) {
+        if (active) notify(loadError instanceof Error ? loadError.message : "주문방을 불러오지 못했어요.");
+      }
+    };
+    void initialize();
+    const timer = window.setInterval(() => void loadRooms().catch(() => undefined), 10000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [loadRooms, notify, postAction, signIn]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const savedPickup = window.localStorage.getItem(currentPickupStorageKey);
+      if (savedPickup && pickupPoints.some((point) => point.id === savedPickup)) {
+        setCurrentPickup(savedPickup);
+      }
+      setLocationReady(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -1492,59 +1823,80 @@ export default function Home() {
     return "주문 모아보기";
   }, [view]);
 
-  const notify = (message: string) => {
-    setToast(message);
-    window.setTimeout(() => setToast(""), 2600);
-  };
-
   const openCreate = (restaurant?: Restaurant) => {
+    if (!user) {
+      signIn();
+      return;
+    }
     setCreateFor(restaurant);
     setShowCreate(true);
   };
 
-  const handleToggleJoin = (pool: Pool) => {
-    const joining = !pool.joined;
-    setPools((current) => current.map((item) => item.id === pool.id
-      ? { ...item, joined: joining, people: item.people + (joining ? 1 : -1), total: item.total + (joining ? 4500 : -4500) }
-      : item));
-    setSelectedPool(null);
-    notify(joining ? "주문방에 참여했어요. 이제 내 메뉴를 골라주세요." : "주문방 참여를 취소했어요.");
+  const handleToggleJoin = async (pool: Pool) => {
+    if (!user) {
+      signIn();
+      return;
+    }
+    if (pool.isHost || pool.myStatus === "approved") {
+      setSelectedPool(null);
+      setRoomHubId(pool.id);
+      return;
+    }
+    if (pool.myStatus === "requested") return;
+    try {
+      await postAction({ action: "request_join", roomId: pool.id });
+      setSelectedPool(null);
+      await loadRooms();
+      notify("참여 신청을 보냈어요. 방장이 승인하면 채팅방이 열립니다.");
+    } catch (joinError) {
+      notify(joinError instanceof Error ? joinError.message : "참여 신청을 보내지 못했어요.");
+    }
   };
 
-  const handleCreate = (values: { restaurantId: string; pickup: string; apps: DeliveryApp[]; minutes: number }) => {
+  const handleCreate = async (values: {
+    restaurantId: string;
+    pickup: string;
+    apps: DeliveryApp[];
+    minutes: number;
+    capacity: number;
+  }) => {
     const restaurant = restaurants.find((item) => item.id === values.restaurantId)!;
     const point = pickupPoints.find((item) => item.id === values.pickup)
       || pickupPoints.find((item) => item.id === "E3")
       || pickupPoints[0];
-    const newPool: Pool = {
-      id: `pool-${Date.now()}`,
-      restaurantId: values.restaurantId,
-      host: "나",
-      pickup: point.id,
-      pickupFull: point.full,
-      closesAt: Date.now() + values.minutes * 60 * 1000,
-      total: Object.entries(cart).reduce((sum, [id, quantity]) => {
-        const menuItem = restaurant.menu.flatMap((group) => group.items).find((item) => item.id === id);
-        return sum + (menuItem?.price || 0) * quantity;
-      }, 0),
-      target: Math.min(...values.apps.map((app) => restaurant.minimum[app])),
-      people: 1,
-      capacity: 4,
-      apps: values.apps,
-      membership: values.apps.length === 2
-        ? "결제 앱은 주문 확정 전에 선택"
-        : values.apps[0] === "baemin"
-          ? "배민클럽 보유자 결제"
-          : "쿠팡와우 보유자 찾는 중",
-      joined: true,
-      note: "같이 맛있게 먹어요!",
-    };
-    setPools((current) => [newPool, ...current]);
-    setShowCreate(false);
-    setSelectedRestaurant(null);
-    setCart({});
-    setView("home");
-    notify("새 주문방을 열었어요. 주변 식구에게 알려드렸습니다.");
+    const total = Object.entries(cart).reduce((sum, [id, quantity]) => {
+      const menuItem = restaurant.menu.flatMap((group) => group.items).find((item) => item.id === id);
+      return sum + (menuItem?.price || 0) * quantity;
+    }, 0);
+    const membershipCopy = values.apps.length === 2
+      ? "결제 앱은 주문 확정 전에 선택"
+      : values.apps[0] === "baemin"
+        ? "배민클럽 보유자 결제"
+        : "쿠팡와우 보유자 찾는 중";
+    try {
+      const result = await postAction({
+        action: "create_room",
+        restaurantId: values.restaurantId,
+        pickup: point.id,
+        pickupFull: point.full,
+        apps: values.apps,
+        closesAt: Date.now() + values.minutes * 60 * 1000,
+        total,
+        target: Math.min(...values.apps.map((app) => restaurant.minimum[app])),
+        capacity: values.capacity,
+        membership: membershipCopy,
+        note: "같이 맛있게 먹어요!",
+      });
+      setShowCreate(false);
+      setSelectedRestaurant(null);
+      setCart({});
+      setView("home");
+      await loadRooms();
+      if (result.roomId) setRoomHubId(result.roomId);
+      notify("새 주문방을 열었어요. 참여자를 선택하고 초대할 수 있어요.");
+    } catch (createError) {
+      notify(createError instanceof Error ? createError.message : "주문방을 만들지 못했어요.");
+    }
   };
 
   const navigate = (next: View) => {
@@ -1619,11 +1971,28 @@ export default function Home() {
           />
         )}
         {view === "restaurants" && <RestaurantsView onMenu={(restaurant) => { setSelectedRestaurant(restaurant); setCart({}); }} onCreate={openCreate} />}
-        {view === "map" && <MapView pools={pools} initialPickup={currentPickup} onPool={setSelectedPool} onCreate={() => openCreate()} />}
-        {view === "profile" && <ProfileView membership={membership} currentPickup={currentPickup} onCreate={() => openCreate()} setMembership={(value) => { setMembership(value); notify("배달 멤버십 정보를 저장했어요."); }} />}
+        {view === "map" && (
+          <MapView
+            key={currentPickup}
+            pools={pools}
+            initialPickup={currentPickup}
+            now={now}
+            onPool={setSelectedPool}
+            onCreate={() => openCreate()}
+          />
+        )}
+        {view === "profile" && <ProfileView membership={membership} currentPickup={currentPickup} user={user} onCreate={() => openCreate()} setMembership={(value) => { setMembership(value); notify("배달 멤버십 정보를 저장했어요."); }} />}
       </main>
 
-      <RightRail pools={pools} now={now} currentPickup={currentPickup} onPool={setSelectedPool} onMap={() => navigate("map")} />
+      <RightRail
+        pools={pools}
+        now={now}
+        currentPickup={currentPickup}
+        user={user}
+        onPool={setSelectedPool}
+        onMap={() => navigate("map")}
+        onAuth={() => window.location.assign(user ? "/signout-with-chatgpt?return_to=/" : "/signin-with-chatgpt?return_to=/")}
+      />
 
       <nav className="mobile-nav" aria-label="모바일 주 메뉴">
         {navItems.map((item) => (
@@ -1653,6 +2022,13 @@ export default function Home() {
           preferredPickup={currentPickup}
           onClose={() => setShowCreate(false)}
           onCreate={handleCreate}
+        />
+      )}
+      {roomHubId && (
+        <RoomHubModal
+          roomId={roomHubId}
+          onClose={() => setRoomHubId(null)}
+          onChanged={() => void loadRooms()}
         />
       )}
 

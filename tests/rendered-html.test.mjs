@@ -86,7 +86,7 @@ test("offers the expanded DGIST pickup point grid", async () => {
   assert.match(css, /\.choice-grid \{[\s\S]*grid-template-columns: repeat\(3, 1fr\)/);
 });
 
-test("ships with no fabricated live orders or order history", async () => {
+test("ships with no fabricated live orders", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
   assert.match(page, /const initialPools: Pool\[\] = \[\];/);
@@ -94,7 +94,6 @@ test("ships with no fabricated live orders or order history", async () => {
   assert.doesNotMatch(page, /활성 주문 9개/);
   assert.doesNotMatch(page, /이번 주 절약[\s\S]*18,300원/);
   assert.match(page, /아직 활성 주문방이 없어요/);
-  assert.match(page, /아직 참여 중인 주문이 없어요/);
 });
 
 test("supports selecting both delivery apps for one order pool", async () => {
@@ -120,4 +119,17 @@ test("does not ship the inactive notification control", async () => {
   assert.doesNotMatch(page, /aria-label="알림"/);
   assert.doesNotMatch(page, /className="icon-button notification"/);
   assert.doesNotMatch(css, /\.notification i/);
+});
+
+test("removes the delivery-app-owned order tracking section", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.doesNotMatch(page, /id: "orders"/);
+  assert.doesNotMatch(page, /function OrdersView/);
+  assert.doesNotMatch(page, /내 주문을 한눈에 확인해요/);
+  assert.doesNotMatch(css, /\.order-timeline/);
+  assert.doesNotMatch(css, /\.settlement-card/);
 });

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type View = "home" | "restaurants" | "map" | "orders" | "profile";
+type View = "home" | "restaurants" | "map" | "profile";
 type DeliveryApp = "baemin" | "coupang";
 
 type MenuItem = {
@@ -522,7 +522,6 @@ const navItems: { id: View; label: string; compact: string; icon: string }[] = [
   { id: "home", label: "주문 모아보기", compact: "홈", icon: "⌂" },
   { id: "restaurants", label: "가게 · 메뉴", compact: "가게", icon: "⌕" },
   { id: "map", label: "캠퍼스 지도", compact: "지도", icon: "◎" },
-  { id: "orders", label: "내 주문", compact: "주문", icon: "◷" },
   { id: "profile", label: "내 정보", compact: "MY", icon: "◌" },
 ];
 
@@ -925,43 +924,6 @@ function MapView({
             <span>＋</span>
             <h3>아직 활성 주문방이 없어요</h3>
             <p>이 픽업 장소의 첫 주문방을 만들어 보세요.</p>
-            <button className="primary-button" onClick={onCreate}>주문방 만들기</button>
-          </div>
-        )}
-      </section>
-    </>
-  );
-}
-
-function OrdersView({
-  pools,
-  now,
-  onPool,
-  onCreate,
-}: {
-  pools: Pool[];
-  now: number;
-  onPool: (pool: Pool) => void;
-  onCreate: () => void;
-}) {
-  const myPools = pools.filter((pool) => pool.joined);
-
-  return (
-    <>
-      <Header title="내 주문을 한눈에 확인해요" subtitle="ORDERS · 정산까지 깔끔하게" onCreate={onCreate} />
-      <section className="section-block">
-        <div className="section-heading">
-          <div><span>MY POOLS</span><h2>참여 중인 주문</h2></div>
-        </div>
-        {myPools.length ? (
-          <div className="pool-grid">
-            {myPools.map((pool) => <PoolCard key={pool.id} pool={pool} now={now} onOpen={onPool} />)}
-          </div>
-        ) : (
-          <div className="empty-state orders-empty">
-            <span>◷</span>
-            <h3>아직 참여 중인 주문이 없어요</h3>
-            <p>공개된 주문방에 참여하거나 새 주문방을 만들어 보세요.</p>
             <button className="primary-button" onClick={onCreate}>주문방 만들기</button>
           </div>
         )}
@@ -1479,7 +1441,6 @@ export default function Home() {
   const viewCopy = useMemo(() => {
     if (view === "restaurants") return "가게 · 메뉴";
     if (view === "map") return "캠퍼스 지도";
-    if (view === "orders") return "내 주문";
     if (view === "profile") return "내 정보";
     return "주문 모아보기";
   }, [view]);
@@ -1558,7 +1519,6 @@ export default function Home() {
             <button className={view === item.id ? "active" : ""} onClick={() => navigate(item.id)} key={item.id}>
               <span className="nav-icon">{item.icon}</span>
               <span>{item.label}</span>
-              {item.id === "orders" && pools.some((pool) => pool.joined) && <i>{pools.filter((pool) => pool.joined).length}</i>}
             </button>
           ))}
         </nav>
@@ -1585,7 +1545,6 @@ export default function Home() {
         )}
         {view === "restaurants" && <RestaurantsView onMenu={(restaurant) => { setSelectedRestaurant(restaurant); setCart({}); }} onCreate={openCreate} />}
         {view === "map" && <MapView pools={pools} onPool={setSelectedPool} onCreate={() => openCreate()} />}
-        {view === "orders" && <OrdersView pools={pools} now={now} onPool={setSelectedPool} onCreate={() => openCreate()} />}
         {view === "profile" && <ProfileView membership={membership} onCreate={() => openCreate()} setMembership={(value) => { setMembership(value); notify("배달 멤버십 정보를 저장했어요."); }} />}
       </main>
 
@@ -1595,7 +1554,6 @@ export default function Home() {
         {navItems.map((item) => (
           <button className={view === item.id ? "active" : ""} onClick={() => navigate(item.id)} key={item.id}>
             <span>{item.icon}</span><small>{item.compact}</small>
-            {item.id === "orders" && pools.some((pool) => pool.joined) && <i />}
           </button>
         ))}
       </nav>

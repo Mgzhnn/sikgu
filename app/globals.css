@@ -307,31 +307,6 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 
 .header-actions { display: flex; align-items: center; gap: 10px; }
 
-.icon-button {
-  position: relative;
-  display: grid;
-  width: 42px;
-  height: 42px;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  background: rgba(255, 255, 255, 0.78);
-  cursor: pointer;
-}
-
-.icon-button span { color: var(--deep); font-size: 20px; }
-
-.notification i {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 6px;
-  height: 6px;
-  border: 1px solid white;
-  border-radius: 50%;
-  background: var(--orange);
-}
-
 .primary-button,
 .secondary-button,
 .light-button,

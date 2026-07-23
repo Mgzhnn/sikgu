@@ -633,9 +633,6 @@ function Header({
         <h1>{title}</h1>
       </div>
       <div className="header-actions">
-        <button className="icon-button notification" aria-label="알림">
-          <span>♢</span><i />
-        </button>
         <button className="primary-button compact" onClick={onCreate}><span>＋</span> 주문방 만들기</button>
       </div>
     </header>

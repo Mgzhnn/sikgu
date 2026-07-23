@@ -126,8 +126,6 @@ test("removes unimplemented integrations and fabricated profile data", async () 
     "식구 매너",
     "일회용품 12개",
     "YOUR JULY IMPACT",
-    "배달 멤버십",
-    "멤버십 보유자가 결제",
     "이*연",
   ]) {
     assert.doesNotMatch(page, new RegExp(unsupported.replace("*", "\\*")));
@@ -138,6 +136,23 @@ test("removes unimplemented integrations and fabricated profile data", async () 
   assert.doesNotMatch(css, /\.impact-card/);
   assert.doesNotMatch(css, /\.membership-options/);
   assert.doesNotMatch(css, /\.participant-list/);
+});
+
+test("shows membership-backed delivery as free", async () => {
+  const [page, api] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/sikgu/route.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /type MembershipApp = DeliveryApp \| ""/);
+  assert.match(page, /membership: "배민클럽"/);
+  assert.match(page, /membership: "쿠팡 와우"/);
+  assert.match(page, /const membershipApplied = membershipApp !== null && pool\.apps\.includes\(membershipApp\)/);
+  assert.match(page, /membership,\s*\}\)}/);
+  assert.match(page, /\{hasFreeDelivery \? "무료" : money\(eachFee\)\}/);
+  assert.match(page, /\{!hasFreeDelivery && <small> \/ 1인<\/small>\}/);
+  assert.match(api, /if \(membership && !apps\.includes\(membership\)\)/);
+  assert.match(api, /선택한 주문 앱과 무료배달 멤버십이 일치하지 않습니다/);
 });
 
 test("removes the delivery-app-owned order tracking section", async () => {

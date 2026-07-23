@@ -2641,6 +2641,60 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   font-size: 8px;
 }
 
+.membership-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.membership-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #fbfaf7;
+  cursor: pointer;
+  text-align: left;
+}
+
+.membership-toggle.active {
+  border-color: #b9dfca;
+  background: var(--mint-soft);
+}
+
+.membership-toggle-check {
+  display: grid;
+  width: 19px;
+  height: 19px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #d4d7d4;
+  border-radius: 50%;
+  background: white;
+  color: white;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.membership-toggle.active .membership-toggle-check {
+  border-color: var(--mint);
+  background: var(--mint);
+}
+
+.membership-toggle-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.membership-toggle-copy strong { color: var(--deep); font-size: 8px; }
+.membership-toggle-copy small { margin-top: 2px; color: var(--muted); font-size: 6.5px; line-height: 1.35; }
+.membership-toggle em { color: var(--orange); font-size: 7px; font-style: normal; font-weight: 850; }
+
 .form-field > label small { margin-left: 5px; color: var(--muted); font-size: 7px; font-weight: 600; }
 .capacity-selector { grid-template-columns: repeat(7, 1fr); }
 .create-submit { width: 100%; margin-top: 18px; }

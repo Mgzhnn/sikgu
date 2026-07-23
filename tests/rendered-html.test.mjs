@@ -58,7 +58,7 @@ test("offers the expanded DGIST pickup point grid", async () => {
     "E5 택배보관함",
     "E6 택배보관함",
     "201-204 사이 택배 수령장소",
-    "대학원생활관 정문",
+    "비슬빌리지 206동 택배 수령장소",
   ]) {
     assert.match(page, new RegExp(pickup.replace("·", "\\·")));
   }
@@ -68,6 +68,9 @@ test("offers the expanded DGIST pickup point grid", async () => {
   assert.match(page, /code: "201-204"/);
   assert.match(page, /lat: 35\.7035625/);
   assert.match(page, /lng: 128\.4624375/);
+  assert.match(page, /code: "206"/);
+  assert.match(page, /lat: 35\.7037343/);
+  assert.match(page, /lng: 128\.4633301/);
   assert.doesNotMatch(page, /pickupPoints\.slice\(0,\s*4\)/);
   assert.match(css, /\.choice-grid \{[\s\S]*grid-template-columns: repeat\(3, 1fr\)/);
 });

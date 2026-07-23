@@ -552,7 +552,14 @@ const pickupPoints: PickupPoint[] = [
     lat: 35.7035625,
     lng: 128.4624375,
   },
-  { id: "대학원", full: "대학원생활관 정문", walk: 8, lat: 35.703, lng: 128.4568 },
+  {
+    id: "대학원",
+    code: "206",
+    full: "비슬빌리지 206동 택배 수령장소",
+    walk: 8,
+    lat: 35.7037343,
+    lng: 128.4633301,
+  },
 ];
 
 const currentPickupStorageKey = "sikgu-current-pickup";

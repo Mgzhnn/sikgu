@@ -528,14 +528,30 @@ const restaurants: Restaurant[] = [
   },
 ];
 
-const pickupPoints = [
+type PickupPoint = {
+  id: string;
+  code?: string;
+  full: string;
+  walk: number;
+  lat: number;
+  lng: number;
+};
+
+const pickupPoints: PickupPoint[] = [
   { id: "E1", full: "E1 연구동 정문", walk: 3, lat: 35.706, lng: 128.456 },
   { id: "E2", full: "E2 택배보관함", walk: 2, lat: 35.7057, lng: 128.4565 },
   { id: "E3", full: "E3 택배보관함", walk: 1, lat: 35.705312, lng: 128.457146 },
   { id: "E4", full: "E4 택배보관함", walk: 4, lat: 35.7049, lng: 128.4576 },
   { id: "E5", full: "E5 택배보관함", walk: 5, lat: 35.7045, lng: 128.458 },
   { id: "E6", full: "E6 택배보관함", walk: 6, lat: 35.7041, lng: 128.4584 },
-  { id: "201·202", full: "학생생활관 201·202동 사이", walk: 7, lat: 35.7018, lng: 128.456 },
+  {
+    id: "201·202",
+    code: "201-204",
+    full: "201-204 사이 택배 수령장소",
+    walk: 7,
+    lat: 35.7035625,
+    lng: 128.4624375,
+  },
   { id: "대학원", full: "대학원생활관 정문", walk: 8, lat: 35.703, lng: 128.4568 },
 ];
 
@@ -900,7 +916,7 @@ function MapView({
             referrerPolicy="no-referrer-when-downgrade"
           />
           <div className="map-floating-card">
-            <span className="map-pin-large">{selected.id}</span>
+            <span className="map-pin-large">{selected.code ?? selected.id}</span>
             <div>
               <small>선택한 픽업 장소</small>
               <strong>{selected.full}</strong>
@@ -925,7 +941,7 @@ function MapView({
                 onClick={() => setSelected(point)}
                 key={point.id}
               >
-                <span className="pickup-code">{point.id}</span>
+                <span className="pickup-code">{point.code ?? point.id}</span>
                 <span>
                   <strong>{point.full}</strong>
                   <small>도보 {point.walk}분 · 주문방 {pools.filter((pool) => pool.pickup === point.id).length}개</small>
@@ -944,7 +960,7 @@ function MapView({
       <section className="section-block map-orders">
         <div className="section-heading">
           <div>
-            <span>AT {selected.id}</span>
+            <span>AT {selected.code ?? selected.id}</span>
             <h2>{nearbyPools.length ? "이곳에서 받을 수 있는 주문" : "가까운 활성 주문"}</h2>
           </div>
         </div>
@@ -1485,7 +1501,7 @@ function CreateModal({
           <div className="choice-grid">
             {pickupPoints.map((point) => (
               <button className={pickup === point.id ? "active" : ""} onClick={() => setPickup(point.id)} key={point.id}>
-                <span>{point.id}</span><small>{point.full}</small>
+                <span>{point.code ?? point.id}</span><small>{point.full}</small>
               </button>
             ))}
           </div>
@@ -1739,7 +1755,7 @@ export default function Home() {
             aria-expanded={locationOpen}
             aria-haspopup="listbox"
           >
-            <i /> DGIST {currentPoint.id} <b>{locationOpen ? "⌃" : "⌄"}</b>
+            <i /> DGIST {currentPoint.code ?? currentPoint.id} <b>{locationOpen ? "⌃" : "⌄"}</b>
           </button>
           {locationOpen && (
             <div className="location-menu" role="listbox" aria-label="현재 위치 선택">
@@ -1755,7 +1771,7 @@ export default function Home() {
                   aria-selected={currentPickup === point.id}
                   key={point.id}
                 >
-                  <span className="location-code">{point.id}</span>
+                  <span className="location-code">{point.code ?? point.id}</span>
                   <span><strong>{point.full}</strong><small>도보 기준 {point.walk}분</small></span>
                   <b>{currentPickup === point.id ? "✓" : ""}</b>
                 </button>

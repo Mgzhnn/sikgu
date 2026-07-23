@@ -864,6 +864,33 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .empty-state h3 { margin: 8px 0 5px; color: var(--deep); font-size: 16px; }
 .empty-state p { margin: 0 0 18px; color: var(--muted); font-size: 11px; }
 
+.smart-pool-empty {
+  display: grid;
+  min-height: 150px;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  padding: 22px 18px;
+  border: 1px dashed #d9d4c9;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.55);
+  text-align: center;
+}
+
+.smart-pool-empty > span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--orange-soft);
+  color: var(--orange);
+  font-size: 20px;
+}
+
+.smart-pool-empty strong { color: var(--deep); font-size: 11px; }
+.smart-pool-empty small { max-width: 170px; color: var(--muted); font-size: 8px; line-height: 1.55; }
+
 .right-rail {
   position: sticky;
   top: 0;

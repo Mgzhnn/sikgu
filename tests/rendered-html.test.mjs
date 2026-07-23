@@ -85,3 +85,14 @@ test("offers the expanded DGIST pickup point grid", async () => {
   assert.doesNotMatch(page, /pickupPoints\.slice\(0,\s*4\)/);
   assert.match(css, /\.choice-grid \{[\s\S]*grid-template-columns: repeat\(3, 1fr\)/);
 });
+
+test("ships with no fabricated live orders or order history", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /const initialPools: Pool\[\] = \[\];/);
+  assert.doesNotMatch(page, /id: "p[1-4]"/);
+  assert.doesNotMatch(page, /활성 주문 9개/);
+  assert.doesNotMatch(page, /이번 주 절약[\s\S]*18,300원/);
+  assert.match(page, /아직 활성 주문방이 없어요/);
+  assert.match(page, /아직 참여 중인 주문이 없어요/);
+});

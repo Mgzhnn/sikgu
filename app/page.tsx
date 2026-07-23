@@ -506,78 +506,17 @@ const restaurants: Restaurant[] = [
 ];
 
 const pickupPoints = [
-  { id: "E1", full: "E1 연구동 정문", walk: 3, lat: 35.706, lng: 128.456, live: 2 },
-  { id: "E2", full: "E2 연구동 정문", walk: 2, lat: 35.7057, lng: 128.4565, live: 1 },
-  { id: "E3", full: "E3 연구동 1층", walk: 1, lat: 35.7053, lng: 128.4571, live: 3 },
-  { id: "E4", full: "E4 연구동 정문", walk: 4, lat: 35.7049, lng: 128.4576, live: 1 },
-  { id: "E5", full: "E5 연구동 정문", walk: 5, lat: 35.7045, lng: 128.458, live: 1 },
-  { id: "E6", full: "E6 연구동 정문", walk: 6, lat: 35.7041, lng: 128.4584, live: 1 },
-  { id: "201·202", full: "학생생활관 201·202동 사이", walk: 7, lat: 35.7018, lng: 128.456, live: 2 },
-  { id: "대학원", full: "대학원생활관 정문", walk: 8, lat: 35.703, lng: 128.4568, live: 2 },
+  { id: "E1", full: "E1 연구동 정문", walk: 3, lat: 35.706, lng: 128.456 },
+  { id: "E2", full: "E2 연구동 정문", walk: 2, lat: 35.7057, lng: 128.4565 },
+  { id: "E3", full: "E3 연구동 1층", walk: 1, lat: 35.7053, lng: 128.4571 },
+  { id: "E4", full: "E4 연구동 정문", walk: 4, lat: 35.7049, lng: 128.4576 },
+  { id: "E5", full: "E5 연구동 정문", walk: 5, lat: 35.7045, lng: 128.458 },
+  { id: "E6", full: "E6 연구동 정문", walk: 6, lat: 35.7041, lng: 128.4584 },
+  { id: "201·202", full: "학생생활관 201·202동 사이", walk: 7, lat: 35.7018, lng: 128.456 },
+  { id: "대학원", full: "대학원생활관 정문", walk: 8, lat: 35.703, lng: 128.4568 },
 ];
 
-const initialPools: Pool[] = [
-  {
-    id: "p1",
-    restaurantId: "sinjeon",
-    host: "김*수",
-    pickup: "E3",
-    pickupFull: "E3 연구동 1층",
-    closesAt: Date.now() + 16 * 60 * 1000,
-    total: 10500,
-    target: 15000,
-    people: 2,
-    capacity: 4,
-    app: "baemin",
-    membership: "배민클럽 보유자 결제",
-    note: "매운맛 보통으로 주문해요",
-  },
-  {
-    id: "p2",
-    restaurantId: "mom",
-    host: "이*연",
-    pickup: "201·202",
-    pickupFull: "학생생활관 201·202동 사이",
-    closesAt: Date.now() + 27 * 60 * 1000,
-    total: 8900,
-    target: 14000,
-    people: 1,
-    capacity: 3,
-    app: "baemin",
-    membership: "함께 결제자 찾는 중",
-    note: "감자튀김 같이 시켜요",
-  },
-  {
-    id: "p3",
-    restaurantId: "hongkong",
-    host: "박*훈",
-    pickup: "대학원",
-    pickupFull: "대학원생활관 정문",
-    closesAt: Date.now() + 9 * 60 * 1000,
-    total: 16500,
-    target: 14000,
-    people: 2,
-    capacity: 4,
-    app: "coupang",
-    membership: "쿠팡와우로 배달비 0원",
-    note: "최소 주문금액 달성 · 바로 주문 가능",
-  },
-  {
-    id: "p4",
-    restaurantId: "kyochon",
-    host: "최*진",
-    pickup: "201·202",
-    pickupFull: "학생생활관 201·202동 사이",
-    closesAt: Date.now() + 34 * 60 * 1000,
-    total: 12000,
-    target: 18000,
-    people: 2,
-    capacity: 5,
-    app: "baemin",
-    membership: "배민클럽 보유자 결제",
-    note: "허니콤보 함께 나눠요",
-  },
-];
+const initialPools: Pool[] = [];
 
 const navItems: { id: View; label: string; compact: string; icon: string }[] = [
   { id: "home", label: "주문 모아보기", compact: "홈", icon: "⌂" },
@@ -745,17 +684,22 @@ function HomeView({
           <h2>혼자 넘기 어려운<br />최소 주문금액, <em>같이.</em></h2>
           <p>가까운 식구와 메뉴를 모으면 배달비는 줄고,<br className="desktop-break" /> 구독 멤버가 결제하면 0원이 될 수 있어요.</p>
           <div className="hero-actions">
-            <button className="light-button" onClick={() => onOpenPool(almostReady)}>바로 참여하기 <span>→</span></button>
+            <button
+              className="light-button"
+              onClick={() => almostReady ? onOpenPool(almostReady) : onCreate()}
+            >
+              {almostReady ? "바로 참여하기" : "첫 주문방 만들기"} <span>→</span>
+            </button>
             <button className="ghost-light-button" onClick={onRestaurants}>메뉴 둘러보기</button>
           </div>
         </div>
         <div className="hero-insight">
           <span className="live-label"><i /> 지금 캠퍼스</span>
-          <strong>9</strong>
+          <strong>{pools.length}</strong>
           <p>개의 주문방이<br />식구를 기다리고 있어요</p>
           <div className="hero-saving">
-            <span>이번 주 절약</span>
-            <b>18,300원</b>
+            <span>현재 참여 가능</span>
+            <b>{pools.length}개</b>
           </div>
         </div>
         <div className="hero-orbit one" />
@@ -941,7 +885,7 @@ function MapView({
               <span>픽업 장소</span>
               <h2>어디에서 만날까요?</h2>
             </div>
-            <span className="live-count">{pickupPoints.reduce((sum, point) => sum + point.live, 0)} live</span>
+            <span className="live-count">{pools.length} live</span>
           </div>
           <div className="pickup-list">
             {pickupPoints.map((point) => (
@@ -953,7 +897,7 @@ function MapView({
                 <span className="pickup-code">{point.id}</span>
                 <span>
                   <strong>{point.full}</strong>
-                  <small>도보 {point.walk}분 · 주문방 {point.live}개</small>
+                  <small>도보 {point.walk}분 · 주문방 {pools.filter((pool) => pool.pickup === point.id).length}개</small>
                 </span>
                 <i>›</i>
               </button>
@@ -973,100 +917,57 @@ function MapView({
             <h2>{nearbyPools.length ? "이곳에서 받을 수 있는 주문" : "가까운 활성 주문"}</h2>
           </div>
         </div>
-        <div className="pool-grid">
-          {(nearbyPools.length ? nearbyPools : pools.slice(0, 2)).map((pool) => (
-            <PoolCard pool={pool} now={Date.now()} onOpen={onPool} key={pool.id} />
-          ))}
-        </div>
+        {pools.length ? (
+          <div className="pool-grid">
+            {(nearbyPools.length ? nearbyPools : pools.slice(0, 2)).map((pool) => (
+              <PoolCard pool={pool} now={Date.now()} onOpen={onPool} key={pool.id} />
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state">
+            <span>＋</span>
+            <h3>아직 활성 주문방이 없어요</h3>
+            <p>이 픽업 장소의 첫 주문방을 만들어 보세요.</p>
+            <button className="primary-button" onClick={onCreate}>주문방 만들기</button>
+          </div>
+        )}
       </section>
     </>
   );
 }
 
-function OrdersView({ paid, setPaid, onCreate }: { paid: boolean; setPaid: (value: boolean) => void; onCreate: () => void }) {
+function OrdersView({
+  pools,
+  now,
+  onPool,
+  onCreate,
+}: {
+  pools: Pool[];
+  now: number;
+  onPool: (pool: Pool) => void;
+  onCreate: () => void;
+}) {
+  const myPools = pools.filter((pool) => pool.joined);
+
   return (
     <>
       <Header title="내 주문을 한눈에 확인해요" subtitle="ORDERS · 정산까지 깔끔하게" onCreate={onCreate} />
-      <section className="active-order-card">
-        <div className="active-order-top">
-          <div>
-            <span className="status-pill ready"><i /> 배달 중</span>
-            <h2>홍콩반점0410</h2>
-            <p>쿠팡이츠 · 주문번호 7C19</p>
-          </div>
-          <div className="order-total">
-            <small>내 결제금액</small>
-            <strong>9,500원</strong>
-          </div>
-        </div>
-        <div className="order-timeline">
-          {[
-            ["주문 완료", "19:12"],
-            ["조리 중", "19:21"],
-            ["배달 중", "19:38"],
-            ["E3 도착 예정", "19:51"],
-          ].map(([label, time], index) => (
-            <div className={index < 3 ? "done" : ""} key={label}>
-              <i>{index < 3 ? "✓" : ""}</i>
-              <span><strong>{label}</strong><small>{time}</small></span>
-            </div>
-          ))}
-        </div>
-        <div className="arrival-note">
-          <span className="map-pin-large">E3</span>
-          <div>
-            <strong>E3 연구동 1층에서 만나요</strong>
-            <p>도착하면 모든 식구에게 알림을 보내드려요.</p>
-          </div>
-          <a href="https://www.google.com/maps/dir/?api=1&destination=35.7053,128.4571" target="_blank" rel="noreferrer">길찾기 ↗</a>
-        </div>
-      </section>
-
-      <section className="settlement-card">
-        <div className="settlement-head">
-          <div>
-            <span>SETTLEMENT</span>
-            <h2>정산 현황</h2>
-          </div>
-          <div className="free-delivery-badge">
-            <span>배달비</span><strong>0원</strong><small>쿠팡와우 적용</small>
-          </div>
-        </div>
-        <div className="settlement-list">
-          {[
-            ["박*훈", "짜장면", 7000, "완료"],
-            ["나", "고기짬뽕", 9500, paid ? "완료" : "송금 전"],
-          ].map(([person, item, amount, status]) => (
-            <div key={person as string}>
-              <span className="avatar">{person === "나" ? "나" : "훈"}</span>
-              <span className="settlement-person"><strong>{person}</strong><small>{item}</small></span>
-              <strong>{money(amount as number)}</strong>
-              <span className={`payment-status ${status === "완료" ? "complete" : ""}`}>{status}</span>
-            </div>
-          ))}
-        </div>
-        {!paid && <button className="primary-button" onClick={() => setPaid(true)}>토스로 9,500원 보내기</button>}
-        {paid && <div className="success-message"><span>✓</span> 정산을 완료했어요. 결제자에게 알림을 보냈습니다.</div>}
-      </section>
-
       <section className="section-block">
         <div className="section-heading">
-          <div><span>HISTORY</span><h2>지난 주문</h2></div>
+          <div><span>MY POOLS</span><h2>참여 중인 주문</h2></div>
         </div>
-        <div className="history-list">
-          {[
-            ["한솥도시락", "7월 21일 · 학생생활관", "치킨마요 외 1", "7,300원"],
-            ["교촌치킨", "7월 18일 · 비슬빌리지", "허니콤보", "12,000원"],
-          ].map(([name, date, item, price], index) => (
-            <article key={name}>
-              <RestaurantMark restaurant={restaurants[index === 0 ? 4 : 3]} />
-              <div><strong>{name}</strong><small>{date}</small></div>
-              <span>{item}</span>
-              <b>{price}</b>
-              <button aria-label={`${name} 주문 자세히 보기`}>›</button>
-            </article>
-          ))}
-        </div>
+        {myPools.length ? (
+          <div className="pool-grid">
+            {myPools.map((pool) => <PoolCard key={pool.id} pool={pool} now={now} onOpen={onPool} />)}
+          </div>
+        ) : (
+          <div className="empty-state orders-empty">
+            <span>◷</span>
+            <h3>아직 참여 중인 주문이 없어요</h3>
+            <p>공개된 주문방에 참여하거나 새 주문방을 만들어 보세요.</p>
+            <button className="primary-button" onClick={onCreate}>주문방 만들기</button>
+          </div>
+        )}
       </section>
     </>
   );
@@ -1153,7 +1054,12 @@ function ProfileView({
 
 function RightRail({ pools, now, onPool, onMap }: { pools: Pool[]; now: number; onPool: (pool: Pool) => void; onMap: () => void }) {
   const closest = pools[0];
-  const restaurant = restaurants.find((item) => item.id === closest.restaurantId)!;
+  const restaurant = closest
+    ? restaurants.find((item) => item.id === closest.restaurantId)
+    : undefined;
+  const e1Count = pools.filter((pool) => pool.pickup === "E1").length;
+  const e3Count = pools.filter((pool) => pool.pickup === "E3").length;
+  const dormCount = pools.filter((pool) => pool.pickup === "201·202" || pool.pickup === "대학원").length;
 
   return (
     <aside className="right-rail">
@@ -1169,18 +1075,26 @@ function RightRail({ pools, now, onPool, onMap }: { pools: Pool[]; now: number; 
           <div><small>SIKGU PICK</small><h2>지금 딱 맞는 주문</h2></div>
         </div>
         <p>내 위치와 메뉴, 마감시간을 기준으로 찾았어요.</p>
-        <button className="smart-pool" onClick={() => onPool(closest)}>
-          <div className="smart-pool-head">
-            <RestaurantMark restaurant={restaurant} />
-            <div><strong>{restaurant.name}</strong><small>{closest.pickupFull}</small></div>
-            <span>{timeLeft(closest.closesAt, now)}</span>
+        {closest && restaurant ? (
+          <button className="smart-pool" onClick={() => onPool(closest)}>
+            <div className="smart-pool-head">
+              <RestaurantMark restaurant={restaurant} />
+              <div><strong>{restaurant.name}</strong><small>{closest.pickupFull}</small></div>
+              <span>{timeLeft(closest.closesAt, now)}</span>
+            </div>
+            <div className="smart-gap">
+              <span>주문까지</span><strong>{money(Math.max(0, closest.target - closest.total))}</strong>
+            </div>
+            <Progress current={closest.total} target={closest.target} />
+            <div className="smart-saving"><span>참여 인원</span><b>{closest.people}명</b><i>→</i></div>
+          </button>
+        ) : (
+          <div className="smart-pool-empty">
+            <span>＋</span>
+            <strong>추천할 주문이 아직 없어요</strong>
+            <small>첫 주문방이 열리면 여기에 바로 보여드릴게요.</small>
           </div>
-          <div className="smart-gap">
-            <span>주문까지</span><strong>{money(Math.max(0, closest.target - closest.total))}</strong>
-          </div>
-          <Progress current={closest.total} target={closest.target} />
-          <div className="smart-saving"><span>예상 절약</span><b>3,000원</b><i>→</i></div>
-        </button>
+        )}
       </section>
 
       <section className="campus-glance">
@@ -1191,9 +1105,10 @@ function RightRail({ pools, now, onPool, onMap }: { pools: Pool[]; now: number; 
           <span className="mini-building e1">E1</span>
           <span className="mini-building e3">E3</span>
           <span className="mini-building dorm">생활관</span>
-          <span className="map-dot dot-one"><i />2</span>
-          <span className="map-dot dot-two"><i />3</span>
-          <small>활성 주문 9개</small>
+          {e1Count > 0 && <span className="map-dot dot-one"><i />{e1Count}</span>}
+          {e3Count > 0 && <span className="map-dot dot-two"><i />{e3Count}</span>}
+          {dormCount > 0 && <span className="map-dot dot-three"><i />{dormCount}</span>}
+          <small>활성 주문 {pools.length}개</small>
         </button>
       </section>
 
@@ -1531,7 +1446,6 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("전체");
   const [membership, setMembership] = useState("baemin");
-  const [paid, setPaid] = useState(false);
   const [toast, setToast] = useState("");
   const [now, setNow] = useState(Date.now());
 
@@ -1618,17 +1532,10 @@ export default function Home() {
             <button className={view === item.id ? "active" : ""} onClick={() => navigate(item.id)} key={item.id}>
               <span className="nav-icon">{item.icon}</span>
               <span>{item.label}</span>
-              {item.id === "orders" && <i>1</i>}
+              {item.id === "orders" && pools.some((pool) => pool.joined) && <i>{pools.filter((pool) => pool.joined).length}</i>}
             </button>
           ))}
         </nav>
-        <section className="sidebar-saving">
-          <span>7월 식구 리포트</span>
-          <strong>18,300원</strong>
-          <p>함께 주문해서 아낀 금액</p>
-          <div><i style={{ width: "68%" }} /></div>
-          <small>다음 레벨까지 11,700원</small>
-        </section>
         <button className="help-link"><span>?</span> 도움말 · 제안 보내기</button>
       </aside>
 
@@ -1652,7 +1559,7 @@ export default function Home() {
         )}
         {view === "restaurants" && <RestaurantsView onMenu={(restaurant) => { setSelectedRestaurant(restaurant); setCart({}); }} onCreate={openCreate} />}
         {view === "map" && <MapView pools={pools} onPool={setSelectedPool} onCreate={() => openCreate()} />}
-        {view === "orders" && <OrdersView paid={paid} onCreate={() => openCreate()} setPaid={(value) => { setPaid(value); notify("정산을 완료했어요."); }} />}
+        {view === "orders" && <OrdersView pools={pools} now={now} onPool={setSelectedPool} onCreate={() => openCreate()} />}
         {view === "profile" && <ProfileView membership={membership} onCreate={() => openCreate()} setMembership={(value) => { setMembership(value); notify("배달 멤버십 정보를 저장했어요."); }} />}
       </main>
 
@@ -1662,7 +1569,7 @@ export default function Home() {
         {navItems.map((item) => (
           <button className={view === item.id ? "active" : ""} onClick={() => navigate(item.id)} key={item.id}>
             <span>{item.icon}</span><small>{item.compact}</small>
-            {item.id === "orders" && <i />}
+            {item.id === "orders" && pools.some((pool) => pool.joined) && <i />}
           </button>
         ))}
       </nav>

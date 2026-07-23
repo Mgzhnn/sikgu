@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { getChatGPTUser } from "../../chatgpt-auth";
+import { maskDisplayName } from "../../name-mask.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +83,9 @@ function displayName(user: { email: string; fullName: string | null; displayName
 
 async function optionalUser(): Promise<AuthUser | null> {
   const user = await getChatGPTUser();
-  return user ? { email: user.email.toLowerCase(), displayName: displayName(user) } : null;
+  return user
+    ? { email: user.email.toLowerCase(), displayName: maskDisplayName(displayName(user)) }
+    : null;
 }
 
 async function requiredUser(): Promise<AuthUser | Response> {
@@ -126,7 +129,7 @@ function serializeRoom(row: Record<string, unknown>, includeOrderInfo = false) {
   const room = {
     id: String(row.id),
     restaurantId: String(row.restaurant_id),
-    host: String(row.host_name),
+    host: maskDisplayName(String(row.host_name)),
     pickup: String(row.pickup),
     pickupFull: String(row.pickup_full),
     closesAt: Number(row.closes_at),
@@ -236,14 +239,17 @@ export async function GET(request: Request) {
       return json({
         room: { ...serializeRoom({ ...room, current_email: auth.email, people: await approvedCount(id) }, true), isHost },
         members: members.results.map((member) => isHost
-          ? member
+          ? { ...member, display_name: maskDisplayName(String(member.display_name)) }
           : {
-              display_name: member.display_name,
+              display_name: maskDisplayName(String(member.display_name)),
               role: member.role,
               status: member.status,
               created_at: member.created_at,
             }),
-        messages: messages.results,
+        messages: messages.results.map((message) => ({
+          ...message,
+          sender_name: maskDisplayName(String(message.sender_name)),
+        })),
       });
     }
 

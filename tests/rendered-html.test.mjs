@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { maskDisplayName } from "../app/name-mask.mjs";
 
 test("builds the SIKGU product shell", async () => {
   const [layout, page, worker] = await Promise.all([
@@ -294,4 +295,26 @@ test("lets hosts manage private order receipts and delete their rooms", async ()
   assert.match(page, /참여자, 채팅, 초대 링크, 영수증 이미지가 모두 삭제/);
   assert.match(css, /\.order-info-card/);
   assert.match(css, /\.room-delete-confirm/);
+});
+
+test("masks Korean and English display names consistently", async () => {
+  const [page, api] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/sikgu/route.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.equal(maskDisplayName("Ugrp"), "Ug**");
+  assert.equal(maskDisplayName("Alex"), "Al**");
+  assert.equal(maskDisplayName("권혁준"), "권*준");
+  assert.equal(maskDisplayName("홍길동"), "홍*동");
+  assert.equal(maskDisplayName("김준"), "김*");
+  assert.equal(maskDisplayName("Ug**"), "Ug**");
+  assert.equal(maskDisplayName("권*준"), "권*준");
+
+  assert.match(page, /maskDisplayName\(user\.displayName\)/);
+  assert.match(page, /maskDisplayName\(member\.display_name\)/);
+  assert.match(page, /maskDisplayName\(item\.sender_name\)/);
+  assert.match(api, /displayName: maskDisplayName\(displayName\(user\)\)/);
+  assert.match(api, /host: maskDisplayName\(String\(row\.host_name\)\)/);
+  assert.match(api, /sender_name: maskDisplayName\(String\(message\.sender_name\)\)/);
 });

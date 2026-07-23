@@ -234,3 +234,23 @@ test("removes the nonfunctional internal campus map", async () => {
   assert.doesNotMatch(css, /\.map-layout|\.map-panel|\.mini-map|\.pickup-panel|\.map-link-row/);
   assert.match(css, /\.mobile-nav \{[\s\S]*grid-template-columns: repeat\(3, 1fr\)/);
 });
+
+test("opens an accessible feedback dialog with an email handoff", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /const feedbackEmail = "gudwns5863@naver\.com"/);
+  assert.match(page, /function FeedbackModal/);
+  assert.match(page, /aria-labelledby="feedback-title"/);
+  assert.match(page, /aria-describedby="feedback-description"/);
+  assert.match(page, /window\.location\.href = `mailto:\$\{feedbackEmail\}/);
+  assert.match(page, /encodeURIComponent\(subject\)/);
+  assert.match(page, /encodeURIComponent\(body\)/);
+  assert.match(page, /navigator\.clipboard\.writeText\(feedbackEmail\)/);
+  assert.match(page, /showFeedback && <FeedbackModal/);
+  assert.match(page, /currentScreen=\{viewCopy\}/);
+  assert.match(css, /\.feedback-modal/);
+  assert.match(css, /\.feedback-type-grid/);
+});

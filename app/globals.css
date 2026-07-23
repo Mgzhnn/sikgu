@@ -2352,12 +2352,13 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 
 .choice-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 6px;
 }
 
 .choice-grid button {
   display: flex;
+  min-height: 51px;
   min-width: 0;
   flex-direction: column;
   align-items: flex-start;
@@ -2374,12 +2375,11 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 
 .choice-grid small {
   width: 100%;
-  overflow: hidden;
   margin-top: 3px;
   color: var(--muted);
   font-size: 6.5px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
+  white-space: normal;
 }
 
 .form-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

@@ -61,3 +61,27 @@ test("includes the expanded local restaurant directory and picker", async () => 
   assert.match(css, /\.restaurant-picker-list/);
   assert.match(css, /\.selected-restaurant-row/);
 });
+
+test("offers the expanded DGIST pickup point grid", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  for (const pickup of [
+    "E1 연구동 정문",
+    "E2 연구동 정문",
+    "E3 연구동 1층",
+    "E4 연구동 정문",
+    "E5 연구동 정문",
+    "E6 연구동 정문",
+    "학생생활관 201·202동 사이",
+    "대학원생활관 정문",
+  ]) {
+    assert.match(page, new RegExp(pickup.replace("·", "\\·")));
+  }
+
+  assert.match(page, /pickupPoints\.map\(\(point\)/);
+  assert.doesNotMatch(page, /pickupPoints\.slice\(0,\s*4\)/);
+  assert.match(css, /\.choice-grid \{[\s\S]*grid-template-columns: repeat\(3, 1fr\)/);
+});

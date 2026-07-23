@@ -506,11 +506,14 @@ const restaurants: Restaurant[] = [
 ];
 
 const pickupPoints = [
-  { id: "E1", full: "E1 연구동", walk: 3, lat: 35.706, lng: 128.456, live: 2 },
-  { id: "E3", full: "E3 연구동", walk: 1, lat: 35.7053, lng: 128.4571, live: 3 },
-  { id: "학생", full: "학생생활관", walk: 6, lat: 35.7035, lng: 128.456, live: 1 },
-  { id: "대학원", full: "대학원생활관", walk: 8, lat: 35.703, lng: 128.4568, live: 2 },
-  { id: "비슬", full: "비슬빌리지 403–405동", walk: 13, lat: 35.7005, lng: 128.4525, live: 1 },
+  { id: "E1", full: "E1 연구동 정문", walk: 3, lat: 35.706, lng: 128.456, live: 2 },
+  { id: "E2", full: "E2 연구동 정문", walk: 2, lat: 35.7057, lng: 128.4565, live: 1 },
+  { id: "E3", full: "E3 연구동 1층", walk: 1, lat: 35.7053, lng: 128.4571, live: 3 },
+  { id: "E4", full: "E4 연구동 정문", walk: 4, lat: 35.7049, lng: 128.4576, live: 1 },
+  { id: "E5", full: "E5 연구동 정문", walk: 5, lat: 35.7045, lng: 128.458, live: 1 },
+  { id: "E6", full: "E6 연구동 정문", walk: 6, lat: 35.7041, lng: 128.4584, live: 1 },
+  { id: "201·202", full: "학생생활관 201·202동 사이", walk: 7, lat: 35.7018, lng: 128.456, live: 2 },
+  { id: "대학원", full: "대학원생활관 정문", walk: 8, lat: 35.703, lng: 128.4568, live: 2 },
 ];
 
 const initialPools: Pool[] = [
@@ -533,8 +536,8 @@ const initialPools: Pool[] = [
     id: "p2",
     restaurantId: "mom",
     host: "이*연",
-    pickup: "학생",
-    pickupFull: "학생생활관 로비",
+    pickup: "201·202",
+    pickupFull: "학생생활관 201·202동 사이",
     closesAt: Date.now() + 27 * 60 * 1000,
     total: 8900,
     target: 14000,
@@ -563,8 +566,8 @@ const initialPools: Pool[] = [
     id: "p4",
     restaurantId: "kyochon",
     host: "최*진",
-    pickup: "비슬",
-    pickupFull: "비슬빌리지 404동 앞",
+    pickup: "201·202",
+    pickupFull: "학생생활관 201·202동 사이",
     closesAt: Date.now() + 34 * 60 * 1000,
     total: 12000,
     target: 18000,
@@ -905,8 +908,8 @@ function MapView({
   pools: Pool[];
   onCreate: () => void;
 }) {
-  const [selected, setSelected] = useState(pickupPoints[1]);
-  const nearbyPools = pools.filter((pool) => pool.pickup === selected.id || (selected.id === "학생" && pool.pickup === "학생"));
+  const [selected, setSelected] = useState(pickupPoints.find((point) => point.id === "E3") || pickupPoints[0]);
+  const nearbyPools = pools.filter((pool) => pool.pickup === selected.id);
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${selected.lat},${selected.lng}`;
   const kakaoUrl = `https://map.kakao.com/link/to/${encodeURIComponent(selected.full)},${selected.lat},${selected.lng}`;
 
@@ -938,7 +941,7 @@ function MapView({
               <span>픽업 장소</span>
               <h2>어디에서 만날까요?</h2>
             </div>
-            <span className="live-count">9 live</span>
+            <span className="live-count">{pickupPoints.reduce((sum, point) => sum + point.live, 0)} live</span>
           </div>
           <div className="pickup-list">
             {pickupPoints.map((point) => (
@@ -1478,7 +1481,7 @@ function CreateModal({
         <div className="form-field">
           <label>픽업 장소</label>
           <div className="choice-grid">
-            {pickupPoints.slice(0, 4).map((point) => (
+            {pickupPoints.map((point) => (
               <button className={pickup === point.id ? "active" : ""} onClick={() => setPickup(point.id)} key={point.id}>
                 <span>{point.id}</span><small>{point.full}</small>
               </button>
@@ -1566,7 +1569,9 @@ export default function Home() {
 
   const handleCreate = (values: { restaurantId: string; pickup: string; app: DeliveryApp; minutes: number }) => {
     const restaurant = restaurants.find((item) => item.id === values.restaurantId)!;
-    const point = pickupPoints.find((item) => item.id === values.pickup) || pickupPoints[1];
+    const point = pickupPoints.find((item) => item.id === values.pickup)
+      || pickupPoints.find((item) => item.id === "E3")
+      || pickupPoints[0];
     const newPool: Pool = {
       id: `pool-${Date.now()}`,
       restaurantId: values.restaurantId,

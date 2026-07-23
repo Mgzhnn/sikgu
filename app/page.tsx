@@ -530,11 +530,11 @@ const restaurants: Restaurant[] = [
 
 const pickupPoints = [
   { id: "E1", full: "E1 연구동 정문", walk: 3, lat: 35.706, lng: 128.456 },
-  { id: "E2", full: "E2 연구동 정문", walk: 2, lat: 35.7057, lng: 128.4565 },
-  { id: "E3", full: "E3 연구동 1층", walk: 1, lat: 35.7053, lng: 128.4571 },
-  { id: "E4", full: "E4 연구동 정문", walk: 4, lat: 35.7049, lng: 128.4576 },
-  { id: "E5", full: "E5 연구동 정문", walk: 5, lat: 35.7045, lng: 128.458 },
-  { id: "E6", full: "E6 연구동 정문", walk: 6, lat: 35.7041, lng: 128.4584 },
+  { id: "E2", full: "E2 택배보관함", walk: 2, lat: 35.7057, lng: 128.4565 },
+  { id: "E3", full: "E3 택배보관함", walk: 1, lat: 35.705312, lng: 128.457146 },
+  { id: "E4", full: "E4 택배보관함", walk: 4, lat: 35.7049, lng: 128.4576 },
+  { id: "E5", full: "E5 택배보관함", walk: 5, lat: 35.7045, lng: 128.458 },
+  { id: "E6", full: "E6 택배보관함", walk: 6, lat: 35.7041, lng: 128.4584 },
   { id: "201·202", full: "학생생활관 201·202동 사이", walk: 7, lat: 35.7018, lng: 128.456 },
   { id: "대학원", full: "대학원생활관 정문", walk: 8, lat: 35.703, lng: 128.4568 },
 ];

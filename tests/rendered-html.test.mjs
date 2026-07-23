@@ -167,6 +167,49 @@ test("supports a persistent current pickup location selector", async () => {
   assert.match(css, /\.location-option\.active/);
 });
 
+test("opens an accessible order filter and composes useful room filters", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /type PoolFilters = \{/);
+  assert.match(page, /const defaultPoolFilters: PoolFilters = \{[\s\S]*availableOnly: false[\s\S]*currentPickupOnly: false[\s\S]*sortBy: "default"/);
+  assert.match(page, /const \[filters, setFilters\] = useState<PoolFilters>\(defaultPoolFilters\)/);
+  assert.match(page, /const \[filterOpen, setFilterOpen\] = useState\(false\)/);
+  assert.match(page, /className=\{`filter-button \$\{activeFilterCount \? "active" : ""\}`\}/);
+  assert.match(page, /aria-expanded=\{filterOpen\}/);
+  assert.match(page, /aria-controls="pool-filter-popover"/);
+  assert.match(page, /aria-haspopup="dialog"/);
+  assert.match(page, /id="pool-filter-popover"[\s\S]{0,180}role="dialog"[\s\S]{0,180}aria-labelledby="pool-filter-title"/);
+  assert.match(page, /id="pool-filter-title">주문방 필터/);
+  assert.match(page, /type="checkbox"[\s\S]{0,120}checked=\{filters\.availableOnly\}/);
+  assert.match(page, /type="checkbox"[\s\S]{0,120}checked=\{filters\.currentPickupOnly\}/);
+  assert.match(page, /pool\.isHost \|\| pool\.myStatus === "approved" \|\| pool\.myStatus === "requested"/);
+  assert.match(page, /!filters\.availableOnly[\s\S]{0,120}pool\.people < pool\.capacity[\s\S]{0,80}isRelated/);
+  assert.match(page, /!filters\.currentPickupOnly \|\| pool\.pickup === currentPickup/);
+  assert.match(page, /filters\.sortBy === "deadline"[\s\S]{0,100}filtered\.sort\(\(a, b\) => a\.closesAt - b\.closesAt\)/);
+  assert.match(page, /filters\.sortBy === "remaining"[\s\S]{0,180}Math\.max\(0, a\.target - a\.total\) - Math\.max\(0, b\.target - b\.total\)/);
+  assert.match(page, /const joinablePools = pools\.filter\(\(pool\) => \([\s\S]{0,100}pool\.people < pool\.capacity/);
+  assert.match(page, /event\.key !== "Escape"/);
+  assert.match(page, /filterTriggerRef\.current\?\.focus\(\)/);
+  assert.match(page, /role="status" aria-live="polite">\{filtered\.length\}개 주문방 표시 중/);
+  assert.match(page, /모든 조건 초기화/);
+  assert.doesNotMatch(page, /role="menu"/);
+
+  for (const selector of [
+    "filter-anchor",
+    "filter-popover",
+    "filter-option",
+    "filter-sort",
+    "filter-reset",
+  ]) {
+    assert.match(css, new RegExp(`\\.${selector}`));
+  }
+  assert.match(css, /\.filter-button\.active/);
+  assert.match(css, /\.filter-popover :focus-visible/);
+});
+
 test("persists rooms, approvals, invitations, and private chat in D1", async () => {
   const [hosting, schema, api, page] = await Promise.all([
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),

@@ -1,10 +1,26 @@
 "use client";
 
-import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type Dispatch,
+  type FormEvent,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { maskDisplayName } from "./name-mask.mjs";
 
 type View = "home" | "restaurants" | "profile";
 type DeliveryApp = "baemin" | "coupang";
+type PoolSort = "default" | "deadline" | "remaining";
+
+type PoolFilters = {
+  availableOnly: boolean;
+  currentPickupOnly: boolean;
+  sortBy: PoolSort;
+};
 
 type MenuItem = {
   id: string;
@@ -605,6 +621,11 @@ function campusMapPosition(point: PickupPoint) {
 const currentPickupStorageKey = "sikgu-current-pickup";
 const pendingJoinStorageKey = "sikgu-pending-join";
 const initialPools: Pool[] = [];
+const defaultPoolFilters: PoolFilters = {
+  availableOnly: false,
+  currentPickupOnly: false,
+  sortBy: "default",
+};
 
 const navItems: { id: View; label: string; compact: string; icon: string }[] = [
   { id: "home", label: "주문 모아보기", compact: "홈", icon: "⌂" },
@@ -805,6 +826,8 @@ function HomeView({
   category,
   setCategory,
   currentPickup,
+  filters,
+  setFilters,
   onOpenPool,
   onMap,
   onCreate,
@@ -817,21 +840,88 @@ function HomeView({
   category: string;
   setCategory: (value: string) => void;
   currentPickup: string;
+  filters: PoolFilters;
+  setFilters: Dispatch<SetStateAction<PoolFilters>>;
   onOpenPool: (pool: Pool) => void;
   onMap: (pickupId: string) => void;
   onCreate: () => void;
   onRestaurants: () => void;
 }) {
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterAnchorRef = useRef<HTMLDivElement>(null);
+  const filterTriggerRef = useRef<HTMLButtonElement>(null);
+  const filterPanelRef = useRef<HTMLDivElement>(null);
   const categories = ["전체", "분식", "버거", "중식", "치킨", "한식", "초밥"];
+  const activeFilterCount = Number(filters.availableOnly)
+    + Number(filters.currentPickupOnly)
+    + Number(filters.sortBy !== "default");
+  const normalizedSearch = search.trim().toLowerCase();
   const filtered = pools.filter((pool) => {
-    const restaurant = restaurants.find((item) => item.id === pool.restaurantId)!;
+    const restaurant = restaurants.find((item) => item.id === pool.restaurantId);
+    if (!restaurant || pool.closesAt <= now) return false;
+    const isRelated = Boolean(
+      pool.isHost || pool.myStatus === "approved" || pool.myStatus === "requested",
+    );
     const matchesCategory = category === "전체" || restaurant.cuisine === category;
-    const matchesSearch = `${restaurant.name} ${pool.pickupFull}`.toLowerCase().includes(search.toLowerCase());
-    return matchesCategory && matchesSearch;
+    const matchesSearch = `${restaurant.name} ${pool.pickupFull}`
+      .toLowerCase()
+      .includes(normalizedSearch);
+    const matchesAvailable = !filters.availableOnly
+      || pool.people < pool.capacity
+      || isRelated;
+    const matchesPickup = !filters.currentPickupOnly || pool.pickup === currentPickup;
+    return matchesCategory && matchesSearch && matchesAvailable && matchesPickup;
   });
-  const almostReady = [...pools].sort(
+  if (filters.sortBy === "deadline") {
+    filtered.sort((a, b) => a.closesAt - b.closesAt);
+  } else if (filters.sortBy === "remaining") {
+    filtered.sort(
+      (a, b) => Math.max(0, a.target - a.total) - Math.max(0, b.target - b.total),
+    );
+  }
+
+  const joinablePools = pools.filter((pool) => (
+    pool.closesAt > now
+    && pool.people < pool.capacity
+  ));
+  const almostReady = [...joinablePools].sort(
     (a, b) => (a.target - a.total) - (b.target - b.total),
   )[0];
+  const hasAnyCriteria = Boolean(
+    normalizedSearch || category !== "전체" || activeFilterCount,
+  );
+
+  const resetDetailFilters = () => setFilters(defaultPoolFilters);
+  const resetAllFilters = () => {
+    setSearch("");
+    setCategory("전체");
+    setFilters(defaultPoolFilters);
+  };
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    const focusFrame = window.requestAnimationFrame(() => {
+      filterPanelRef.current?.querySelector<HTMLElement>("input, select")?.focus();
+    });
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (target && !filterAnchorRef.current?.contains(target)) setFilterOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setFilterOpen(false);
+      window.requestAnimationFrame(() => filterTriggerRef.current?.focus());
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [filterOpen]);
 
   return (
     <>
@@ -854,11 +944,11 @@ function HomeView({
         </div>
         <div className="hero-insight">
           <span className="live-label"><i /> 지금 캠퍼스</span>
-          <strong>{pools.length}</strong>
+          <strong>{joinablePools.length}</strong>
           <p>개의 주문방이<br />식구를 기다리고 있어요</p>
           <div className="hero-saving">
             <span>현재 참여 가능</span>
-            <b>{pools.length}개</b>
+            <b>{joinablePools.length}개</b>
           </div>
         </div>
         <div className="hero-orbit one" />
@@ -879,7 +969,103 @@ function HomeView({
           />
           {search && <button onClick={() => setSearch("")} aria-label="검색어 지우기">×</button>}
         </label>
-        <button className="filter-button" aria-label="필터"><span>≡</span> 필터</button>
+        <div className="filter-anchor" ref={filterAnchorRef}>
+          <button
+            type="button"
+            className={`filter-button ${activeFilterCount ? "active" : ""}`}
+            onClick={() => setFilterOpen((open) => !open)}
+            aria-label={activeFilterCount ? `필터, ${activeFilterCount}개 적용됨` : "필터 열기"}
+            aria-expanded={filterOpen}
+            aria-controls="pool-filter-popover"
+            aria-haspopup="dialog"
+            ref={filterTriggerRef}
+          >
+            <span className="filter-icon">≡</span>
+            <span className="filter-label">필터</span>
+            {activeFilterCount > 0 && <b>{activeFilterCount}</b>}
+          </button>
+
+          {filterOpen && (
+            <div
+              className="filter-popover"
+              id="pool-filter-popover"
+              role="dialog"
+              aria-modal="false"
+              aria-labelledby="pool-filter-title"
+              ref={filterPanelRef}
+            >
+              <div className="filter-popover-head">
+                <div>
+                  <span>QUICK FILTER</span>
+                  <h3 id="pool-filter-title">주문방 필터</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterOpen(false);
+                    window.requestAnimationFrame(() => filterTriggerRef.current?.focus());
+                  }}
+                  aria-label="필터 닫기"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="filter-options">
+                <label className="filter-option">
+                  <span>
+                    <strong>자리 있는 방</strong>
+                    <small>정원이 찬 내 주문은 계속 보여요</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={filters.availableOnly}
+                    onChange={(event) => setFilters((current) => ({
+                      ...current,
+                      availableOnly: event.target.checked,
+                    }))}
+                  />
+                </label>
+
+                <label className="filter-option">
+                  <span>
+                    <strong>현재 위치만</strong>
+                    <small>{currentPickup} 픽업 주문만 모아보기</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={filters.currentPickupOnly}
+                    onChange={(event) => setFilters((current) => ({
+                      ...current,
+                      currentPickupOnly: event.target.checked,
+                    }))}
+                  />
+                </label>
+              </div>
+
+              <label className="filter-sort" htmlFor="pool-filter-sort">
+                <span>정렬</span>
+                <select
+                  id="pool-filter-sort"
+                  value={filters.sortBy}
+                  onChange={(event) => setFilters((current) => ({
+                    ...current,
+                    sortBy: event.target.value as PoolSort,
+                  }))}
+                >
+                  <option value="default">기본순</option>
+                  <option value="deadline">마감 임박순</option>
+                  <option value="remaining">주문까지 적은 금액순</option>
+                </select>
+              </label>
+
+              <div className="filter-popover-foot">
+                <span role="status" aria-live="polite">{filtered.length}개 주문방 표시 중</span>
+                <button type="button" className="filter-reset" onClick={resetDetailFilters}>상세 필터 초기화</button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="category-tabs" aria-label="음식 카테고리">
@@ -904,8 +1090,10 @@ function HomeView({
           <div className="empty-state">
             <span>⌕</span>
             <h3>조건에 맞는 주문방이 없어요</h3>
-            <p>새 주문방을 열면 기다리던 식구에게 알려드릴게요.</p>
-            <button className="primary-button" onClick={onCreate}>주문방 만들기</button>
+            <p>{hasAnyCriteria ? "검색어나 필터 조건을 바꿔 다시 확인해 보세요." : "새 주문방을 열면 기다리던 식구에게 알려드릴게요."}</p>
+            <button className="primary-button" onClick={hasAnyCriteria ? resetAllFilters : onCreate}>
+              {hasAnyCriteria ? "모든 조건 초기화" : "주문방 만들기"}
+            </button>
           </div>
         )}
       </section>
@@ -2152,6 +2340,7 @@ export default function Home() {
   const [campusMapPickup, setCampusMapPickup] = useState("E3");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("전체");
+  const [filters, setFilters] = useState<PoolFilters>(defaultPoolFilters);
   const [currentPickup, setCurrentPickup] = useState("E3");
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationReady, setLocationReady] = useState(false);
@@ -2460,6 +2649,8 @@ export default function Home() {
             category={category}
             setCategory={setCategory}
             currentPickup={currentPickup}
+            filters={filters}
+            setFilters={setFilters}
             onOpenPool={setSelectedPool}
             onMap={openCampusMap}
             onCreate={() => openCreate()}

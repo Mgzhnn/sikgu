@@ -14,6 +14,11 @@ export const rooms = sqliteTable("rooms", {
   capacity: integer("capacity").notNull(),
   membership: text("membership").notNull(),
   note: text("note").notNull(),
+  estimatedArrival: text("estimated_arrival"),
+  orderTotal: integer("order_total"),
+  receiptKey: text("receipt_key"),
+  receiptContentType: text("receipt_content_type"),
+  receiptUploadedAt: integer("receipt_uploaded_at"),
   status: text("status").notNull().default("open"),
   createdAt: integer("created_at").notNull(),
 }, (table) => [

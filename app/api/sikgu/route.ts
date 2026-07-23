@@ -8,7 +8,73 @@ type AuthUser = {
   displayName: string;
 };
 
+type UploadObject = {
+  body: ReadableStream<Uint8Array>;
+  httpMetadata?: {
+    contentType?: string;
+  };
+};
+
+type UploadBucket = {
+  put: (
+    key: string,
+    value: ArrayBuffer,
+    options: {
+      httpMetadata: {
+        contentType: string;
+        contentDisposition: string;
+        cacheControl: string;
+      };
+    },
+  ) => Promise<unknown>;
+  get: (key: string) => Promise<UploadObject | null>;
+  delete: (key: string) => Promise<void>;
+};
+
+const maxReceiptBytes = 8 * 1024 * 1024;
+const receiptTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+
 const json = (data: unknown, status = 200) => Response.json(data, { status });
+
+function uploadBucket() {
+  const bucket = (env as unknown as { UPLOADS?: UploadBucket }).UPLOADS;
+  if (!bucket) throw new Error("영수증 저장소가 연결되지 않았습니다.");
+  return bucket;
+}
+
+function detectReceiptType(bytes: Uint8Array) {
+  if (
+    bytes.length >= 8
+    && bytes[0] === 0x89
+    && bytes[1] === 0x50
+    && bytes[2] === 0x4e
+    && bytes[3] === 0x47
+    && bytes[4] === 0x0d
+    && bytes[5] === 0x0a
+    && bytes[6] === 0x1a
+    && bytes[7] === 0x0a
+  ) return "image/png";
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (
+    bytes.length >= 12
+    && String.fromCharCode(...bytes.slice(0, 4)) === "RIFF"
+    && String.fromCharCode(...bytes.slice(8, 12)) === "WEBP"
+  ) return "image/webp";
+  return null;
+}
+
+function receiptExtension(contentType: string) {
+  if (contentType === "image/png") return "png";
+  if (contentType === "image/webp") return "webp";
+  return "jpg";
+}
+
+function sameOrigin(request: Request) {
+  const origin = request.headers.get("origin");
+  return !origin || origin === new URL(request.url).origin;
+}
 
 function displayName(user: { email: string; fullName: string | null; displayName: string }) {
   return user.fullName?.trim() || user.displayName?.trim() || user.email.split("@")[0];
@@ -56,8 +122,8 @@ async function approvedCount(id: string) {
   return Number(row?.count || 0);
 }
 
-function serializeRoom(row: Record<string, unknown>) {
-  return {
+function serializeRoom(row: Record<string, unknown>, includeOrderInfo = false) {
+  const room = {
     id: String(row.id),
     restaurantId: String(row.restaurant_id),
     host: String(row.host_name),
@@ -75,6 +141,16 @@ function serializeRoom(row: Record<string, unknown>) {
     isHost: row.host_email === row.current_email,
     pendingCount: Number(row.pending_count || 0),
   };
+  if (!includeOrderInfo) return room;
+  return {
+    ...room,
+    estimatedArrival: row.estimated_arrival ? String(row.estimated_arrival) : null,
+    orderTotal: row.order_total == null ? null : Number(row.order_total),
+    receiptUrl: row.receipt_key
+      ? `/api/sikgu?action=receipt&roomId=${encodeURIComponent(String(row.id))}&v=${Number(row.receipt_uploaded_at || 0)}`
+      : null,
+    receiptUploadedAt: row.receipt_uploaded_at == null ? null : Number(row.receipt_uploaded_at),
+  };
 }
 
 export async function GET(request: Request) {
@@ -82,6 +158,29 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const action = url.searchParams.get("action") || "bootstrap";
     const user = await optionalUser();
+
+    if (action === "receipt") {
+      const auth = user || await requiredUser();
+      if (isResponse(auth)) return auth;
+      const id = url.searchParams.get("roomId") || "";
+      const room = await roomForUser(id, auth.email);
+      if (!room || room.my_status !== "approved") {
+        return json({ error: "승인된 주문방 구성원만 영수증을 볼 수 있습니다." }, 403);
+      }
+      const receiptKey = String(room.receipt_key || "");
+      if (!receiptKey) return json({ error: "등록된 영수증이 없습니다." }, 404);
+      const object = await uploadBucket().get(receiptKey);
+      if (!object) return json({ error: "영수증 이미지를 찾을 수 없습니다." }, 404);
+      return new Response(object.body, {
+        headers: {
+          "Content-Type": String(room.receipt_content_type || object.httpMetadata?.contentType || "application/octet-stream"),
+          "Content-Disposition": `inline; filename="receipt.${receiptExtension(String(room.receipt_content_type || ""))}"`,
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+          "Cross-Origin-Resource-Policy": "same-origin",
+        },
+      });
+    }
 
     if (action === "bootstrap") {
       const email = user?.email || "";
@@ -135,7 +234,7 @@ export async function GET(request: Request) {
         ORDER BY created_at ASC
       `).bind(auth.email, id).all();
       return json({
-        room: { ...serializeRoom({ ...room, current_email: auth.email, people: await approvedCount(id) }), isHost },
+        room: { ...serializeRoom({ ...room, current_email: auth.email, people: await approvedCount(id) }, true), isHost },
         members: members.results.map((member) => isHost
           ? member
           : {
@@ -154,8 +253,161 @@ export async function GET(request: Request) {
   }
 }
 
+export async function PUT(request: Request) {
+  let newReceiptKey = "";
+  try {
+    if (!sameOrigin(request)) return json({ error: "허용되지 않은 요청입니다." }, 403);
+    const contentLength = Number(request.headers.get("content-length") || 0);
+    if (contentLength > maxReceiptBytes + 1024 * 1024) {
+      return json({ error: "영수증 이미지는 8MB 이하만 올릴 수 있습니다." }, 413);
+    }
+
+    const auth = await requiredUser();
+    if (isResponse(auth)) return auth;
+    const form = await request.formData();
+    const action = String(form.get("action") || "");
+    const id = String(form.get("roomId") || "");
+    if (action !== "update_order_info" || !id) {
+      return json({ error: "주문 정보 요청을 확인해주세요." }, 400);
+    }
+
+    const room = await env.DB.prepare(
+      "SELECT host_email, receipt_key FROM rooms WHERE id = ?",
+    ).bind(id).first<{ host_email: string; receipt_key: string | null }>();
+    if (!room) return json({ error: "주문방을 찾을 수 없습니다." }, 404);
+    if (room.host_email !== auth.email) {
+      return json({ error: "방장만 주문 정보를 수정할 수 있습니다." }, 403);
+    }
+
+    const estimatedArrival = String(form.get("estimatedArrival") || "").trim();
+    if (
+      estimatedArrival
+      && (
+        !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(estimatedArrival)
+        || !Number.isFinite(Date.parse(estimatedArrival))
+      )
+    ) {
+      return json({ error: "도착 예상 시각을 다시 확인해주세요." }, 400);
+    }
+
+    const orderTotalValue = String(form.get("orderTotal") || "").trim();
+    const orderTotal = orderTotalValue === "" ? null : Number(orderTotalValue);
+    if (
+      orderTotal !== null
+      && (!Number.isInteger(orderTotal) || orderTotal < 0 || orderTotal > 10_000_000)
+    ) {
+      return json({ error: "최종 결제 금액은 0원부터 10,000,000원까지 입력할 수 있습니다." }, 400);
+    }
+
+    const receipt = form.get("receipt");
+    if (receipt !== null && !(receipt instanceof File)) {
+      return json({ error: "영수증 이미지 형식을 확인해주세요." }, 400);
+    }
+    let receiptContentType = "";
+    let receiptUploadedAt: number | null = null;
+    if (receipt instanceof File && receipt.size > 0) {
+      if (receipt.size > maxReceiptBytes) {
+        return json({ error: "영수증 이미지는 8MB 이하만 올릴 수 있습니다." }, 413);
+      }
+      if (!receiptTypes.has(receipt.type)) {
+        return json({ error: "영수증은 JPG, PNG, WebP 이미지로 올려주세요." }, 415);
+      }
+      const receiptBuffer = await receipt.arrayBuffer();
+      const detectedType = detectReceiptType(new Uint8Array(receiptBuffer));
+      if (!detectedType || detectedType !== receipt.type) {
+        return json({ error: "이미지 파일의 형식을 확인할 수 없습니다." }, 415);
+      }
+
+      receiptContentType = detectedType;
+      receiptUploadedAt = Date.now();
+      const extension = receiptExtension(detectedType);
+      newReceiptKey = `receipts/${id}/${crypto.randomUUID()}.${extension}`;
+      await uploadBucket().put(newReceiptKey, receiptBuffer, {
+        httpMetadata: {
+          contentType: detectedType,
+          contentDisposition: `inline; filename="receipt.${extension}"`,
+          cacheControl: "private, no-store",
+        },
+      });
+    }
+
+    try {
+      if (newReceiptKey) {
+        await env.DB.prepare(`
+          UPDATE rooms
+          SET estimated_arrival = ?, order_total = ?, receipt_key = ?,
+              receipt_content_type = ?, receipt_uploaded_at = ?
+          WHERE id = ? AND host_email = ?
+        `).bind(
+          estimatedArrival || null,
+          orderTotal,
+          newReceiptKey,
+          receiptContentType,
+          receiptUploadedAt,
+          id,
+          auth.email,
+        ).run();
+      } else {
+        await env.DB.prepare(`
+          UPDATE rooms
+          SET estimated_arrival = ?, order_total = ?
+          WHERE id = ? AND host_email = ?
+        `).bind(estimatedArrival || null, orderTotal, id, auth.email).run();
+      }
+    } catch (databaseError) {
+      if (newReceiptKey) await uploadBucket().delete(newReceiptKey).catch(() => undefined);
+      throw databaseError;
+    }
+
+    if (newReceiptKey && room.receipt_key && room.receipt_key !== newReceiptKey) {
+      await uploadBucket().delete(room.receipt_key).catch(() => undefined);
+    }
+    return json({ ok: true, receiptUploadedAt });
+  } catch (error) {
+    if (newReceiptKey) {
+      await uploadBucket().delete(newReceiptKey).catch(() => undefined);
+    }
+    console.error("Failed to update private order information", error);
+    return json({ error: "주문 정보를 저장하지 못했습니다." }, 500);
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    if (!sameOrigin(request)) return json({ error: "허용되지 않은 요청입니다." }, 403);
+    const auth = await requiredUser();
+    if (isResponse(auth)) return auth;
+    const url = new URL(request.url);
+    const id = url.searchParams.get("roomId") || "";
+    if (!id) return json({ error: "주문방 정보가 없습니다." }, 400);
+
+    const room = await env.DB.prepare(
+      "SELECT host_email, receipt_key FROM rooms WHERE id = ?",
+    ).bind(id).first<{ host_email: string; receipt_key: string | null }>();
+    if (!room) return json({ error: "주문방을 찾을 수 없습니다." }, 404);
+    if (room.host_email !== auth.email) {
+      return json({ error: "방장만 주문방을 삭제할 수 있습니다." }, 403);
+    }
+
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM room_messages WHERE room_id = ?").bind(id),
+      env.DB.prepare("DELETE FROM room_invites WHERE room_id = ?").bind(id),
+      env.DB.prepare("DELETE FROM room_members WHERE room_id = ?").bind(id),
+      env.DB.prepare("DELETE FROM rooms WHERE id = ? AND host_email = ?").bind(id, auth.email),
+    ]);
+    if (room.receipt_key) {
+      await uploadBucket().delete(room.receipt_key).catch(() => undefined);
+    }
+    return json({ ok: true });
+  } catch (error) {
+    console.error("Failed to delete private order room", error);
+    return json({ error: "주문방을 삭제하지 못했습니다." }, 500);
+  }
+}
+
 export async function POST(request: Request) {
   try {
+    if (!sameOrigin(request)) return json({ error: "허용되지 않은 요청입니다." }, 403);
     const auth = await requiredUser();
     if (isResponse(auth)) return auth;
     const payload = await request.json() as Record<string, unknown>;

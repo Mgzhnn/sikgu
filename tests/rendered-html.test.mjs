@@ -254,3 +254,44 @@ test("opens an accessible feedback dialog with an email handoff", async () => {
   assert.match(css, /\.feedback-modal/);
   assert.match(css, /\.feedback-type-grid/);
 });
+
+test("lets hosts manage private order receipts and delete their rooms", async () => {
+  const [hosting, schema, migration, api, page, css, worker] = await Promise.all([
+    readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0001_glossy_prodigy.sql", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/sikgu/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../worker/index.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(hosting, /"r2":\s*"UPLOADS"/);
+  assert.match(worker, /UPLOADS: R2Bucket/);
+  for (const field of ["estimatedArrival", "orderTotal", "receiptKey", "receiptContentType", "receiptUploadedAt"]) {
+    assert.match(schema, new RegExp(field));
+  }
+  assert.match(migration, /DELETE FROM `room_messages`[\s\S]*DELETE FROM `room_invites`[\s\S]*DELETE FROM `room_members`[\s\S]*DELETE FROM `rooms`/);
+
+  assert.match(api, /export async function PUT/);
+  assert.match(api, /room\.host_email !== auth\.email/);
+  assert.match(api, /maxReceiptBytes = 8 \* 1024 \* 1024/);
+  assert.match(api, /detectReceiptType/);
+  assert.match(api, /receipts\/\$\{id\}\/\$\{crypto\.randomUUID\(\)\}/);
+  assert.match(api, /action === "receipt"/);
+  assert.match(api, /room\.my_status !== "approved"/);
+  assert.match(api, /"Cache-Control": "private, no-store"/);
+  assert.match(api, /"X-Content-Type-Options": "nosniff"/);
+  assert.match(api, /export async function DELETE/);
+  assert.match(api, /DELETE FROM room_messages WHERE room_id = \?/);
+
+  assert.match(page, /ORDER UPDATE/);
+  assert.match(page, /type="datetime-local"/);
+  assert.match(page, /accept="image\/jpeg,image\/png,image\/webp"/);
+  assert.match(page, /method: "PUT"/);
+  assert.match(page, /method: "DELETE"/);
+  assert.match(page, /영수증 원본 이미지 열기/);
+  assert.match(page, /참여자, 채팅, 초대 링크, 영수증 이미지가 모두 삭제/);
+  assert.match(css, /\.order-info-card/);
+  assert.match(css, /\.room-delete-confirm/);
+});

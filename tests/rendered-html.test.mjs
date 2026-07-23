@@ -103,6 +103,35 @@ test("does not ship the inactive notification control", async () => {
   assert.doesNotMatch(css, /\.notification i/);
 });
 
+test("removes unimplemented integrations and fabricated profile data", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  for (const unsupported of [
+    "DGIST OneID",
+    "연결된 서비스",
+    "Toss · KakaoPay",
+    "함께한 주문",
+    "누적 절약",
+    "식구 매너",
+    "일회용품 12개",
+    "YOUR JULY IMPACT",
+    "배달 멤버십",
+    "멤버십 보유자가 결제",
+    "이*연",
+  ]) {
+    assert.doesNotMatch(page, new RegExp(unsupported.replace("*", "\\*")));
+  }
+
+  assert.doesNotMatch(page, /aria-label="공유하기"/);
+  assert.doesNotMatch(css, /\.connected-list/);
+  assert.doesNotMatch(css, /\.impact-card/);
+  assert.doesNotMatch(css, /\.membership-options/);
+  assert.doesNotMatch(css, /\.participant-list/);
+});
+
 test("removes the delivery-app-owned order tracking section", async () => {
   const [page, css] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
@@ -150,9 +179,27 @@ test("persists rooms, approvals, invitations, and private chat in D1", async () 
   assert.match(page, /action: "review_member"/);
   assert.match(page, /action: "create_invite"/);
   assert.match(page, /action: "send_message"/);
+  assert.match(page, /messagesEndRef\.current\?\.scrollIntoView/);
+  assert.match(page, /if \(!body \|\| sending\) return/);
+  assert.match(page, /disabled=\{sending \|\| !message\.trim\(\)\}/);
 
   assert.match(api, /my_status !== "approved"/);
   assert.match(api, /방장만 참여자를 선택할 수 있습니다/);
   assert.match(api, /승인된 구성원만 채팅할 수 있습니다/);
   assert.match(api, /\.trim\(\)\.slice\(0, 1000\)/);
+  assert.match(api, /ORDER BY created_at DESC[\s\S]*LIMIT 200[\s\S]*ORDER BY created_at ASC/);
+});
+
+test("removes the in-app menu and cart drawer", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.doesNotMatch(page, /function MenuDrawer/);
+  assert.doesNotMatch(page, /전체 메뉴/);
+  assert.doesNotMatch(page, /메뉴를 담아주세요/);
+  assert.doesNotMatch(page, /selectedRestaurant|setSelectedRestaurant|\bcart\b|setCart/);
+  assert.doesNotMatch(css, /\.menu-drawer|\.menu-groups|\.drawer-footer|\.add-menu|\.stepper/);
+  assert.match(page, /이 가게로 방 만들기/);
 });

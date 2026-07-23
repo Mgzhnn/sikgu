@@ -82,7 +82,7 @@ test("ships with no fabricated live orders", async () => {
   assert.doesNotMatch(page, /id: "p[1-4]"/);
   assert.doesNotMatch(page, /활성 주문 9개/);
   assert.doesNotMatch(page, /이번 주 절약[\s\S]*18,300원/);
-  assert.match(page, /아직 활성 주문방이 없어요/);
+  assert.match(page, /조건에 맞는 주문방이 없어요/);
 });
 
 test("supports selecting both delivery apps for one order pool", async () => {
@@ -162,7 +162,6 @@ test("supports a persistent current pickup location selector", async () => {
   assert.match(page, /pickupPoints\.map\(\(point\)/);
   assert.match(page, /localStorage\.setItem\(currentPickupStorageKey, currentPickup\)/);
   assert.match(page, /preferredPickup=\{currentPickup\}/);
-  assert.match(page, /initialPickup=\{currentPickup\}/);
   assert.match(css, /\.location-menu/);
   assert.match(css, /\.location-option\.active/);
 });
@@ -220,4 +219,18 @@ test("removes the inactive order-detail header button", async () => {
   assert.doesNotMatch(page, /className="modal-topbar"[\s\S]{0,220}<span \/>/);
   assert.match(css, /\.modal-topbar \{[\s\S]*grid-template-columns: 34px minmax\(0, 1fr\) 34px/);
   assert.match(css, /\.modal-topbar::after \{[\s\S]*content: ""/);
+});
+
+test("removes the nonfunctional internal campus map", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.doesNotMatch(page, /function MapView/);
+  assert.doesNotMatch(page, /id: "map"/);
+  assert.doesNotMatch(page, /캠퍼스 지도|캠퍼스 지도 열기|지도 보기/);
+  assert.doesNotMatch(page, /onMap/);
+  assert.doesNotMatch(css, /\.map-layout|\.map-panel|\.mini-map|\.pickup-panel|\.map-link-row/);
+  assert.match(css, /\.mobile-nav \{[\s\S]*grid-template-columns: repeat\(3, 1fr\)/);
 });

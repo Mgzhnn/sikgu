@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type View = "home" | "restaurants" | "map" | "profile";
 type DeliveryApp = "baemin" | "coupang";
@@ -73,9 +73,9 @@ const money = (value: number) => `${value.toLocaleString("ko-KR")}원`;
 const kakaoMapSearchUrl = (restaurant: Restaurant) =>
   `https://map.kakao.com/?q=${encodeURIComponent(`${restaurant.name} ${restaurant.address || "현풍 테크노폴리스"}`)}`;
 
-const appLabels: Record<DeliveryApp, { name: string; membership: string }> = {
-  baemin: { name: "배민", membership: "배민클럽" },
-  coupang: { name: "쿠팡이츠", membership: "쿠팡와우" },
+const appLabels: Record<DeliveryApp, { name: string }> = {
+  baemin: { name: "배민" },
+  coupang: { name: "쿠팡이츠" },
 };
 
 const sampleMenu = (
@@ -636,7 +636,6 @@ function PoolCard({
         <Progress current={pool.total} target={pool.target} />
 
         <div className="pool-card-bottom">
-          <span className="membership-line"><b>✓</b>{pool.membership}</span>
           <span className="people-stack" aria-label={`${pool.people}명 참여 중`}>
             {Array.from({ length: Math.min(pool.people, 3) }).map((_, index) => (
               <i key={index}>{["민", "서", "훈"][index]}</i>
@@ -780,10 +779,8 @@ function HomeView({
 }
 
 function RestaurantsView({
-  onMenu,
   onCreate,
 }: {
-  onMenu: (restaurant: Restaurant) => void;
   onCreate: (restaurant?: Restaurant) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -827,7 +824,7 @@ function RestaurantsView({
           const bestApp: DeliveryApp = restaurant.minimum.baemin <= restaurant.minimum.coupang ? "baemin" : "coupang";
           return (
             <article className="restaurant-card" key={restaurant.id}>
-              <button className="restaurant-summary" onClick={() => onMenu(restaurant)}>
+              <div className="restaurant-summary">
                 <RestaurantMark restaurant={restaurant} large />
                 <div className="restaurant-info">
                   <span className="cuisine-label">{restaurant.cuisine}{restaurant.verified && <em>위치 확인</em>}</span>
@@ -839,8 +836,7 @@ function RestaurantsView({
                     {restaurant.eta}
                   </p>
                 </div>
-                <span className="chevron">›</span>
-              </button>
+              </div>
               <a className="restaurant-location-link" href={kakaoMapSearchUrl(restaurant)} target="_blank" rel="noreferrer">
                 <span>◎</span>{restaurant.address || "현풍 테크노폴리스"}<b>카카오맵 ↗</b>
               </a>
@@ -854,7 +850,6 @@ function RestaurantsView({
                 ))}
               </div>
               <div className="restaurant-card-actions">
-                <button className="secondary-button" onClick={() => onMenu(restaurant)}>전체 메뉴</button>
                 <button className="primary-button" onClick={() => onCreate(restaurant)}>이 가게로 방 만들기</button>
               </div>
             </article>
@@ -973,14 +968,10 @@ function MapView({
 }
 
 function ProfileView({
-  membership,
-  setMembership,
   onCreate,
   currentPickup,
   user,
 }: {
-  membership: string;
-  setMembership: (value: string) => void;
   onCreate: () => void;
   currentPickup: string;
   user: AuthUser | null;
@@ -995,63 +986,8 @@ function ProfileView({
         <div>
           <h2>{profileName}</h2>
           <p>{user ? user.email : "주문방 참여와 채팅에는 로그인이 필요해요"} · {currentPickup}</p>
-          <span>현재 위치 <b>{currentPickup}</b></span>
+          <span>이 기기의 현재 위치 <b>{currentPickup}</b></span>
         </div>
-        <div className="profile-stats">
-          <span><strong>—</strong><small>함께한 주문</small></span>
-          <span><strong>—</strong><small>누적 절약</small></span>
-          <span><strong>—</strong><small>식구 매너</small></span>
-        </div>
-      </section>
-
-      <div className="profile-grid">
-        <section className="settings-card">
-          <div className="settings-head">
-            <span className="setting-icon">₩</span>
-            <div><h2>배달 멤버십</h2><p>보유한 구독을 알려주면 최적 결제자로 추천해요.</p></div>
-          </div>
-          <div className="membership-options">
-            {[
-              ["none", "없음", "일반 배달비 분할"],
-              ["baemin", "배민클럽", "배민 배달비 0원"],
-              ["coupang", "쿠팡와우", "쿠팡이츠 배달비 0원"],
-            ].map(([value, label, detail]) => (
-              <button className={membership === value ? "active" : ""} onClick={() => setMembership(value)} key={value}>
-                <i>{membership === value ? "✓" : ""}</i>
-                <span><strong>{label}</strong><small>{detail}</small></span>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="settings-card">
-          <div className="settings-head">
-            <span className="setting-icon">↗</span>
-            <div><h2>연결된 서비스</h2><p>더 빠른 로그인과 정산을 위한 연결이에요.</p></div>
-          </div>
-          <div className="connected-list">
-            {[
-              ["DGIST OneID", "학교 계정 인증됨", "연결됨"],
-              ["시간표", "학사 일정으로 식사시간 추천", "연결됨"],
-              ["Toss · KakaoPay", "간편 정산 연결", "연결하기"],
-            ].map(([name, detail, action], index) => (
-              <div key={name}>
-                <i className={index < 2 ? "on" : ""} />
-                <span><strong>{name}</strong><small>{detail}</small></span>
-                <button>{action}</button>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
-
-      <section className="impact-card">
-        <div>
-          <span>YOUR JULY IMPACT</span>
-          <h2>혼자 주문했을 때보다<br /><em>일회용품 12개</em>를 줄였어요.</h2>
-          <p>식구와 주문을 합치면 배달 이동과 포장도 자연스럽게 줄어들어요.</p>
-        </div>
-        <div className="impact-visual"><span>12</span><small>less packages</small></div>
       </section>
     </>
   );
@@ -1133,96 +1069,7 @@ function RightRail({
         </button>
       </section>
 
-      <section className="rail-tip">
-        <span>식구 TIP</span>
-        <p>멤버십 보유자가 결제하면 모두의 배달비가 사라져요.</p>
-      </section>
     </aside>
-  );
-}
-
-function MenuDrawer({
-  restaurant,
-  cart,
-  setCart,
-  onClose,
-  onCreate,
-}: {
-  restaurant: Restaurant;
-  cart: Record<string, number>;
-  setCart: (cart: Record<string, number>) => void;
-  onClose: () => void;
-  onCreate: () => void;
-}) {
-  const allItems = restaurant.menu.flatMap((group) => group.items);
-  const total = allItems.reduce((sum, item) => sum + item.price * (cart[item.id] || 0), 0);
-  const count = Object.values(cart).reduce((sum, quantity) => sum + quantity, 0);
-  const update = (id: string, delta: number) => {
-    const quantity = Math.max(0, (cart[id] || 0) + delta);
-    const next = { ...cart };
-    if (quantity === 0) delete next[id];
-    else next[id] = quantity;
-    setCart(next);
-  };
-
-  return (
-    <div className="overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <aside className="menu-drawer" role="dialog" aria-modal="true" aria-label={`${restaurant.name} 메뉴`}>
-        <div className="drawer-head">
-          <div className="drawer-title">
-            <RestaurantMark restaurant={restaurant} large />
-            <div>
-              <span>{restaurant.cuisine}</span>
-              <h2>{restaurant.name}</h2>
-              <p>{restaurant.rating ? `★ ${restaurant.rating}` : restaurant.address || "현풍 테크노폴리스"} · {restaurant.eta}</p>
-            </div>
-          </div>
-          <button onClick={onClose} aria-label="메뉴 닫기">×</button>
-        </div>
-
-        <div className="drawer-app-note">
-          <div><span>배민 예상 최소주문</span><strong>{money(restaurant.minimum.baemin)}</strong></div>
-          <div><span>쿠팡이츠 예상 최소주문</span><strong>{money(restaurant.minimum.coupang)}</strong></div>
-          <p><b>TIP</b> 금액과 배달 가능 여부는 앱에서 최종 확인해 주세요.</p>
-        </div>
-
-        <div className="menu-groups">
-          {restaurant.menu.map((group) => (
-            <section key={group.title}>
-              <h3>{group.title}</h3>
-              {group.items.map((item) => {
-                const quantity = cart[item.id] || 0;
-                return (
-                  <div className="menu-item" key={item.id}>
-                    <div className="menu-item-copy">
-                      <div>{item.badge && <span>{item.badge}</span>}<strong>{item.name}</strong></div>
-                      <p>{item.description}</p>
-                      <b>{money(item.price)}</b>
-                    </div>
-                    {quantity ? (
-                      <div className="stepper">
-                        <button onClick={() => update(item.id, -1)} aria-label={`${item.name} 수량 줄이기`}>−</button>
-                        <span>{quantity}</span>
-                        <button onClick={() => update(item.id, 1)} aria-label={`${item.name} 수량 늘리기`}>＋</button>
-                      </div>
-                    ) : (
-                      <button className="add-menu" onClick={() => update(item.id, 1)} aria-label={`${item.name} 담기`}>＋</button>
-                    )}
-                  </div>
-                );
-              })}
-            </section>
-          ))}
-        </div>
-
-        <div className="drawer-footer">
-          {count > 0 && <div><span>{count}개 담음</span><strong>{money(total)}</strong></div>}
-          <button className="primary-button" disabled={!count} onClick={onCreate}>
-            {count ? "이 메뉴로 주문방 만들기" : "메뉴를 담아주세요"}
-          </button>
-        </div>
-      </aside>
-    </div>
   );
 }
 
@@ -1241,7 +1088,7 @@ function PoolModal({
   const gap = Math.max(0, pool.target - pool.total);
   const ready = gap === 0;
   const fee = Math.min(...pool.apps.map((app) => restaurant.deliveryFee[app]));
-  const eachFee = pool.membership.includes("0원") || pool.membership.includes("클럽") ? 0 : Math.ceil(fee / pool.people);
+  const eachFee = Math.ceil(fee / pool.people);
   const appNames = pool.apps.map((app) => appLabels[app].name).join(" · ");
 
   return (
@@ -1250,7 +1097,7 @@ function PoolModal({
         <div className="modal-topbar">
           <button onClick={onClose} aria-label="공동주문 닫기">←</button>
           <span>{timeLeft(pool.closesAt, now)}</span>
-          <button aria-label="공유하기">↗</button>
+          <span />
         </div>
         <div className="pool-modal-hero">
           <RestaurantMark restaurant={restaurant} large />
@@ -1275,21 +1122,8 @@ function PoolModal({
           <span className="spark">✦</span>
           <div>
             <small>선택 가능 주문 앱</small>
-            <strong>{appNames} · {pool.membership}</strong>
-            <p>{eachFee === 0 ? "멤버십 보유자가 결제해 모두의 배달비가 0원이에요." : `배달비를 나누면 1인당 약 ${money(eachFee)}이에요.`}</p>
-          </div>
-        </div>
-
-        <div className="modal-section">
-          <div className="modal-section-title"><h3>참여 중인 식구</h3><span>{pool.people}명</span></div>
-          <div className="participant-list">
-            {Array.from({ length: pool.people }).map((_, index) => (
-              <div key={index}>
-                <span className="avatar">{["민", "서", "훈", "진"][index]}</span>
-                <span><strong>{index === 0 ? pool.host : index === 1 ? "이*연" : "나"}</strong><small>{index === 0 ? "방장 · 결제 예정" : index === 1 ? "신전 떡볶이" : "메뉴 선택 전"}</small></span>
-                <b>{index === 0 ? "6,000원" : index === 1 ? "4,500원" : "—"}</b>
-              </div>
-            ))}
+            <strong>{appNames}</strong>
+            <p>{fee === 0 ? "선택한 앱의 예상 배달비는 0원이에요." : `배달비를 나누면 1인당 약 ${money(eachFee)}이에요.`}</p>
           </div>
         </div>
 
@@ -1336,6 +1170,8 @@ function RoomHubModal({
   const [inviteLink, setInviteLink] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const restaurant = room
     ? restaurants.find((item) => item.id === room.restaurantId)
     : undefined;
@@ -1372,6 +1208,10 @@ function RoomHubModal({
     };
   }, [loadRoom]);
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages.length]);
+
   const post = async (payload: Record<string, unknown>) => {
     const response = await fetch("/api/sikgu", {
       method: "POST",
@@ -1406,13 +1246,16 @@ function RoomHubModal({
 
   const sendMessage = async () => {
     const body = message.trim();
-    if (!body) return;
+    if (!body || sending) return;
+    setSending(true);
     try {
       await post({ action: "send_message", body });
       setMessage("");
       await loadRoom(true);
     } catch (messageError) {
       setError(messageError instanceof Error ? messageError.message : "메시지를 보내지 못했어요.");
+    } finally {
+      setSending(false);
     }
   };
 
@@ -1482,10 +1325,12 @@ function RoomHubModal({
                     <div><p>{item.body}</p><time>{new Date(item.created_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}</time></div>
                   </article>
                 ))}
+                <div className="chat-scroll-anchor" ref={messagesEndRef} />
               </div>
               <div className="chat-composer">
                 <textarea
                   value={message}
+                  disabled={sending}
                   onChange={(event) => setMessage(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && !event.shiftKey) {
@@ -1497,7 +1342,7 @@ function RoomHubModal({
                   maxLength={1000}
                   rows={1}
                 />
-                <button onClick={sendMessage} disabled={!message.trim()} aria-label="메시지 보내기">↑</button>
+                <button onClick={sendMessage} disabled={sending || !message.trim()} aria-label="메시지 보내기">↑</button>
               </div>
             </section>
           </div>
@@ -1688,14 +1533,6 @@ function CreateModal({
           </div>
         </div>
 
-        <div className="membership-callout">
-          <span>{apps.length === 2 ? "✓" : apps[0] === "baemin" ? "✓" : "✦"}</span>
-          <div>
-            <strong>{apps.length === 2 ? "두 앱 중 유리한 조건을 선택해요" : apps[0] === "baemin" ? "배민클럽이 적용돼요" : "쿠팡와우 보유자를 찾아드려요"}</strong>
-            <p>{apps.length === 2 ? "모집이 끝나면 최소주문금액과 배달비를 비교해 결제 앱을 정할 수 있어요." : apps[0] === "baemin" ? "배민클럽 보유자가 결제하면 배달비를 아낄 수 있어요." : "와우 멤버가 결제하면 모두의 배달비가 0원이 될 수 있어요."}</p>
-          </div>
-        </div>
-
         <button
           className="primary-button create-submit"
           disabled={!apps.length}
@@ -1714,13 +1551,10 @@ export default function Home() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [selectedPool, setSelectedPool] = useState<Pool | null>(null);
   const [roomHubId, setRoomHubId] = useState<string | null>(null);
-  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [createFor, setCreateFor] = useState<Restaurant | undefined>();
   const [showCreate, setShowCreate] = useState(false);
-  const [cart, setCart] = useState<Record<string, number>>({});
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("전체");
-  const [membership, setMembership] = useState("baemin");
   const [currentPickup, setCurrentPickup] = useState("E3");
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationReady, setLocationReady] = useState(false);
@@ -1864,15 +1698,6 @@ export default function Home() {
     const point = pickupPoints.find((item) => item.id === values.pickup)
       || pickupPoints.find((item) => item.id === "E3")
       || pickupPoints[0];
-    const total = Object.entries(cart).reduce((sum, [id, quantity]) => {
-      const menuItem = restaurant.menu.flatMap((group) => group.items).find((item) => item.id === id);
-      return sum + (menuItem?.price || 0) * quantity;
-    }, 0);
-    const membershipCopy = values.apps.length === 2
-      ? "결제 앱은 주문 확정 전에 선택"
-      : values.apps[0] === "baemin"
-        ? "배민클럽 보유자 결제"
-        : "쿠팡와우 보유자 찾는 중";
     try {
       const result = await postAction({
         action: "create_room",
@@ -1881,15 +1706,13 @@ export default function Home() {
         pickupFull: point.full,
         apps: values.apps,
         closesAt: Date.now() + values.minutes * 60 * 1000,
-        total,
+        total: 0,
         target: Math.min(...values.apps.map((app) => restaurant.minimum[app])),
         capacity: values.capacity,
-        membership: membershipCopy,
+        membership: "",
         note: "같이 맛있게 먹어요!",
       });
       setShowCreate(false);
-      setSelectedRestaurant(null);
-      setCart({});
       setView("home");
       await loadRooms();
       if (result.roomId) setRoomHubId(result.roomId);
@@ -1970,7 +1793,7 @@ export default function Home() {
             onRestaurants={() => navigate("restaurants")}
           />
         )}
-        {view === "restaurants" && <RestaurantsView onMenu={(restaurant) => { setSelectedRestaurant(restaurant); setCart({}); }} onCreate={openCreate} />}
+        {view === "restaurants" && <RestaurantsView onCreate={openCreate} />}
         {view === "map" && (
           <MapView
             key={currentPickup}
@@ -1981,7 +1804,7 @@ export default function Home() {
             onCreate={() => openCreate()}
           />
         )}
-        {view === "profile" && <ProfileView membership={membership} currentPickup={currentPickup} user={user} onCreate={() => openCreate()} setMembership={(value) => { setMembership(value); notify("배달 멤버십 정보를 저장했어요."); }} />}
+        {view === "profile" && <ProfileView currentPickup={currentPickup} user={user} onCreate={() => openCreate()} />}
       </main>
 
       <RightRail
@@ -2002,19 +1825,6 @@ export default function Home() {
         ))}
       </nav>
 
-      {selectedRestaurant && (
-        <MenuDrawer
-          restaurant={selectedRestaurant}
-          cart={cart}
-          setCart={setCart}
-          onClose={() => setSelectedRestaurant(null)}
-          onCreate={() => {
-            setCreateFor(selectedRestaurant);
-            setSelectedRestaurant(null);
-            setShowCreate(true);
-          }}
-        />
-      )}
       {selectedPool && <PoolModal pool={selectedPool} now={now} onClose={() => setSelectedPool(null)} onToggleJoin={handleToggleJoin} />}
       {showCreate && (
         <CreateModal

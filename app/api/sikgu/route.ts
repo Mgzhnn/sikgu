@@ -123,12 +123,16 @@ export async function GET(request: Request) {
         ORDER BY CASE status WHEN 'requested' THEN 0 ELSE 1 END, created_at ASC
       `).bind(id).all();
       const messages = await env.DB.prepare(`
-        SELECT id, sender_name, body, created_at,
-          CASE WHEN sender_email = ? THEN 1 ELSE 0 END AS mine
-        FROM room_messages
-        WHERE room_id = ?
+        SELECT id, sender_name, body, created_at, mine
+        FROM (
+          SELECT id, sender_name, body, created_at,
+            CASE WHEN sender_email = ? THEN 1 ELSE 0 END AS mine
+          FROM room_messages
+          WHERE room_id = ?
+          ORDER BY created_at DESC
+          LIMIT 200
+        )
         ORDER BY created_at ASC
-        LIMIT 200
       `).bind(auth.email, id).all();
       return json({
         room: { ...serializeRoom({ ...room, current_email: auth.email, people: await approvedCount(id) }), isHost },

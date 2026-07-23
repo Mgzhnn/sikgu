@@ -578,7 +578,32 @@ const pickupPoints: PickupPoint[] = [
   },
 ];
 
+const campusMapBounds = pickupPoints.reduce(
+  (bounds, point) => ({
+    minLat: Math.min(bounds.minLat, point.lat),
+    maxLat: Math.max(bounds.maxLat, point.lat),
+    minLng: Math.min(bounds.minLng, point.lng),
+    maxLng: Math.max(bounds.maxLng, point.lng),
+  }),
+  {
+    minLat: Number.POSITIVE_INFINITY,
+    maxLat: Number.NEGATIVE_INFINITY,
+    minLng: Number.POSITIVE_INFINITY,
+    maxLng: Number.NEGATIVE_INFINITY,
+  },
+);
+
+function campusMapPosition(point: PickupPoint) {
+  const latitudeSpan = campusMapBounds.maxLat - campusMapBounds.minLat || 1;
+  const longitudeSpan = campusMapBounds.maxLng - campusMapBounds.minLng || 1;
+  return {
+    left: `${12 + ((point.lng - campusMapBounds.minLng) / longitudeSpan) * 76}%`,
+    top: `${12 + ((campusMapBounds.maxLat - point.lat) / latitudeSpan) * 76}%`,
+  };
+}
+
 const currentPickupStorageKey = "sikgu-current-pickup";
+const pendingJoinStorageKey = "sikgu-pending-join";
 const initialPools: Pool[] = [];
 
 const navItems: { id: View; label: string; compact: string; icon: string }[] = [
@@ -686,6 +711,70 @@ function PoolCard({
   );
 }
 
+function CampusMapPreview({
+  pools,
+  currentPickup,
+  onOpen,
+}: {
+  pools: Pool[];
+  currentPickup: string;
+  onOpen: (pickupId: string) => void;
+}) {
+  const poolCounts = pools.reduce<Record<string, number>>((counts, pool) => {
+    counts[pool.pickup] = (counts[pool.pickup] || 0) + 1;
+    return counts;
+  }, {});
+
+  return (
+    <section className="campus-glance">
+      <div className="rail-section-head">
+        <span>캠퍼스 한눈에</span>
+        <button type="button" onClick={() => onOpen(currentPickup)}>지도 크게 보기</button>
+      </div>
+      <div className="campus-map-preview">
+        <button
+          type="button"
+          className="campus-map-expand"
+          onClick={() => onOpen(currentPickup)}
+          aria-label="캠퍼스 주문 지도 크게 보기"
+          aria-haspopup="dialog"
+        />
+        <span className="campus-map-road road-main" aria-hidden="true" />
+        <span className="campus-map-road road-branch" aria-hidden="true" />
+        {pickupPoints.map((point) => {
+          return (
+            <span
+              className={`campus-map-point-label ${point.id === currentPickup ? "current" : ""}`}
+              style={campusMapPosition(point)}
+              aria-hidden="true"
+              key={point.id}
+            >
+              {point.code ?? point.id}
+            </span>
+          );
+        })}
+        {pickupPoints.map((point) => {
+          const count = poolCounts[point.id] || 0;
+          if (!count) return null;
+          return (
+            <button
+              type="button"
+              className="campus-map-preview-marker"
+              style={campusMapPosition(point)}
+              onClick={() => onOpen(point.id)}
+              aria-label={`${point.full} 주문방 ${count}개 크게 보기`}
+              key={point.id}
+            >
+              {count}
+            </button>
+          );
+        })}
+        <span className="campus-map-live-summary" aria-hidden="true">활성 주문 {pools.length}개</span>
+      </div>
+    </section>
+  );
+}
+
 function Header({
   title,
   subtitle,
@@ -715,7 +804,9 @@ function HomeView({
   setSearch,
   category,
   setCategory,
+  currentPickup,
   onOpenPool,
+  onMap,
   onCreate,
   onRestaurants,
 }: {
@@ -725,7 +816,9 @@ function HomeView({
   setSearch: (value: string) => void;
   category: string;
   setCategory: (value: string) => void;
+  currentPickup: string;
   onOpenPool: (pool: Pool) => void;
+  onMap: (pickupId: string) => void;
   onCreate: () => void;
   onRestaurants: () => void;
 }) {
@@ -771,6 +864,10 @@ function HomeView({
         <div className="hero-orbit one" />
         <div className="hero-orbit two" />
       </section>
+
+      <div className="mobile-campus-glance">
+        <CampusMapPreview pools={pools} currentPickup={currentPickup} onOpen={onMap} />
+      </div>
 
       <div className="search-row">
         <label className="search-box">
@@ -938,6 +1035,7 @@ function RightRail({
   currentPickup,
   user,
   onAuth,
+  onMap,
 }: {
   pools: Pool[];
   now: number;
@@ -945,6 +1043,7 @@ function RightRail({
   currentPickup: string;
   user: AuthUser | null;
   onAuth: () => void;
+  onMap: (pickupId: string) => void;
 }) {
   const closest = pools.find((pool) => pool.pickup === currentPickup) || pools[0];
   const maskedUserName = user ? maskDisplayName(user.displayName) : "";
@@ -987,7 +1086,207 @@ function RightRail({
         )}
       </section>
 
+      <CampusMapPreview pools={pools} currentPickup={currentPickup} onOpen={onMap} />
     </aside>
+  );
+}
+
+function CampusMapModal({
+  pools,
+  now,
+  initialPickup,
+  onClose,
+  onJoin,
+}: {
+  pools: Pool[];
+  now: number;
+  initialPickup: string;
+  onClose: () => void;
+  onJoin: (pool: Pool) => Promise<void>;
+}) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const [selectedPickup, setSelectedPickup] = useState(
+    pickupPoints.some((point) => point.id === initialPickup) ? initialPickup : pickupPoints[0].id,
+  );
+  const [busyRoomId, setBusyRoomId] = useState<string | null>(null);
+  const selectedPoint = pickupPoints.find((point) => point.id === selectedPickup) || pickupPoints[0];
+  const selectedPools = pools.filter((pool) => pool.pickup === selectedPoint.id);
+  const poolCounts = pools.reduce<Record<string, number>>((counts, pool) => {
+    counts[pool.pickup] = (counts[pool.pickup] || 0) + 1;
+    return counts;
+  }, {});
+  const unmappedCount = pools.filter(
+    (pool) => !pickupPoints.some((point) => point.id === pool.pickup),
+  ).length;
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
+    const focusableSelector = "button:not([disabled])";
+    dialog?.querySelector<HTMLElement>(focusableSelector)?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab" || !dialog) return;
+
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [onClose]);
+
+  const joinPool = async (pool: Pool) => {
+    if (pool.myStatus === "requested") return;
+    if (!pool.isHost && pool.myStatus !== "approved" && pool.people >= pool.capacity) return;
+    setBusyRoomId(pool.id);
+    try {
+      await onJoin(pool);
+    } finally {
+      setBusyRoomId(null);
+    }
+  };
+
+  return (
+    <div
+      className="overlay centered campus-map-overlay"
+      role="presentation"
+      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+    >
+      <section
+        className="campus-map-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="campus-map-title"
+        aria-describedby="campus-map-description"
+        ref={dialogRef}
+      >
+        <header className="campus-map-modal-head">
+          <div>
+            <span>LIVE CAMPUS · DGIST</span>
+            <h2 id="campus-map-title">캠퍼스 주문 지도</h2>
+            <p id="campus-map-description">픽업 지점을 선택하고 열려 있는 주문방에 바로 참여해 보세요.</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="캠퍼스 지도 닫기">×</button>
+        </header>
+
+        <div className="campus-map-modal-body">
+          <div className="campus-map-canvas" aria-label="DGIST 픽업 지점 지도">
+            <span className="campus-map-road road-main" aria-hidden="true" />
+            <span className="campus-map-road road-branch" aria-hidden="true" />
+            <span className="campus-map-zone zone-research" aria-hidden="true" />
+            <span className="campus-map-zone zone-dorm" aria-hidden="true" />
+            {pickupPoints.map((point) => {
+              const count = poolCounts[point.id] || 0;
+              return (
+                <button
+                  type="button"
+                  className={`campus-map-marker ${selectedPoint.id === point.id ? "selected" : ""} ${count ? "active" : ""}`}
+                  style={campusMapPosition(point)}
+                  onClick={() => setSelectedPickup(point.id)}
+                  aria-pressed={selectedPoint.id === point.id}
+                  aria-label={`${point.full}, 활성 주문방 ${count}개`}
+                  key={point.id}
+                >
+                  <span>{point.code ?? point.id}</span>
+                  {count > 0 && <b>{count}</b>}
+                </button>
+              );
+            })}
+            <div className="campus-map-selected-label" aria-live="polite">
+              <span>{selectedPoint.code ?? selectedPoint.id}</span>
+              <div>
+                <small>선택한 픽업 지점</small>
+                <strong>{selectedPoint.full}</strong>
+              </div>
+            </div>
+          </div>
+
+          <aside className="campus-map-orders">
+            <div className="campus-map-orders-head">
+              <span>ORDER ROOMS</span>
+              <h3>{selectedPoint.full}</h3>
+              <p>열린 주문방 {selectedPools.length}개 · 도보 기준 {selectedPoint.walk}분</p>
+            </div>
+
+            {selectedPools.length ? (
+              <div className="campus-map-order-list">
+                {selectedPools.map((pool) => {
+                  const restaurant = restaurants.find((item) => item.id === pool.restaurantId);
+                  const isRoomMember = Boolean(pool.isHost || pool.myStatus === "approved");
+                  const isPending = pool.myStatus === "requested";
+                  const isFull = !isRoomMember && pool.people >= pool.capacity;
+                  const isBusy = busyRoomId === pool.id;
+                  const actionLabel = isBusy
+                    ? "처리 중"
+                    : pool.isHost
+                      ? "주문방 관리"
+                      : pool.myStatus === "approved"
+                        ? "채팅방 열기"
+                        : isPending
+                          ? "방장 승인 대기 중"
+                          : isFull
+                            ? "정원 마감"
+                            : "참여 신청";
+                  const restaurantName = restaurant?.name || "공동주문";
+
+                  return (
+                    <article className="campus-map-order-card" key={pool.id}>
+                      <div className="campus-map-order-summary">
+                        {restaurant ? <RestaurantMark restaurant={restaurant} /> : <span className="map-order-fallback">식</span>}
+                        <div>
+                          <strong>{restaurantName}</strong>
+                          <small>{timeLeft(pool.closesAt, now)} · {pool.people}/{pool.capacity}명</small>
+                        </div>
+                      </div>
+                      <div className="campus-map-order-meta">
+                        <span>{pool.apps.map((app) => appLabels[app].name).join(" · ")}</span>
+                        <b>{money(Math.max(0, pool.target - pool.total))} 남음</b>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void joinPool(pool)}
+                        disabled={busyRoomId !== null || isPending || isFull}
+                        aria-label={`${restaurantName} ${actionLabel}`}
+                      >
+                        {actionLabel}
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="campus-map-empty">
+                <span>0</span>
+                <strong>이 지점에 열린 주문방이 없어요</strong>
+                <p>숫자가 표시된 다른 픽업 지점을 눌러보세요.</p>
+              </div>
+            )}
+
+            {unmappedCount > 0 && (
+              <p className="campus-map-unmapped">위치 확인이 필요한 주문방 {unmappedCount}개는 주문 목록에서 볼 수 있어요.</p>
+            )}
+          </aside>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -1281,10 +1580,15 @@ function RoomHubModal({
   const [orderInfoStatus, setOrderInfoStatus] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const roomDialogRef = useRef<HTMLElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const restaurant = room
     ? restaurants.find((item) => item.id === room.restaurantId)
     : undefined;
+
+  useEffect(() => {
+    roomDialogRef.current?.querySelector<HTMLElement>(".room-hub-close")?.focus();
+  }, []);
 
   const loadRoom = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
@@ -1436,7 +1740,7 @@ function RoomHubModal({
 
   return (
     <div className="overlay centered" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="room-hub" role="dialog" aria-modal="true" aria-label="비공개 주문방 채팅">
+      <section className="room-hub" role="dialog" aria-modal="true" aria-label="비공개 주문방 채팅" ref={roomDialogRef}>
         <div className="room-hub-head">
           <div>
             <span>PRIVATE ORDER ROOM</span>
@@ -1844,6 +2148,8 @@ export default function Home() {
   const [createFor, setCreateFor] = useState<Restaurant | undefined>();
   const [showCreate, setShowCreate] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showCampusMap, setShowCampusMap] = useState(false);
+  const [campusMapPickup, setCampusMapPickup] = useState("E3");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("전체");
   const [currentPickup, setCurrentPickup] = useState("E3");
@@ -1851,7 +2157,11 @@ export default function Home() {
   const [locationReady, setLocationReady] = useState(false);
   const [toast, setToast] = useState("");
   const [now, setNow] = useState(() => Date.now());
+  const loadRoomsRequestRef = useRef(0);
   const currentPoint = pickupPoints.find((point) => point.id === currentPickup) || pickupPoints[0];
+  const latestSelectedPool = selectedPool
+    ? pools.find((pool) => pool.id === selectedPool.id) || null
+    : null;
 
   const notify = useCallback((message: string) => {
     setToast(message);
@@ -1879,11 +2189,14 @@ export default function Home() {
   }, [signIn]);
 
   const loadRooms = useCallback(async () => {
+    const requestId = ++loadRoomsRequestRef.current;
     const response = await fetch("/api/sikgu?action=bootstrap", { cache: "no-store" });
     const data = await response.json() as { user: AuthUser | null; rooms: Pool[]; error?: string };
     if (!response.ok) throw new Error(data.error || "주문방을 불러오지 못했어요.");
-    setUser(data.user);
-    setPools(data.rooms || []);
+    if (requestId === loadRoomsRequestRef.current) {
+      setUser(data.user);
+      setPools(data.rooms || []);
+    }
     return data;
   }, []);
 
@@ -1911,6 +2224,51 @@ export default function Home() {
           await loadRooms();
           setRoomHubId(invitedRoomId);
           notify("주문방 초대를 수락했어요.");
+          return;
+        }
+
+        const pendingJoinRaw = window.sessionStorage.getItem(pendingJoinStorageKey);
+        let pendingJoinRoomId = "";
+        if (pendingJoinRaw && data.user) {
+          window.sessionStorage.removeItem(pendingJoinStorageKey);
+          try {
+            const pendingJoin = JSON.parse(pendingJoinRaw) as { roomId?: string; createdAt?: number };
+            const isFresh = typeof pendingJoin.createdAt === "number"
+              && Date.now() - pendingJoin.createdAt < 10 * 60 * 1000;
+            if (isFresh && typeof pendingJoin.roomId === "string") pendingJoinRoomId = pendingJoin.roomId;
+          } catch {
+            pendingJoinRoomId = "";
+          }
+        }
+        if (pendingJoinRoomId && data.user) {
+          const pendingPool = data.rooms.find((pool) => pool.id === pendingJoinRoomId);
+          if (!pendingPool) {
+            notify("참여하려던 주문방이 마감되었거나 삭제됐어요.");
+            return;
+          }
+          if (pendingPool.isHost || pendingPool.myStatus === "approved") {
+            setRoomHubId(pendingPool.id);
+            return;
+          }
+          if (pendingPool.myStatus === "requested") {
+            notify("이미 참여 승인을 기다리고 있어요.");
+            return;
+          }
+
+          try {
+            await postAction({ action: "request_join", roomId: pendingPool.id });
+            setPools((currentPools) => currentPools.map((pool) => (
+              pool.id === pendingPool.id ? { ...pool, myStatus: "requested" } : pool
+            )));
+            try {
+              await loadRooms();
+              notify("로그인 후 참여 신청을 이어서 보냈어요. 방장이 승인하면 채팅방이 열립니다.");
+            } catch {
+              notify("참여 신청은 접수됐어요. 주문방 상태는 잠시 후 자동으로 갱신됩니다.");
+            }
+          } catch (joinError) {
+            notify(joinError instanceof Error ? joinError.message : "참여 신청을 보내지 못했어요.");
+          }
         }
       } catch (loadError) {
         if (active) notify(loadError instanceof Error ? loadError.message : "주문방을 불러오지 못했어요.");
@@ -1958,6 +2316,10 @@ export default function Home() {
 
   const handleToggleJoin = async (pool: Pool) => {
     if (!user) {
+      window.sessionStorage.setItem(pendingJoinStorageKey, JSON.stringify({
+        roomId: pool.id,
+        createdAt: Date.now(),
+      }));
       signIn();
       return;
     }
@@ -1969,11 +2331,20 @@ export default function Home() {
     if (pool.myStatus === "requested") return;
     try {
       await postAction({ action: "request_join", roomId: pool.id });
-      setSelectedPool(null);
-      await loadRooms();
-      notify("참여 신청을 보냈어요. 방장이 승인하면 채팅방이 열립니다.");
     } catch (joinError) {
       notify(joinError instanceof Error ? joinError.message : "참여 신청을 보내지 못했어요.");
+      return;
+    }
+
+    setSelectedPool(null);
+    setPools((currentPools) => currentPools.map((currentPool) => (
+      currentPool.id === pool.id ? { ...currentPool, myStatus: "requested" } : currentPool
+    )));
+    try {
+      await loadRooms();
+      notify("참여 신청을 보냈어요. 방장이 승인하면 채팅방이 열립니다.");
+    } catch {
+      notify("참여 신청은 접수됐어요. 주문방 상태는 잠시 후 자동으로 갱신됩니다.");
     }
   };
 
@@ -2018,6 +2389,11 @@ export default function Home() {
   };
 
   const closeFeedback = useCallback(() => setShowFeedback(false), []);
+  const closeCampusMap = useCallback(() => setShowCampusMap(false), []);
+  const openCampusMap = useCallback((pickupId: string) => {
+    setCampusMapPickup(pickupId);
+    setShowCampusMap(true);
+  }, []);
 
   return (
     <div className="app-shell">
@@ -2083,7 +2459,9 @@ export default function Home() {
             setSearch={setSearch}
             category={category}
             setCategory={setCategory}
+            currentPickup={currentPickup}
             onOpenPool={setSelectedPool}
+            onMap={openCampusMap}
             onCreate={() => openCreate()}
             onRestaurants={() => navigate("restaurants")}
           />
@@ -2099,6 +2477,7 @@ export default function Home() {
         user={user}
         onPool={setSelectedPool}
         onAuth={() => window.location.assign(user ? "/signout-with-chatgpt?return_to=/" : "/signin-with-chatgpt?return_to=/")}
+        onMap={openCampusMap}
       />
 
       <nav className="mobile-nav" aria-label="모바일 주 메뉴">
@@ -2109,7 +2488,19 @@ export default function Home() {
         ))}
       </nav>
 
-      {selectedPool && <PoolModal pool={selectedPool} now={now} onClose={() => setSelectedPool(null)} onToggleJoin={handleToggleJoin} />}
+      {latestSelectedPool && <PoolModal pool={latestSelectedPool} now={now} onClose={() => setSelectedPool(null)} onToggleJoin={handleToggleJoin} />}
+      {showCampusMap && (
+        <CampusMapModal
+          pools={pools}
+          now={now}
+          initialPickup={campusMapPickup}
+          onClose={closeCampusMap}
+          onJoin={async (pool) => {
+            if (pool.isHost || pool.myStatus === "approved") closeCampusMap();
+            await handleToggleJoin(pool);
+          }}
+        />
+      )}
       {showCreate && (
         <CreateModal
           preferredRestaurant={createFor}

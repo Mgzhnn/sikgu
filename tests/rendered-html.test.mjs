@@ -349,11 +349,23 @@ test("opens an accessible feedback dialog with an email handoff", async () => {
 });
 
 test("lets hosts manage private order receipts and delete their rooms", async () => {
-  const [hosting, schema, migration, api, page, css, worker] = await Promise.all([
+  const [
+    hosting,
+    schema,
+    baseMigration,
+    mutationMigration,
+    api,
+    receiptImage,
+    page,
+    css,
+    worker,
+  ] = await Promise.all([
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0001_glossy_prodigy.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0003_mutation_locks.sql", import.meta.url), "utf8"),
     readFile(new URL("../app/api/sikgu/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/receipt-image.mjs", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../worker/index.ts", import.meta.url), "utf8"),
@@ -364,25 +376,52 @@ test("lets hosts manage private order receipts and delete their rooms", async ()
   for (const field of ["estimatedArrival", "orderTotal", "receiptKey", "receiptContentType", "receiptUploadedAt"]) {
     assert.match(schema, new RegExp(field));
   }
-  assert.match(migration, /DELETE FROM `room_messages`[\s\S]*DELETE FROM `room_invites`[\s\S]*DELETE FROM `room_members`[\s\S]*DELETE FROM `rooms`/);
+  for (const field of ["mutationToken", "mutationStartedAt"]) {
+    assert.match(schema, new RegExp(field));
+  }
+  assert.match(baseMigration, /DELETE FROM `room_messages`[\s\S]*DELETE FROM `room_invites`[\s\S]*DELETE FROM `room_members`[\s\S]*DELETE FROM `rooms`/);
+  assert.match(mutationMigration, /ALTER TABLE `rooms` ADD `mutation_token` text/);
+  assert.match(mutationMigration, /ALTER TABLE `rooms` ADD `mutation_started_at` integer/);
 
   assert.match(api, /export async function PUT/);
   assert.match(api, /room\.host_email !== auth\.email/);
   assert.match(api, /maxReceiptBytes = 8 \* 1024 \* 1024/);
   assert.match(api, /detectReceiptType/);
-  assert.match(api, /room\.receipt_key\?\.endsWith\("\/a"\)[\s\S]*`receipts\/\$\{id\}\/b`[\s\S]*`receipts\/\$\{id\}\/a`/);
-  assert.doesNotMatch(api, /receipts\/\$\{id\}\/\$\{crypto\.randomUUID\(\)\}/);
-  assert.match(api, /normalizeReceiptImage\(receipt, detectedType\)/);
+  assert.match(api, /newReceiptKey = `receipts\/\$\{id\}\/\$\{mutationToken\}\.\$\{receiptFileExtension\}`/);
+  assert.doesNotMatch(api, /room\.receipt_key\?\.endsWith\("\/a"\)/);
+  assert.match(api, /from "\.\.\/\.\.\/receipt-image\.mjs"/);
+  assert.match(api, /sanitizeReceiptImage\(originalBuffer, detectedType\)/);
+  assert.match(api, /validateReceiptImageData\(normalizedReceiptBuffer, detectedType\)/);
+  assert.match(receiptImage, /const maxReceiptDimension = 2400/);
+  assert.match(receiptImage, /const maxReceiptPixels = 5_760_000/);
+  assert.match(api, /async function acquireRoomMutation/);
+  assert.match(api, /SET mutation_token = \?, mutation_started_at = \?/);
+  assert.match(api, /await acquireRoomMutation\(id, auth\.email, "update"\)/);
+  assert.match(api, /UPDATE rooms[\s\S]{0,300}mutation_token = NULL, mutation_started_at = NULL[\s\S]{0,180}WHERE id = \? AND host_email = \? AND status = 'open' AND mutation_token = \?/);
   assert.match(api, /action === "receipt"/);
   assert.match(api, /room\.my_status !== "approved"/);
   assert.match(api, /"Cache-Control": "private, no-store"/);
   assert.match(api, /"X-Content-Type-Options": "nosniff"/);
+  assert.match(api, /async function listReceiptKeysForRoom/);
+  assert.match(api, /bucket\.list\(\{[\s\S]{0,100}prefix: `receipts\/\$\{id\}\/`/);
+  assert.match(api, /await bucket\.delete\(allKeys\.slice\(offset, offset \+ 1000\)\)/);
   assert.match(api, /export async function DELETE/);
-  assert.match(api, /DELETE FROM room_messages WHERE room_id = \?/);
+  assert.match(api, /await acquireRoomMutation\(id, auth\.email, "delete"\)/);
+  assert.match(api, /deleteReceiptObjectsForRoom\(id, room\.receipt_key, true\)/);
+  assert.match(api, /DELETE FROM rooms[\s\S]{0,180}WHERE id = \? AND host_email = \? AND status = 'deleting' AND mutation_token = \?/);
 
   assert.match(page, /ORDER UPDATE/);
   assert.match(page, /type="datetime-local"/);
   assert.match(page, /accept="image\/jpeg,image\/png,image\/webp"/);
+  assert.match(page, /async function prepareReceiptUpload\(file: File\)/);
+  assert.match(page, /createImageBitmap\(file, \{ imageOrientation: "from-image" \}\)/);
+  assert.match(page, /document\.createElement\("canvas"\)/);
+  assert.match(page, /for \(const maxSide of \[2400, 2000, 1600, 1280, 1024\]\)/);
+  assert.match(page, /Math\.min\(1, maxSide \/ Math\.max\(sourceWidth, sourceHeight\)\)/);
+  assert.match(page, /context\.drawImage\(source, 0, 0, width, height\)/);
+  assert.match(page, /new File\(\[blob\], "receipt\.png", \{ type: "image\/png"/);
+  assert.match(page, /const preparedReceipt = receiptFile \? await prepareReceiptUpload\(receiptFile\) : null/);
+  assert.match(page, /if \(preparedReceipt\) form\.set\("receipt", preparedReceipt\)/);
   assert.match(page, /method: "PUT"/);
   assert.match(page, /method: "DELETE"/);
   assert.match(page, /영수증 원본 이미지 열기/);
@@ -410,6 +449,9 @@ test("masks Korean and English display names consistently", async () => {
   assert.match(page, /maskDisplayName\(item\.sender_name\)/);
   assert.match(api, /displayName: maskDisplayName\(await displayName\(user\)\)/);
   assert.match(api, /crypto\.subtle\.digest\([\s\S]*return `User-\$\{suffix\}`/);
-  assert.match(api, /host: maskDisplayName\(String\(row\.host_name\)\)/);
-  assert.match(api, /sender_name: maskDisplayName\(String\(message\.sender_name\)\)/);
+  assert.match(api, /function publicDisplayName\(value: unknown\)/);
+  assert.match(api, /name\.includes\("@"\) \? "\uC0AC\uC6A9\uC790" : maskDisplayName\(name\)/);
+  assert.match(api, /host: publicDisplayName\(row\.host_name\)/);
+  assert.match(api, /display_name: publicDisplayName\(member\.display_name\)/);
+  assert.match(api, /sender_name: publicDisplayName\(message\.sender_name\)/);
 });

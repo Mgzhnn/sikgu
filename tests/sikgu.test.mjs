@@ -20,7 +20,14 @@ const sourceFiles = Promise.all([
   readFile(new URL("app/page.tsx", root), "utf8"),
   readFile(new URL("db/schema.ts", root), "utf8"),
   readFile(new URL("worker/index.ts", root), "utf8"),
-]).then(([api, page, schema, worker]) => ({ api, page, schema, worker }));
+  readFile(new URL("app/receipt-image.mjs", root), "utf8"),
+]).then(([api, page, schema, worker, receiptImage]) => ({
+  api,
+  page,
+  schema,
+  worker,
+  receiptImage,
+}));
 
 const migrationSource = readdir(new URL("drizzle/", root), { withFileTypes: true })
   .then(async (entries) => Promise.all(
@@ -122,7 +129,8 @@ test("server derives room data from allowlists and bounds every request before p
   assert.ok(put.indexOf("contentLength(request)") < put.indexOf("request.formData()"));
   assert.match(put, /requestBytes === null[\s\S]*411/);
   assert.match(put, /requestBytes > maxReceiptBytes \+ 512 \* 1024[\s\S]*413/);
-  assert.match(put, /room\.status !== "open" \|\| Number\(room\.closes_at\) < Date\.now\(\) - recentRoomWindowMs/);
+  assert.match(put, /initialRoom\.status !== "open"/);
+  assert.match(put, /Number\(initialRoom\.closes_at\) < Date\.now\(\) - recentRoomWindowMs/);
   assert.match(put, /Number\.isInteger\(orderTotal\)[\s\S]*10_000_000/);
   assert.match(put, /Number\.isInteger\(collectedTotal\)[\s\S]*10_000_000/);
 });
@@ -130,7 +138,7 @@ test("server derives room data from allowlists and bounds every request before p
 test("member review uses opaque references and never serializes member email addresses", async () => {
   const [{ api, page, schema }, migrations] = await Promise.all([sourceFiles, migrationSource]);
   const roomRead = section(api, "if (action === \"room\")", "return json({ error: \"지원하지 않는 요청입니다.\"");
-  const memberQuery = section(roomRead, "const members =", "const messages =");
+  const memberQuery = section(roomRead, "const loadMembers =", "const messages =");
   const memberResponse = section(roomRead, "members: members.results.map", "messages: messages.results.map");
   const roomMemberType = section(page, "type RoomMember = {", "type ChatMessage = {");
   const reviewAction = section(api, "if (action === \"review_member\")", "if (action === \"remove_member\")");
@@ -143,6 +151,9 @@ test("member review uses opaque references and never serializes member email add
   );
   assert.match(memberQuery, /SELECT review_token, display_name, role, status, created_at/);
   assert.doesNotMatch(memberQuery, /user_email/);
+  assert.match(memberQuery, /members\.results\.some\(\(member\) => !member\.review_token\)/);
+  assert.match(memberQuery, /WHERE room_id = \? AND review_token IS NULL/);
+  assert.match(memberQuery, /members = await loadMembers\(\)/);
   assert.match(memberResponse, /member_ref: String\(member\.review_token \|\| ""\)/);
   assert.doesNotMatch(memberResponse, /user_email|\.\.\.member/);
   assert.match(roomMemberType, /member_ref\?: string/);
@@ -185,16 +196,24 @@ test("approved users can reopen recent rooms and stale rooms are purged after re
   assert.match(purge, /lastRetentionSweep < 60 \* 60 \* 1000/);
   assert.match(purge, /if \(retentionSweepInFlight\) return retentionSweepInFlight/);
   assert.match(purge, /retentionSweepInFlight = \(async \(\) => \{/);
-  assert.match(purge, /WHERE closes_at < \?/);
-  assert.match(purge, /LIMIT 100/);
+  assert.match(purge, /closes_at < \?[\s\S]*status = 'open'/);
+  assert.match(purge, /status = 'deleting'[\s\S]*mutation_started_at < \?/);
+  assert.match(purge, /LIMIT 50/);
+  assert.match(purge, /SET status = 'deleting', mutation_token = \?, mutation_started_at = \?/);
+  assert.match(purge, /WHERE id IN \(\$\{placeholders\}\)/);
+  assert.match(purge, /WHERE status = 'deleting' AND mutation_token = \?/);
   assert.match(purge, /Deferred stale receipt cleanup/);
-  assert.match(purge, /for \(const key of receiptKeysForRoom\(room\.id, room\.receipt_key\)\)/);
+  assert.match(purge, /claimed\.results\.map\(\(room\) =>[\s\S]*listReceiptKeysForRoom/);
+  assert.match(purge, /await bucket\.delete\(receiptKeys\.slice\(offset, offset \+ 1000\)\)/);
+  assert.match(purge, /DELETE FROM rooms[\s\S]*status = 'deleting' AND mutation_token = \?/);
+  assert.doesNotMatch(purge, /DELETE FROM room_(?:messages|invites|members)/);
+  assert.doesNotMatch(purge, /SET status = 'open'/);
   assert.ok(
-    purge.indexOf("await uploadBucket().delete(key)") < purge.indexOf("DELETE FROM rooms WHERE id = ?"),
+    purge.indexOf("await bucket.delete(receiptKeys.slice") < purge.indexOf("DELETE FROM rooms"),
     "receipt deletion must happen before the database loses its object key",
   );
   assert.ok(
-    purge.indexOf("lastRetentionSweep = Date.now()") > purge.indexOf("DELETE FROM rooms WHERE id = ?"),
+    purge.indexOf("lastRetentionSweep = Date.now()") > purge.indexOf("DELETE FROM rooms"),
     "the cooldown must begin only after a successful sweep reaches its completion point",
   );
   assert.match(purge, /finally \{[\s\S]*retentionSweepInFlight = null/);
@@ -202,9 +221,11 @@ test("approved users can reopen recent rooms and stale rooms are purged after re
   assert.match(bootstrap, /let myRooms:/);
   assert.match(bootstrap, /JOIN room_members mine ON mine\.room_id = r\.id/);
   assert.match(bootstrap, /mine\.status = 'approved'/);
+  assert.match(bootstrap, /r\.status = 'open'/);
   assert.match(bootstrap, /r\.closes_at > \?/);
   assert.match(bootstrap, /now - recentRoomWindowMs/);
   assert.match(bootstrap, /myRooms,/);
+  assert.match(bootstrap, /after\(\(\) => purgeExpiredRooms\(now\)/);
   assert.ok(occurrences(api, "보관 기간이 지난 주문방입니다.") >= 2);
 
   assert.match(page, /const \[myRooms, setMyRooms\] = useState<Pool\[\]>\(\[\]\)/);
@@ -275,25 +296,50 @@ test("all client mutations carry the custom same-origin request header", async (
   for (const mutation of [roomPost, saveOrder, deleteRoom, globalPost]) {
     assert.match(mutation, /"x-sikgu-request": "1"/);
   }
+  assert.match(deleteRoom, /response\.status === 404[\s\S]*onDeleted\(\)/);
 });
 
-test("receipt storage uses bounded deterministic keys and cleans up around the database commit", async () => {
-  const { api } = await sourceFiles;
+test("receipt updates and room deletion use fenced mutations with recoverable storage cleanup", async () => {
+  const { api, receiptImage } = await sourceFiles;
   const put = section(api, "export async function PUT", "export async function DELETE");
   const deleteRoom = section(api, "export async function DELETE", "export async function POST");
   const normalizedPut = compact(put);
+  const lock = section(api, "async function acquireRoomMutation", "async function releaseRoomMutation");
+  const cleanup = section(api, "async function deleteReceiptObjectsForRoom", "function isRetryableD1ReadError");
 
   assert.match(api, /const receiptUploadCooldownMs = 30 \* 1000/);
   assert.match(
     api,
-    /transform\(\{ fit: "scale-down", width: 2400, height: 2400, metadata: "none" \}\)/,
+    /import \{[\s\S]*detectReceiptType,[\s\S]*sanitizeReceiptImage,[\s\S]*validateReceiptImageData,[\s\S]*\} from "\.\.\/\.\.\/receipt-image\.mjs"/,
   );
+  assert.match(receiptImage, /const maxReceiptDimension = 2400/);
+  assert.match(receiptImage, /const maxReceiptPixels = 5_760_000/);
+  assert.match(receiptImage, /const maxJpegSegments = 4096/);
+  assert.match(receiptImage, /const maxPngChunks = 4096/);
+  assert.match(api, /const receiptTypes = new Set\(\["image\/png"\]\)/);
+  assert.match(receiptImage, /export function sanitizeReceiptImage\(buffer, contentType\)/);
+  assert.match(receiptImage, /const isMetadata = \(marker >= 0xe0 && marker <= 0xef\) \|\| marker === 0xfe/);
+  assert.match(receiptImage, /const safeAncillaryChunks = new Set\(\["tRNS"\]\)/);
+  assert.match(lock, /SET mutation_token = \?, mutation_started_at = \?/);
+  assert.match(lock, /status = 'open'[\s\S]*mutation_token IS NULL[\s\S]*mutation_started_at < \?/);
+  assert.match(lock, /SET status = 'deleting', mutation_token = \?, mutation_started_at = \?/);
+  assert.match(lock, /return result\.meta\.changes \? mutationToken : null/);
+  assert.match(normalizedPut, /acquireRoomMutation\(id, auth\.email, "update"\)/);
   assert.match(
     normalizedPut,
-    /newReceiptKey = room\.receipt_key\?\.endsWith\("\/a"\) \? `receipts\/\$\{id\}\/b` : `receipts\/\$\{id\}\/a`/,
+    /newReceiptKey = `receipts\/\$\{id\}\/\$\{mutationToken\}\.\$\{receiptFileExtension\}`/,
   );
-  assert.doesNotMatch(put, /receipts\/\$\{id\}\/\$\{crypto\.randomUUID/);
-  assert.match(put, /normalizeReceiptImage\(receipt, detectedType\)/);
+  assert.match(put, /sanitizeReceiptImage\(originalBuffer, detectedType\)/);
+  assert.match(put, /await validateReceiptImageData\(normalizedReceiptBuffer, detectedType\)/);
+  assert.ok(
+    put.indexOf("initialRoom.receipt_uploaded_at") < put.indexOf("receipt.arrayBuffer()"),
+    "the cheap cooldown check must happen before parsing a large image",
+  );
+  assert.ok(
+    put.indexOf('acquireRoomMutation(id, auth.email, "update")') <
+      put.indexOf("WHERE id = ? AND host_email = ? AND status = 'open' AND mutation_token = ?"),
+    "receipt state must be reread after acquiring the lock",
+  );
   assert.match(put, /retryAfterMs = receiptUploadCooldownMs - \(Date\.now\(\) - Number\(room\.receipt_uploaded_at \|\| 0\)\)/);
   assert.match(put, /영수증 이미지는 30초에 한 번만 교체할 수 있습니다/);
   assert.match(put, /"Retry-After": String\(Math\.ceil\(retryAfterMs \/ 1000\)\)/);
@@ -301,20 +347,85 @@ test("receipt storage uses bounded deterministic keys and cleans up around the d
     put.indexOf("uploadBucket().put(newReceiptKey") < put.indexOf("UPDATE rooms"),
     "the replacement object must exist before its key is committed",
   );
-  assert.match(put, /catch \(databaseError\) \{[\s\S]*delete\(newReceiptKey\)[\s\S]*throw databaseError/);
+  assert.ok(occurrences(put, "status = 'open' AND mutation_token = ?") >= 3);
+  assert.ok(occurrences(put, "mutation_token = NULL, mutation_started_at = NULL") >= 2);
+  assert.match(put, /SELECT total, estimated_arrival, order_total, receipt_key,[\s\S]*mutation_token, status/);
+  assert.match(put, /persisted\.receipt_key === newReceiptKey[\s\S]*preserveNewReceiptOnFailure = true/);
+  assert.match(put, /if \(newReceiptKey && !preserveNewReceiptOnFailure\)[\s\S]*delete\(newReceiptKey\)/);
   assert.ok(
     put.indexOf("const committedReceiptKey = newReceiptKey") < put.indexOf("delete(room.receipt_key)"),
     "the previous object must remain available until the database commit succeeds",
   );
   assert.match(put, /const committedReceiptKey = newReceiptKey;[\s\S]*newReceiptKey = ""/);
   assert.match(put, /Deferred previous receipt cleanup/);
-
-  assert.match(deleteRoom, /for \(const key of receiptKeysForRoom\(id, room\.receipt_key\)\)/);
+  assert.match(put, /let updateResult/);
+  assert.ok(occurrences(put, "updateResult = await env.DB.prepare") >= 2);
+  assert.match(
+    put,
+    /if \(!updateResult\.meta\.changes\) \{[\s\S]*The order room was removed before its update completed/,
+  );
   assert.ok(
-    deleteRoom.indexOf("await uploadBucket().delete(key)") < deleteRoom.indexOf("DELETE FROM rooms"),
+    put.indexOf("if (!updateResult.meta.changes)") < put.indexOf("const committedReceiptKey = newReceiptKey"),
+    "a concurrent room deletion must be detected before the uploaded key is treated as committed",
+  );
+
+  assert.match(cleanup, /bucket\.list\(\{[\s\S]*prefix: `receipts\/\$\{id\}\//);
+  assert.match(cleanup, /page\.truncated \? page\.cursor : undefined/);
+  assert.match(cleanup, /bucket\.delete\(allKeys\.slice\(offset, offset \+ 1000\)\)/);
+  assert.match(deleteRoom, /acquireRoomMutation\(id, auth\.email, "delete"\)/);
+  assert.match(deleteRoom, /status = 'deleting' AND mutation_token = \?/);
+  assert.match(deleteRoom, /deleteReceiptObjectsForRoom\(id, room\.receipt_key, true\)/);
+  assert.ok(
+    deleteRoom.indexOf("deleteReceiptObjectsForRoom(id, room.receipt_key, true)") < deleteRoom.indexOf("DELETE FROM rooms"),
   );
   assert.match(deleteRoom, /Receipt deletion must succeed before room deletion/);
   assert.match(deleteRoom, /영수증 삭제를 완료하지 못했습니다[\s\S]*503/);
+  assert.match(
+    deleteRoom,
+    /DELETE FROM rooms[\s\S]*id = \? AND host_email = \? AND status = 'deleting' AND mutation_token = \?/,
+  );
+  assert.match(deleteRoom, /"Retry-After": "120"/);
+  assert.doesNotMatch(deleteRoom, /DELETE FROM room_(?:messages|invites|members)/);
+});
+
+test("production reads retry transient D1 failures and cleanup avoids repeated writes", async () => {
+  const { api } = await sourceFiles;
+  const retryable = section(api, "function isRetryableD1ReadError", "async function withD1ReadRetry");
+  const retry = section(api, "async function withD1ReadRetry", "function sameOrigin");
+  const cleanup = section(api, "async function deleteReceiptObjectsForRoom", "function isRetryableD1ReadError");
+  const purge = section(api, "async function purgeExpiredRooms", "export async function GET");
+  const roomRead = section(
+    api,
+    "if (action === \"room\")",
+    "return json({ error: \"지원하지 않는 요청입니다.\"",
+  );
+  const deleteRoom = section(api, "export async function DELETE", "export async function POST");
+
+  for (const fragment of [
+    "Network connection lost",
+    "storage caused object to be reset",
+    "reset because its code was updated",
+    "Cannot resolve D1 DB due to transient issue on remote node",
+  ]) {
+    assert.ok(retryable.includes(`"${fragment}"`));
+  }
+  assert.match(retry, /attempt < 2/);
+  assert.match(retry, /attempt > 0 \|\| !isRetryableD1ReadError\(error\)/);
+  assert.match(retry, /75 \+ Math\.floor\(Math\.random\(\) \* 76\)/);
+  assert.ok(occurrences(api, "withD1ReadRetry") >= 8);
+
+  assert.match(cleanup, /if \(!storedKey && !includeUncommittedCandidates\) return/);
+  assert.match(cleanup, /listReceiptKeysForRoom/);
+  assert.match(cleanup, /limit: 1000/);
+  assert.match(cleanup, /bucket\.delete\(allKeys\.slice\(offset, offset \+ 1000\)\)/);
+
+  assert.match(purge, /SELECT CASE WHEN[\s\S]*EXISTS\(SELECT 1 FROM rooms/);
+  assert.match(purge, /if \(legacyNames\?\.found\)/);
+  assert.match(roomRead, /members\.results\.some\(\(member\) => !member\.review_token\)/);
+
+  assert.match(deleteRoom, /D1 can commit an idempotent delete/);
+  assert.match(deleteRoom, /SELECT id FROM rooms WHERE id = \?/);
+  assert.match(deleteRoom, /if \(remaining\) \{[\s\S]*mutationToken = ""[\s\S]*503/);
 });
 
 test("API and worker responses carry privacy and browser security headers", async () => {
@@ -342,18 +453,31 @@ test("API and worker responses carry privacy and browser security headers", asyn
   ]) {
     assert.ok(worker.includes(`"${directive}"`), `missing CSP directive ${directive}`);
   }
-  assert.match(worker, /return withSecurityHeaders\(response\)/);
+  assert.match(worker, /return withSecurityHeaders\(new Response\("Not Found"/);
   assert.match(worker, /return withSecurityHeaders\(await handler\.fetch\(request, env, ctx\)\)/);
+  assert.doesNotMatch(worker, /IMAGES|handleImageOptimization/);
+  assert.match(worker, /url\.pathname === "\/_vinext\/image"[\s\S]*status: 404/);
 });
 
 test("the browser receives only a public user shape and clears revoked room state", async () => {
   const { api, page } = await sourceFiles;
   const bootstrap = section(api, 'if (action === "bootstrap")', 'if (action === "room")');
+  const roomRead = section(api, 'if (action === "room")', 'return json({ error: "지원하지 않는 요청입니다."');
+  const publicName = section(api, "function publicDisplayName", "async function acquireRoomMutation");
+  const roomLookup = section(api, "async function roomForUser", "async function approvedCount");
   const roomLoader = section(page, "const loadRoom = useCallback", "useEffect(() => {");
 
   assert.match(bootstrap, /user: user \? \{ displayName: user\.displayName \} : null/);
   assert.doesNotMatch(bootstrap, /user:\s*user[,}]/);
+  assert.match(bootstrap, /rooms: result\.results\.map\(\(row\) => serializeRoom\(row\)\)/);
+  assert.match(bootstrap, /r\.status = 'open'/);
   assert.doesNotMatch(page, /user\.email/);
+  assert.match(publicName, /name\.includes\("@"\) \? "사용자" : maskDisplayName\(name\)/);
+  assert.match(api, /host: publicDisplayName\(row\.host_name\)/);
+  assert.match(roomRead, /display_name: publicDisplayName\(member\.display_name\)/);
+  assert.match(roomRead, /sender_name: publicDisplayName\(message\.sender_name\)/);
+  assert.match(roomLookup, /WHERE r\.id = \? AND r\.status = 'open'/);
+  assert.ok(occurrences(api, 'room.status !== "open"') >= 2);
   assert.match(roomLoader, /response\.status === 401 \|\| response\.status === 403/);
   assert.match(roomLoader, /setRoom\(null\)/);
   assert.match(roomLoader, /setMembers\(\[\]\)/);
@@ -413,4 +537,48 @@ test("the review-token migration works whether the production column already exi
     assert.ok(indexes.some((index) => index.name === "room_members_room_status_idx"));
     database.close();
   }
+});
+
+test("the mutation-lock migration preserves existing rooms", async () => {
+  const { schema } = await sourceFiles;
+  const migration = await readFile(
+    new URL("drizzle/0003_mutation_locks.sql", root),
+    "utf8",
+  );
+  const statements = migration
+    .split("--> statement-breakpoint")
+    .map((statement) => statement.trim())
+    .filter(Boolean);
+  const database = new DatabaseSync(":memory:");
+  assert.match(schema, /mutationToken: text\("mutation_token"\)/);
+  assert.match(schema, /mutationStartedAt: integer\("mutation_started_at"\)/);
+  database.exec(`
+    CREATE TABLE rooms (
+      id text PRIMARY KEY NOT NULL,
+      host_email text NOT NULL,
+      status text DEFAULT 'open' NOT NULL,
+      created_at integer NOT NULL
+    )
+  `);
+  database.exec("INSERT INTO rooms VALUES ('room_1', 'host@example.com', 'open', 123)");
+  for (const statement of statements) database.exec(statement);
+
+  const columns = database.prepare("PRAGMA table_info(rooms)").all();
+  assert.ok(columns.some((column) => column.name === "mutation_token"));
+  assert.ok(columns.some((column) => column.name === "mutation_started_at"));
+  assert.deepEqual(
+    { ...database.prepare(`
+      SELECT id, host_email, status, created_at, mutation_token, mutation_started_at
+      FROM rooms
+    `).get() },
+    {
+      id: "room_1",
+      host_email: "host@example.com",
+      status: "open",
+      created_at: 123,
+      mutation_token: null,
+      mutation_started_at: null,
+    },
+  );
+  database.close();
 });

@@ -1,6 +1,12 @@
 import { env } from "cloudflare:workers";
+import { after } from "next/server";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { maskDisplayName } from "../../name-mask.mjs";
+import {
+  detectReceiptType,
+  sanitizeReceiptImage,
+  validateReceiptImageData,
+} from "../../receipt-image.mjs";
 import {
   isPickupId,
   isRestaurantId,
@@ -37,17 +43,16 @@ type UploadBucket = {
     },
   ) => Promise<unknown>;
   get: (key: string) => Promise<UploadObject | null>;
-  delete: (key: string) => Promise<void>;
-};
-
-type ImageBinding = {
-  input: (stream: ReadableStream<Uint8Array>) => {
-    transform: (options: Record<string, unknown>) => {
-      output: (options: { format: string; quality: number }) => Promise<{
-        response: () => Response;
-      }>;
-    };
-  };
+  delete: (key: string | string[]) => Promise<void>;
+  list: (options: {
+    prefix: string;
+    cursor?: string;
+    limit?: number;
+  }) => Promise<{
+    objects: Array<{ key: string }>;
+    truncated: boolean;
+    cursor?: string;
+  }>;
 };
 
 const maxReceiptBytes = 8 * 1024 * 1024;
@@ -55,7 +60,8 @@ const maxJsonBytes = 32 * 1024;
 const maxOpenRoomsPerHost = 5;
 const recentRoomWindowMs = 30 * 24 * 60 * 60 * 1000;
 const receiptUploadCooldownMs = 30 * 1000;
-const receiptTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const mutationLockTimeoutMs = 2 * 60 * 1000;
+const receiptTypes = new Set(["image/png"]);
 
 const json = (data: unknown, status = 200, headers: Record<string, string> = {}) => Response.json(data, {
   status,
@@ -70,35 +76,6 @@ function uploadBucket() {
   const bucket = (env as unknown as { UPLOADS?: UploadBucket }).UPLOADS;
   if (!bucket) throw new Error("영수증 저장소가 연결되지 않았습니다.");
   return bucket;
-}
-
-function imageBinding() {
-  const images = (env as unknown as { IMAGES?: ImageBinding }).IMAGES;
-  if (!images) throw new Error("Receipt image processing is unavailable.");
-  return images;
-}
-
-function detectReceiptType(bytes: Uint8Array) {
-  if (
-    bytes.length >= 8
-    && bytes[0] === 0x89
-    && bytes[1] === 0x50
-    && bytes[2] === 0x4e
-    && bytes[3] === 0x47
-    && bytes[4] === 0x0d
-    && bytes[5] === 0x0a
-    && bytes[6] === 0x1a
-    && bytes[7] === 0x0a
-  ) return "image/png";
-  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
-    return "image/jpeg";
-  }
-  if (
-    bytes.length >= 12
-    && String.fromCharCode(...bytes.slice(0, 4)) === "RIFF"
-    && String.fromCharCode(...bytes.slice(8, 12)) === "WEBP"
-  ) return "image/webp";
-  return null;
 }
 
 function receiptExtension(contentType: string) {
@@ -116,19 +93,81 @@ function receiptKeysForRoom(id: string, storedKey?: string | null) {
   ].filter(Boolean))];
 }
 
-async function normalizeReceiptImage(receipt: File, contentType: string) {
-  const result = await imageBinding()
-    .input(receipt.stream())
-    .transform({ fit: "scale-down", width: 2400, height: 2400, metadata: "none" })
-    .output({ format: contentType, quality: 92 });
-  const response = result.response();
-  if (!response.ok) throw new Error("Receipt image normalization failed.");
-  const buffer = await response.arrayBuffer();
-  if (buffer.byteLength > maxReceiptBytes) throw new Error("Normalized receipt exceeds the upload limit.");
-  if (detectReceiptType(new Uint8Array(buffer)) !== contentType) {
-    throw new Error("Receipt image normalization returned an unexpected format.");
+async function deleteReceiptObjectsForRoom(
+  id: string,
+  storedKey?: string | null,
+  includeUncommittedCandidates = false,
+) {
+  if (!storedKey && !includeUncommittedCandidates) return;
+  const bucket = uploadBucket();
+  const allKeys = await listReceiptKeysForRoom(
+    bucket,
+    id,
+    storedKey,
+    includeUncommittedCandidates,
+  );
+  for (let offset = 0; offset < allKeys.length; offset += 1000) {
+    await bucket.delete(allKeys.slice(offset, offset + 1000));
   }
-  return buffer;
+}
+
+async function listReceiptKeysForRoom(
+  bucket: UploadBucket,
+  id: string,
+  storedKey?: string | null,
+  includeUncommittedCandidates = false,
+) {
+  const keys = new Set(receiptKeysForRoom(id, storedKey));
+  if (includeUncommittedCandidates) {
+    let cursor: string | undefined;
+    do {
+      const page = await bucket.list({
+        prefix: `receipts/${id}/`,
+        cursor,
+        limit: 1000,
+      });
+      for (const object of page.objects) keys.add(object.key);
+      if (page.truncated && !page.cursor) {
+        throw new Error("R2 returned a truncated receipt listing without a cursor.");
+      }
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
+  }
+  return [...keys];
+}
+
+function isRetryableD1ReadError(error: unknown) {
+  const messages: string[] = [];
+  let current: unknown = error;
+  for (let depth = 0; depth < 4 && current; depth += 1) {
+    if (current instanceof Error) {
+      messages.push(current.message);
+      current = (current as Error & { cause?: unknown }).cause;
+    } else {
+      messages.push(String(current));
+      break;
+    }
+  }
+  const detail = messages.join(" ");
+  return [
+    "Network connection lost",
+    "storage caused object to be reset",
+    "reset because its code was updated",
+    "Cannot resolve D1 DB due to transient issue on remote node",
+  ].some((fragment) => detail.includes(fragment));
+}
+
+async function withD1ReadRetry<T>(read: () => Promise<T>) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await read();
+    } catch (error) {
+      if (attempt > 0 || !isRetryableD1ReadError(error)) throw error;
+      const delayMs = 75 + Math.floor(Math.random() * 76);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  throw new Error("D1 read retry exhausted.");
 }
 
 function sameOrigin(request: Request) {
@@ -200,19 +239,77 @@ function token() {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+function publicDisplayName(value: unknown) {
+  const name = String(value || "").trim();
+  return name.includes("@") ? "사용자" : maskDisplayName(name);
+}
+
+async function acquireRoomMutation(
+  id: string,
+  email: string,
+  mode: "update" | "delete",
+) {
+  const mutationToken = token();
+  const now = Date.now();
+  const staleBefore = now - mutationLockTimeoutMs;
+  const result = mode === "delete"
+    ? await env.DB.prepare(`
+        UPDATE rooms
+        SET status = 'deleting', mutation_token = ?, mutation_started_at = ?
+        WHERE id = ? AND host_email = ?
+          AND (
+            (
+              status = 'open'
+              AND (
+                mutation_token IS NULL
+                OR mutation_started_at IS NULL
+                OR mutation_started_at < ?
+              )
+            )
+            OR (
+              status = 'deleting'
+              AND (
+                mutation_token IS NULL
+                OR mutation_started_at IS NULL
+                OR mutation_started_at < ?
+              )
+            )
+          )
+      `).bind(mutationToken, now, id, email, staleBefore, staleBefore).run()
+    : await env.DB.prepare(`
+        UPDATE rooms
+        SET mutation_token = ?, mutation_started_at = ?
+        WHERE id = ? AND host_email = ? AND status = 'open'
+          AND (
+            mutation_token IS NULL
+            OR mutation_started_at IS NULL
+            OR mutation_started_at < ?
+          )
+      `).bind(mutationToken, now, id, email, staleBefore).run();
+  return result.meta.changes ? mutationToken : null;
+}
+
+async function releaseRoomMutation(id: string, email: string, mutationToken: string) {
+  await env.DB.prepare(`
+    UPDATE rooms
+    SET status = 'open', mutation_token = NULL, mutation_started_at = NULL
+    WHERE id = ? AND host_email = ? AND mutation_token = ?
+  `).bind(id, email, mutationToken).run();
+}
+
 async function roomForUser(id: string, email: string) {
-  return env.DB.prepare(`
+  return withD1ReadRetry(() => env.DB.prepare(`
     SELECT r.*, m.role AS my_role, m.status AS my_status
     FROM rooms r
     JOIN room_members m ON m.room_id = r.id AND m.user_email = ?
-    WHERE r.id = ?
-  `).bind(email, id).first<Record<string, unknown>>();
+    WHERE r.id = ? AND r.status = 'open'
+  `).bind(email, id).first<Record<string, unknown>>());
 }
 
 async function approvedCount(id: string) {
-  const row = await env.DB.prepare(
+  const row = await withD1ReadRetry(() => env.DB.prepare(
     "SELECT COUNT(*) AS count FROM room_members WHERE room_id = ? AND status = 'approved'",
-  ).bind(id).first<{ count: number }>();
+  ).bind(id).first<{ count: number }>());
   return Number(row?.count || 0);
 }
 
@@ -226,7 +323,7 @@ function serializeRoom(row: Record<string, unknown>, includeOrderInfo = false) {
   const room = {
     id: String(row.id),
     restaurantId: String(row.restaurant_id),
-    host: maskDisplayName(String(row.host_name)),
+    host: publicDisplayName(row.host_name),
     pickup: String(row.pickup),
     pickupFull: String(row.pickup_full),
     closesAt: Number(row.closes_at),
@@ -266,40 +363,123 @@ async function purgeExpiredRooms(now: number) {
   if (now - lastRetentionSweep < 60 * 60 * 1000) return;
   if (retentionSweepInFlight) return retentionSweepInFlight;
   retentionSweepInFlight = (async () => {
-    await env.DB.batch([
-      env.DB.prepare("UPDATE rooms SET host_name = '사용자' WHERE instr(host_name, '@') > 0"),
-      env.DB.prepare("UPDATE room_members SET display_name = '사용자' WHERE instr(display_name, '@') > 0"),
-      env.DB.prepare("UPDATE room_messages SET sender_name = '사용자' WHERE instr(sender_name, '@') > 0"),
-    ]);
-    const stale = await env.DB.prepare(`
-      SELECT id, receipt_key
-      FROM rooms
-      WHERE closes_at < ?
-      ORDER BY closes_at ASC
-      LIMIT 100
-    `).bind(now - recentRoomWindowMs).all<{ id: string; receipt_key: string | null }>();
-
-    for (const room of stale.results) {
-      try {
-        for (const key of receiptKeysForRoom(room.id, room.receipt_key)) {
-          await uploadBucket().delete(key);
-        }
-      } catch (error) {
-        console.error("Deferred stale receipt cleanup", error);
-        continue;
-      }
-      try {
+    try {
+      const legacyNames = await withD1ReadRetry(() => env.DB.prepare(`
+        SELECT CASE WHEN
+          EXISTS(SELECT 1 FROM rooms WHERE instr(host_name, '@') > 0)
+          OR EXISTS(SELECT 1 FROM room_members WHERE instr(display_name, '@') > 0)
+          OR EXISTS(SELECT 1 FROM room_messages WHERE instr(sender_name, '@') > 0)
+        THEN 1 ELSE 0 END AS found
+      `).first<{ found: number }>());
+      if (legacyNames?.found) {
         await env.DB.batch([
-          env.DB.prepare("DELETE FROM room_messages WHERE room_id = ?").bind(room.id),
-          env.DB.prepare("DELETE FROM room_invites WHERE room_id = ?").bind(room.id),
-          env.DB.prepare("DELETE FROM room_members WHERE room_id = ?").bind(room.id),
-          env.DB.prepare("DELETE FROM rooms WHERE id = ?").bind(room.id),
+          env.DB.prepare("UPDATE rooms SET host_name = '사용자' WHERE instr(host_name, '@') > 0"),
+          env.DB.prepare("UPDATE room_members SET display_name = '사용자' WHERE instr(display_name, '@') > 0"),
+          env.DB.prepare("UPDATE room_messages SET sender_name = '사용자' WHERE instr(sender_name, '@') > 0"),
         ]);
-      } catch (error) {
-        console.error("Deferred stale room cleanup", error);
       }
+      const staleBefore = now - mutationLockTimeoutMs;
+      const candidates = await withD1ReadRetry(() => env.DB.prepare(`
+        SELECT id
+        FROM rooms
+        WHERE (
+          closes_at < ?
+          AND status = 'open'
+          AND (
+            mutation_token IS NULL
+            OR mutation_started_at IS NULL
+            OR mutation_started_at < ?
+          )
+        )
+        OR (
+          status = 'deleting'
+          AND (
+            mutation_token IS NULL
+            OR mutation_started_at IS NULL
+            OR mutation_started_at < ?
+          )
+        )
+        ORDER BY CASE status WHEN 'deleting' THEN 0 ELSE 1 END, closes_at ASC
+        LIMIT 50
+      `).bind(
+        now - recentRoomWindowMs,
+        staleBefore,
+        staleBefore,
+      ).all<{ id: string }>());
+
+      if (candidates.results.length) {
+        const candidateIds = candidates.results.map((room) => room.id);
+        const placeholders = candidateIds.map(() => "?").join(", ");
+        const sweepToken = token();
+        await env.DB.prepare(`
+          UPDATE rooms
+          SET status = 'deleting', mutation_token = ?, mutation_started_at = ?
+          WHERE id IN (${placeholders})
+            AND (
+              (
+                closes_at < ?
+                AND status = 'open'
+                AND (
+                  mutation_token IS NULL
+                  OR mutation_started_at IS NULL
+                  OR mutation_started_at < ?
+                )
+              )
+              OR (
+                status = 'deleting'
+                AND (
+                  mutation_token IS NULL
+                  OR mutation_started_at IS NULL
+                  OR mutation_started_at < ?
+                )
+              )
+            )
+        `).bind(
+          sweepToken,
+          now,
+          ...candidateIds,
+          now - recentRoomWindowMs,
+          staleBefore,
+          staleBefore,
+        ).run();
+        const claimed = await withD1ReadRetry(() => env.DB.prepare(`
+          SELECT id, receipt_key
+          FROM rooms
+          WHERE status = 'deleting' AND mutation_token = ?
+          ORDER BY closes_at ASC
+        `).bind(sweepToken).all<{ id: string; receipt_key: string | null }>());
+        if (!claimed.results.length) return;
+
+        try {
+          const bucket = uploadBucket();
+          const receiptKeys = [...new Set((await Promise.all(
+            claimed.results.map((room) =>
+              listReceiptKeysForRoom(bucket, room.id, room.receipt_key, true)),
+          )).flat())];
+          for (let offset = 0; offset < receiptKeys.length; offset += 1000) {
+            await bucket.delete(receiptKeys.slice(offset, offset + 1000));
+          }
+        } catch (error) {
+          console.error("Deferred stale receipt cleanup", error);
+          // Keep claimed rooms hidden. A later sweep can safely reclaim the stale
+          // deletion token without resurrecting a partially cleaned room.
+          return;
+        }
+        try {
+          // All private room tables use ON DELETE CASCADE in the production schema.
+          await env.DB.prepare(`
+            DELETE FROM rooms
+            WHERE status = 'deleting' AND mutation_token = ?
+          `).bind(sweepToken).run();
+        } catch (error) {
+          console.error("Deferred stale room cleanup", error);
+          // Leave the tombstone claimed; ambiguous D1 outcomes are retried later.
+        }
+      }
+    } finally {
+      // Back off even after a storage outage so new visitors do not start a cleanup storm.
+      lastRetentionSweep = Date.now();
     }
-    lastRetentionSweep = Date.now();
   })();
   try {
     await retentionSweepInFlight;
@@ -319,7 +499,7 @@ export async function GET(request: Request) {
       if (isResponse(auth)) return auth;
       const id = url.searchParams.get("roomId") || "";
       const room = await roomForUser(id, auth.email);
-      if (!room || room.my_status !== "approved") {
+      if (!room || room.my_status !== "approved" || room.status !== "open") {
         return json({ error: "승인된 주문방 구성원만 영수증을 볼 수 있습니다." }, 403);
       }
       if (Number(room.closes_at) < Date.now() - recentRoomWindowMs) {
@@ -343,9 +523,8 @@ export async function GET(request: Request) {
 
     if (action === "bootstrap") {
       const now = Date.now();
-      await purgeExpiredRooms(now).catch((error) => console.error("Retention sweep failed", error));
       const email = user?.email || "";
-      const result = await env.DB.prepare(`
+      const result = await withD1ReadRetry(() => env.DB.prepare(`
         SELECT
           r.*,
           ? AS current_email,
@@ -359,11 +538,11 @@ export async function GET(request: Request) {
         WHERE r.status = 'open' AND r.closes_at > ?
         ORDER BY r.created_at DESC
         LIMIT 100
-      `).bind(email, email, now).all<Record<string, unknown>>();
+      `).bind(email, email, now).all<Record<string, unknown>>());
 
       let myRooms: ReturnType<typeof serializeRoom>[] = [];
       if (user) {
-        const mine = await env.DB.prepare(`
+        const mine = await withD1ReadRetry(() => env.DB.prepare(`
           SELECT
             r.*,
             ? AS current_email,
@@ -376,13 +555,15 @@ export async function GET(request: Request) {
           JOIN room_members mine ON mine.room_id = r.id
           WHERE mine.user_email = ?
             AND mine.status = 'approved'
+            AND r.status = 'open'
             AND r.closes_at > ?
           ORDER BY r.created_at DESC
           LIMIT 50
-        `).bind(user.email, user.email, now - recentRoomWindowMs).all<Record<string, unknown>>();
+        `).bind(user.email, user.email, now - recentRoomWindowMs).all<Record<string, unknown>>());
         myRooms = mine.results.map((row) => serializeRoom(row, true)).filter(isUsableRoom);
       }
 
+      after(() => purgeExpiredRooms(now).catch((error) => console.error("Retention sweep failed", error)));
       return json({
         user: user ? { displayName: user.displayName } : null,
         rooms: result.results.map((row) => serializeRoom(row)).filter(isUsableRoom),
@@ -395,27 +576,29 @@ export async function GET(request: Request) {
       if (isResponse(auth)) return auth;
       const id = url.searchParams.get("roomId") || "";
       const room = await roomForUser(id, auth.email);
-      if (!room || room.my_status !== "approved") {
+      if (!room || room.my_status !== "approved" || room.status !== "open") {
         return json({ error: "초대되거나 승인된 구성원만 이 주문방을 볼 수 있습니다." }, 403);
       }
       if (Number(room.closes_at) < Date.now() - recentRoomWindowMs) {
         return json({ error: "보관 기간이 지난 주문방입니다." }, 410);
       }
       const isHost = room.host_email === auth.email;
-      if (isHost) {
+      const loadMembers = () => withD1ReadRetry(() => env.DB.prepare(`
+        SELECT review_token, display_name, role, status, created_at
+        FROM room_members
+        WHERE room_id = ? ${isHost ? "" : "AND status = 'approved'"}
+        ORDER BY CASE status WHEN 'requested' THEN 0 ELSE 1 END, created_at ASC
+      `).bind(id).all());
+      let members = await loadMembers();
+      if (isHost && members.results.some((member) => !member.review_token)) {
         await env.DB.prepare(`
           UPDATE room_members
           SET review_token = lower(hex(randomblob(16)))
           WHERE room_id = ? AND review_token IS NULL
         `).bind(id).run();
+        members = await loadMembers();
       }
-      const members = await env.DB.prepare(`
-        SELECT review_token, display_name, role, status, created_at
-        FROM room_members
-        WHERE room_id = ? ${isHost ? "" : "AND status = 'approved'"}
-        ORDER BY CASE status WHEN 'requested' THEN 0 ELSE 1 END, created_at ASC
-      `).bind(id).all();
-      const messages = await env.DB.prepare(`
+      const messages = await withD1ReadRetry(() => env.DB.prepare(`
         SELECT id, sender_name, body, created_at, mine
         FROM (
           SELECT id, sender_name, body, created_at,
@@ -426,21 +609,21 @@ export async function GET(request: Request) {
           LIMIT 200
         )
         ORDER BY created_at ASC
-      `).bind(auth.email, id).all();
+      `).bind(auth.email, id).all());
       return json({
         room: { ...serializeRoom({ ...room, current_email: auth.email, people: await approvedCount(id) }, true), isHost },
         members: members.results.map((member) => ({
           ...(isHost && member.role !== "host"
             ? { member_ref: String(member.review_token || "") }
             : {}),
-          display_name: maskDisplayName(String(member.display_name)),
+          display_name: publicDisplayName(member.display_name),
           role: member.role,
           status: member.status,
           created_at: member.created_at,
         })),
         messages: messages.results.map((message) => ({
           ...message,
-          sender_name: maskDisplayName(String(message.sender_name)),
+          sender_name: publicDisplayName(message.sender_name),
         })),
       });
     }
@@ -453,6 +636,10 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
   let newReceiptKey = "";
+  let preserveNewReceiptOnFailure = false;
+  let mutationToken = "";
+  let mutationRoomId = "";
+  let mutationHostEmail = "";
   try {
     if (!sameOrigin(request)) return json({ error: "허용되지 않은 요청입니다." }, 403);
     const auth = await requiredUser();
@@ -462,24 +649,28 @@ export async function PUT(request: Request) {
     if (url.searchParams.get("action") !== "update_order_info" || !id) {
       return json({ error: "주문 정보 요청을 확인해주세요." }, 400);
     }
+    mutationRoomId = id;
+    mutationHostEmail = auth.email;
 
-    const room = await env.DB.prepare(`
-      SELECT host_email, receipt_key, receipt_uploaded_at, status, closes_at
+    const initialRoom = await withD1ReadRetry(() => env.DB.prepare(`
+      SELECT host_email, status, closes_at, receipt_uploaded_at
       FROM rooms
       WHERE id = ?
     `).bind(id).first<{
       host_email: string;
-      receipt_key: string | null;
-      receipt_uploaded_at: number | null;
       status: string;
       closes_at: number;
-    }>();
-    if (!room) return json({ error: "주문방을 찾을 수 없습니다." }, 404);
-    if (room.host_email !== auth.email) {
+      receipt_uploaded_at: number | null;
+    }>());
+    if (!initialRoom) return json({ error: "주문방을 찾을 수 없습니다." }, 404);
+    if (initialRoom.host_email !== auth.email) {
       return json({ error: "방장만 주문 정보를 수정할 수 있습니다." }, 403);
     }
-    if (room.status !== "open" || Number(room.closes_at) < Date.now() - recentRoomWindowMs) {
+    if (Number(initialRoom.closes_at) < Date.now() - recentRoomWindowMs) {
       return json({ error: "보관 기간이 지난 주문방은 수정할 수 없습니다." }, 410);
+    }
+    if (initialRoom.status !== "open") {
+      return json({ error: "다른 변경이 진행 중입니다. 잠시 후 다시 시도해주세요." }, 409);
     }
 
     const requestBytes = contentLength(request);
@@ -523,20 +714,23 @@ export async function PUT(request: Request) {
     }
     let receiptContentType = "";
     let receiptUploadedAt: number | null = null;
+    let normalizedReceiptBuffer: ArrayBuffer | null = null;
+    let receiptFileExtension = "";
     if (receipt instanceof File && receipt.size > 0) {
-      const retryAfterMs = receiptUploadCooldownMs - (Date.now() - Number(room.receipt_uploaded_at || 0));
-      if (retryAfterMs > 0) {
+      const preliminaryRetryAfterMs =
+        receiptUploadCooldownMs - (Date.now() - Number(initialRoom.receipt_uploaded_at || 0));
+      if (preliminaryRetryAfterMs > 0) {
         return json(
           { error: "영수증 이미지는 30초에 한 번만 교체할 수 있습니다." },
           429,
-          { "Retry-After": String(Math.ceil(retryAfterMs / 1000)) },
+          { "Retry-After": String(Math.ceil(preliminaryRetryAfterMs / 1000)) },
         );
       }
       if (receipt.size > maxReceiptBytes) {
         return json({ error: "영수증 이미지는 8MB 이하만 올릴 수 있습니다." }, 413);
       }
       if (!receiptTypes.has(receipt.type)) {
-        return json({ error: "영수증은 JPG, PNG, WebP 이미지로 올려주세요." }, 415);
+        return json({ error: "영수증 이미지를 처리할 수 없습니다. 다시 선택해주세요." }, 415);
       }
       const originalBuffer = await receipt.arrayBuffer();
       const detectedType = detectReceiptType(new Uint8Array(originalBuffer));
@@ -545,28 +739,69 @@ export async function PUT(request: Request) {
       }
 
       receiptContentType = detectedType;
+      receiptFileExtension = receiptExtension(detectedType);
+      try {
+        normalizedReceiptBuffer = sanitizeReceiptImage(originalBuffer, detectedType);
+        await validateReceiptImageData(normalizedReceiptBuffer, detectedType);
+      } catch {
+        return json({ error: "이미지 파일이 손상되었거나 크기가 너무 큽니다." }, 415);
+      }
+    }
+
+    mutationToken = await acquireRoomMutation(id, auth.email, "update") || "";
+    if (!mutationToken) {
+      return json({ error: "다른 변경이 진행 중입니다. 잠시 후 다시 시도해주세요." }, 409);
+    }
+    const room = await withD1ReadRetry(() => env.DB.prepare(`
+      SELECT receipt_key, receipt_uploaded_at, status, closes_at
+      FROM rooms
+      WHERE id = ? AND host_email = ? AND status = 'open' AND mutation_token = ?
+    `).bind(id, auth.email, mutationToken).first<{
+      receipt_key: string | null;
+      receipt_uploaded_at: number | null;
+      status: string;
+      closes_at: number;
+    }>());
+    if (!room) {
+      throw new Error("The order room mutation lock was lost before the update started.");
+    }
+    if (Number(room.closes_at) < Date.now() - recentRoomWindowMs) {
+      await releaseRoomMutation(id, auth.email, mutationToken);
+      mutationToken = "";
+      return json({ error: "보관 기간이 지난 주문방은 수정할 수 없습니다." }, 410);
+    }
+
+    if (normalizedReceiptBuffer) {
+      const retryAfterMs = receiptUploadCooldownMs - (Date.now() - Number(room.receipt_uploaded_at || 0));
+      if (retryAfterMs > 0) {
+        await releaseRoomMutation(id, auth.email, mutationToken);
+        mutationToken = "";
+        return json(
+          { error: "영수증 이미지는 30초에 한 번만 교체할 수 있습니다." },
+          429,
+          { "Retry-After": String(Math.ceil(retryAfterMs / 1000)) },
+        );
+      }
       receiptUploadedAt = Date.now();
-      const extension = receiptExtension(detectedType);
-      const normalizedBuffer = await normalizeReceiptImage(receipt, detectedType);
-      newReceiptKey = room.receipt_key?.endsWith("/a")
-        ? `receipts/${id}/b`
-        : `receipts/${id}/a`;
-      await uploadBucket().put(newReceiptKey, normalizedBuffer, {
+      newReceiptKey = `receipts/${id}/${mutationToken}.${receiptFileExtension}`;
+      await uploadBucket().put(newReceiptKey, normalizedReceiptBuffer, {
         httpMetadata: {
-          contentType: detectedType,
-          contentDisposition: `inline; filename="receipt.${extension}"`,
+          contentType: receiptContentType,
+          contentDisposition: `inline; filename="receipt.${receiptFileExtension}"`,
           cacheControl: "private, no-store",
         },
       });
     }
 
     try {
+      let updateResult;
       if (newReceiptKey) {
-        await env.DB.prepare(`
+        updateResult = await env.DB.prepare(`
           UPDATE rooms
           SET total = ?, estimated_arrival = ?, order_total = ?, receipt_key = ?,
-              receipt_content_type = ?, receipt_uploaded_at = ?
-          WHERE id = ? AND host_email = ?
+              receipt_content_type = ?, receipt_uploaded_at = ?,
+              mutation_token = NULL, mutation_started_at = NULL
+          WHERE id = ? AND host_email = ? AND status = 'open' AND mutation_token = ?
         `).bind(
           collectedTotal,
           estimatedArrival || null,
@@ -576,37 +811,100 @@ export async function PUT(request: Request) {
           receiptUploadedAt,
           id,
           auth.email,
+          mutationToken,
         ).run();
       } else {
-        await env.DB.prepare(`
+        updateResult = await env.DB.prepare(`
           UPDATE rooms
-          SET total = ?, estimated_arrival = ?, order_total = ?
-          WHERE id = ? AND host_email = ?
-        `).bind(collectedTotal, estimatedArrival || null, orderTotal, id, auth.email).run();
+          SET total = ?, estimated_arrival = ?, order_total = ?,
+              mutation_token = NULL, mutation_started_at = NULL
+          WHERE id = ? AND host_email = ? AND status = 'open' AND mutation_token = ?
+        `).bind(
+          collectedTotal,
+          estimatedArrival || null,
+          orderTotal,
+          id,
+          auth.email,
+          mutationToken,
+        ).run();
+      }
+      if (!updateResult.meta.changes) {
+        throw new Error("The order room was removed before its update completed.");
       }
     } catch (databaseError) {
-      if (newReceiptKey) await uploadBucket().delete(newReceiptKey).catch(() => undefined);
-      throw databaseError;
+      let persisted: {
+        total: number;
+        estimated_arrival: string | null;
+        order_total: number | null;
+        receipt_key: string | null;
+        receipt_content_type: string | null;
+        receipt_uploaded_at: number | null;
+        mutation_token: string | null;
+        status: string;
+      } | null = null;
+      try {
+        persisted = await withD1ReadRetry(() => env.DB.prepare(`
+          SELECT total, estimated_arrival, order_total, receipt_key,
+                 receipt_content_type, receipt_uploaded_at, mutation_token, status
+          FROM rooms
+          WHERE id = ? AND host_email = ?
+        `).bind(id, auth.email).first<typeof persisted>()) || null;
+      } catch (verificationError) {
+        // A unique object key cannot overwrite another mutation. Preserve it until
+        // a later host deletion/retention prefix sweep resolves the D1 outcome.
+        preserveNewReceiptOnFailure = Boolean(newReceiptKey);
+        console.error("Deferred receipt commit verification", verificationError);
+        throw databaseError;
+      }
+      const expectedOrderState = Boolean(
+        persisted
+        && Number(persisted.total) === collectedTotal
+        && (persisted.estimated_arrival || null) === (estimatedArrival || null)
+        && (persisted.order_total == null ? null : Number(persisted.order_total)) === orderTotal
+        && persisted.mutation_token === null
+        && persisted.status === "open"
+        && (
+          !newReceiptKey
+          || (
+            persisted.receipt_key === newReceiptKey
+            && persisted.receipt_content_type === receiptContentType
+            && Number(persisted.receipt_uploaded_at) === receiptUploadedAt
+          )
+        )
+      );
+      if (newReceiptKey && persisted?.receipt_key === newReceiptKey) {
+        preserveNewReceiptOnFailure = true;
+      }
+      if (!expectedOrderState) {
+        throw databaseError;
+      }
     }
 
+    mutationToken = "";
     const committedReceiptKey = newReceiptKey;
     newReceiptKey = "";
     if (committedReceiptKey && room.receipt_key && room.receipt_key !== committedReceiptKey) {
       await uploadBucket().delete(room.receipt_key).catch((cleanupError) => {
-        // Fixed A/B keys bound leftover storage to one object and the next upload retries cleanup.
+        // Room deletion and retention enumerate the room prefix and retry leftovers.
         console.error("Deferred previous receipt cleanup", cleanupError);
       });
     }
     return json({ ok: true, receiptUploadedAt });
   } catch (error) {
-    if (newReceiptKey) {
+    if (newReceiptKey && !preserveNewReceiptOnFailure) {
       await uploadBucket().delete(newReceiptKey).catch(() => undefined);
+    }
+    if (mutationToken) {
+      await releaseRoomMutation(mutationRoomId, mutationHostEmail, mutationToken).catch(() => undefined);
     }
     return serverError("Failed to update private order information", error);
   }
 }
 
 export async function DELETE(request: Request) {
+  let mutationToken = "";
+  let mutationRoomId = "";
+  let mutationHostEmail = "";
   try {
     if (!sameOrigin(request)) return json({ error: "허용되지 않은 요청입니다." }, 403);
     const auth = await requiredUser();
@@ -614,31 +912,80 @@ export async function DELETE(request: Request) {
     const url = new URL(request.url);
     const id = url.searchParams.get("roomId") || "";
     if (!id) return json({ error: "주문방 정보가 없습니다." }, 400);
+    mutationRoomId = id;
+    mutationHostEmail = auth.email;
 
-    const room = await env.DB.prepare(
-      "SELECT host_email, receipt_key FROM rooms WHERE id = ?",
-    ).bind(id).first<{ host_email: string; receipt_key: string | null }>();
-    if (!room) return json({ error: "주문방을 찾을 수 없습니다." }, 404);
-    if (room.host_email !== auth.email) {
+    const initialRoom = await withD1ReadRetry(() => env.DB.prepare(
+      "SELECT host_email FROM rooms WHERE id = ?",
+    ).bind(id).first<{ host_email: string }>());
+    if (!initialRoom) return json({ error: "주문방을 찾을 수 없습니다." }, 404);
+    if (initialRoom.host_email !== auth.email) {
       return json({ error: "방장만 주문방을 삭제할 수 있습니다." }, 403);
     }
+    mutationToken = await acquireRoomMutation(id, auth.email, "delete") || "";
+    if (!mutationToken) {
+      const existing = await withD1ReadRetry(() => env.DB.prepare(
+        "SELECT id FROM rooms WHERE id = ?",
+      ).bind(id).first<{ id: string }>());
+      return existing
+        ? json({ error: "다른 변경이 진행 중입니다. 잠시 후 다시 시도해주세요." }, 409)
+        : json({ error: "주문방을 찾을 수 없습니다." }, 404);
+    }
+    const room = await withD1ReadRetry(() => env.DB.prepare(`
+      SELECT receipt_key
+      FROM rooms
+      WHERE id = ? AND host_email = ? AND status = 'deleting' AND mutation_token = ?
+    `).bind(id, auth.email, mutationToken).first<{ receipt_key: string | null }>());
+    if (!room) throw new Error("The order room deletion lock was lost before cleanup.");
 
     try {
-      for (const key of receiptKeysForRoom(id, room.receipt_key)) {
-        await uploadBucket().delete(key);
-      }
+      // Enumerate the private room prefix so interrupted unique uploads are removed too.
+      await deleteReceiptObjectsForRoom(id, room.receipt_key, true);
     } catch (error) {
       console.error("Receipt deletion must succeed before room deletion", error);
-      return json({ error: "영수증 삭제를 완료하지 못했습니다. 잠시 후 다시 시도해주세요." }, 503);
+      mutationToken = "";
+      return json(
+        { error: "영수증 삭제를 완료하지 못했습니다. 2분 후 다시 시도해주세요." },
+        503,
+        { "Retry-After": "120" },
+      );
     }
-    await env.DB.batch([
-      env.DB.prepare("DELETE FROM room_messages WHERE room_id = ?").bind(id),
-      env.DB.prepare("DELETE FROM room_invites WHERE room_id = ?").bind(id),
-      env.DB.prepare("DELETE FROM room_members WHERE room_id = ?").bind(id),
-      env.DB.prepare("DELETE FROM rooms WHERE id = ? AND host_email = ?").bind(id, auth.email),
-    ]);
+    try {
+      // Members, invitations, and messages are removed by the schema's cascades.
+      const result = await env.DB.prepare(`
+        DELETE FROM rooms
+        WHERE id = ? AND host_email = ? AND status = 'deleting' AND mutation_token = ?
+      `).bind(id, auth.email, mutationToken).run();
+      if (!result.meta.changes) {
+        const remaining = await withD1ReadRetry(() => env.DB.prepare(
+          "SELECT id FROM rooms WHERE id = ?",
+        ).bind(id).first<{ id: string }>());
+        if (remaining) throw new Error("The order room deletion claim was lost.");
+      }
+    } catch (error) {
+      // D1 can commit an idempotent delete even if its response is interrupted.
+      // Confirm the final state before surfacing a false deletion failure.
+      const remaining = await withD1ReadRetry(() => env.DB.prepare(
+        "SELECT id FROM rooms WHERE id = ?",
+      ).bind(id).first<{ id: string }>()).catch(() => ({ id }));
+      if (remaining) {
+        // R2 cleanup already ran. Keep the room hidden until a retry can confirm
+        // both private object cleanup and the token-guarded database deletion.
+        console.error("Deferred claimed room deletion", error);
+        mutationToken = "";
+        return json(
+          { error: "주문방 삭제를 마무리하지 못했습니다. 2분 후 다시 시도해주세요." },
+          503,
+          { "Retry-After": "120" },
+        );
+      }
+    }
+    mutationToken = "";
     return json({ ok: true });
   } catch (error) {
+    if (mutationToken) {
+      await releaseRoomMutation(mutationRoomId, mutationHostEmail, mutationToken).catch(() => undefined);
+    }
     return serverError("Failed to delete private order room", error);
   }
 }

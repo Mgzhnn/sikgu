@@ -328,24 +328,33 @@ test("opens an accessible campus order map with guarded join actions", async () 
   assert.match(css, /\.mobile-nav \{[\s\S]*grid-template-columns: repeat\(3, 1fr\)/);
 });
 
-test("opens an accessible feedback dialog with an email handoff", async () => {
+test("opens an accessible feedback dialog with static contact guidance", async () => {
   const [page, css] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
+  const feedbackModal = page.slice(
+    page.indexOf("function FeedbackModal"),
+    page.indexOf("function PoolModal"),
+  );
 
   assert.match(page, /const feedbackEmail = "gudwns5863@naver\.com"/);
-  assert.match(page, /function FeedbackModal/);
-  assert.match(page, /aria-labelledby="feedback-title"/);
-  assert.match(page, /aria-describedby="feedback-description"/);
-  assert.match(page, /window\.location\.href = `mailto:\$\{feedbackEmail\}/);
-  assert.match(page, /encodeURIComponent\(subject\)/);
-  assert.match(page, /encodeURIComponent\(body\)/);
-  assert.match(page, /navigator\.clipboard\.writeText\(feedbackEmail\)/);
+  assert.match(feedbackModal, /function FeedbackModal/);
+  assert.match(feedbackModal, /aria-labelledby="feedback-title"/);
+  assert.match(feedbackModal, /aria-describedby="feedback-description"/);
+  assert.match(feedbackModal, /수정할 내용이나 버그가 있으면 아래 이메일로 버그 내용을 적어서 보내주세요\./);
+  assert.match(feedbackModal, /<strong>\{feedbackEmail\}<\/strong>/);
   assert.match(page, /showFeedback && <FeedbackModal/);
-  assert.match(page, /currentScreen=\{viewCopy\}/);
+  assert.doesNotMatch(feedbackModal, /mailto:/);
+  assert.doesNotMatch(feedbackModal, /navigator\.clipboard/);
+  assert.doesNotMatch(feedbackModal, /feedback-details/);
+  assert.doesNotMatch(feedbackModal, /이메일 앱 열기/);
+  assert.doesNotMatch(page, /currentScreen=\{viewCopy\}/);
   assert.match(css, /\.feedback-modal/);
-  assert.match(css, /\.feedback-type-grid/);
+  assert.match(css, /\.feedback-instruction/);
+  assert.match(css, /\.feedback-recipient strong/);
+  assert.doesNotMatch(css, /\.feedback-type-grid/);
+  assert.doesNotMatch(css, /\.feedback-field/);
 });
 
 test("lets hosts manage private order receipts and delete their rooms", async () => {

@@ -1735,68 +1735,11 @@ function CampusMapModal({
 }
 
 const feedbackEmail = "gudwns5863@naver.com";
-const feedbackTypes = [
-  { id: "bug", label: "오류 신고", icon: "!" },
-  { id: "info", label: "정보 수정", icon: "i" },
-  { id: "idea", label: "기능 제안", icon: "+" },
-  { id: "other", label: "기타", icon: "·" },
-] as const;
 
-type FeedbackType = (typeof feedbackTypes)[number]["id"];
-
-function FeedbackModal({
-  currentScreen,
-  onClose,
-}: {
-  currentScreen: string;
-  onClose: () => void;
-}) {
+function FeedbackModal({ onClose }: { onClose: () => void }) {
   const dialogRef = useRef<HTMLElement>(null);
-  const [feedbackType, setFeedbackType] = useState<FeedbackType | "">("");
-  const [details, setDetails] = useState("");
-  const [error, setError] = useState("");
-  const [copyStatus, setCopyStatus] = useState("");
 
   useDialogLifecycle(dialogRef, onClose);
-
-  const copyEmail = async () => {
-    try {
-      await navigator.clipboard.writeText(feedbackEmail);
-      setCopyStatus("이메일 주소를 복사했어요.");
-    } catch {
-      setCopyStatus(`복사하지 못했어요. ${feedbackEmail}을 직접 입력해주세요.`);
-    }
-  };
-
-  const openEmail = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!feedbackType) {
-      setError("제안 유형을 선택해주세요.");
-      return;
-    }
-    if (details.trim().length < 10) {
-      setError("상세 내용을 10자 이상 입력해주세요.");
-      return;
-    }
-
-    const selectedType = feedbackTypes.find((item) => item.id === feedbackType)!;
-    const subject = `[SIKGU ${selectedType.label}] ${details.trim().split("\n")[0].slice(0, 36)}`;
-    const body = [
-      "안녕하세요. SIKGU 서비스에 의견을 보냅니다.",
-      "",
-      `[제안 유형] ${selectedType.label}`,
-      `[확인한 화면] ${currentScreen}`,
-      `[페이지 주소] ${window.location.href}`,
-      "",
-      "[상세 내용]",
-      details.trim(),
-      "",
-      "필요한 경우 이 메일에 스크린샷을 첨부해주세요.",
-    ].join("\r\n");
-
-    setError("");
-    window.location.href = `mailto:${feedbackEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  };
 
   return (
     <div className="overlay centered feedback-overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
@@ -1811,74 +1754,24 @@ function FeedbackModal({
         <header className="feedback-head">
           <div>
             <span>HELP SIKGU</span>
-            <h2 id="feedback-title">SIKGU에 의견 보내기</h2>
-            <p id="feedback-description">더 나은 식구를 위해 오류와 개선 아이디어를 알려주세요.</p>
+            <h2 id="feedback-title">도움말 · 제안 보내기</h2>
+            <p id="feedback-description">SIKGU를 이용하며 발견한 문제를 알려주세요.</p>
           </div>
           <button type="button" onClick={onClose} aria-label="의견 보내기 닫기">×</button>
         </header>
 
+        <div className="feedback-instruction">
+          <span aria-hidden="true">!</span>
+          <p>수정할 내용이나 버그가 있으면 아래 이메일로 버그 내용을 적어서 보내주세요.</p>
+        </div>
+
         <div className="feedback-recipient">
           <span className="feedback-mail-mark" aria-hidden="true">@</span>
           <div>
-            <small>받는 사람</small>
-            <a href={`mailto:${feedbackEmail}`}>{feedbackEmail}</a>
+            <small>문의 이메일</small>
+            <strong>{feedbackEmail}</strong>
           </div>
-          <button type="button" onClick={copyEmail}>주소 복사</button>
         </div>
-
-        <form className="feedback-form" onSubmit={openEmail}>
-          {error && <div className="feedback-error" role="alert"><span>!</span>{error}</div>}
-
-          <fieldset className="feedback-field">
-            <legend>어떤 의견인가요? <strong>필수</strong></legend>
-            <div className="feedback-type-grid">
-              {feedbackTypes.map((item) => (
-                <button
-                  type="button"
-                  className={feedbackType === item.id ? "active" : ""}
-                  onClick={() => {
-                    setFeedbackType(item.id);
-                    setError("");
-                  }}
-                  aria-pressed={feedbackType === item.id}
-                  key={item.id}
-                >
-                  <span aria-hidden="true">{item.icon}</span>
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </fieldset>
-
-          <div className="feedback-field">
-            <label htmlFor="feedback-details">상세 내용 <strong>필수</strong></label>
-            <p id="feedback-details-hint">어느 화면에서 무엇이 불편했는지, 기대한 결과와 함께 적어주세요.</p>
-            <textarea
-              id="feedback-details"
-              value={details}
-              onChange={(event) => {
-                setDetails(event.target.value);
-                setError("");
-              }}
-              rows={6}
-              maxLength={1200}
-              aria-describedby="feedback-details-hint feedback-details-count"
-              placeholder="예: 주문방 만들기에서 픽업 장소를 선택한 뒤..."
-            />
-            <small id="feedback-details-count">{details.length.toLocaleString("ko-KR")} / 1,200자</small>
-          </div>
-
-          <div className="feedback-safety-note">
-            <span aria-hidden="true">!</span>
-            <p><strong>민감한 정보는 적지 마세요.</strong> 비밀번호·결제정보·주민등록번호는 받지 않습니다.</p>
-          </div>
-
-          <button className="primary-button feedback-submit" type="submit">
-            이메일 앱 열기 <span aria-hidden="true">↗</span>
-          </button>
-          <p className="feedback-handoff">메일 작성 화면이 열리면 내용을 확인하고 전송 버튼을 눌러주세요. 스크린샷도 그곳에서 첨부할 수 있어요.</p>
-          {copyStatus && <p className="feedback-copy-status" role="status">{copyStatus}</p>}
-        </form>
       </section>
     </div>
   );
@@ -3247,7 +3140,7 @@ export default function Home() {
           }}
         />
       )}
-      {showFeedback && <FeedbackModal currentScreen={viewCopy} onClose={closeFeedback} />}
+      {showFeedback && <FeedbackModal onClose={closeFeedback} />}
 
       {toast && (
         <div className={`toast ${toast.tone}`} role={toast.tone === "error" ? "alert" : "status"}>

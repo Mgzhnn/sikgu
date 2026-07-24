@@ -2175,14 +2175,46 @@ button:disabled { cursor: not-allowed; opacity: 0.56; }
   line-height: 1;
 }
 
+.feedback-instruction {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 22px;
+  padding: 16px;
+  border-radius: 15px;
+  background: var(--orange-soft);
+  color: var(--deep);
+}
+
+.feedback-instruction > span {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--orange);
+  color: white;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.feedback-instruction p {
+  margin: 1px 0 0;
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1.65;
+  word-break: keep-all;
+}
+
 .feedback-recipient {
   display: flex;
   align-items: center;
   gap: 11px;
-  margin-top: 20px;
-  padding: 12px 13px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
+  margin-top: 12px;
+  padding: 15px 16px;
+  border: 1px solid rgba(255, 102, 57, 0.28);
+  border-radius: 15px;
   background: white;
 }
 
@@ -2204,211 +2236,25 @@ button:disabled { cursor: not-allowed; opacity: 0.56; }
   min-width: 0;
   flex: 1;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
-.feedback-recipient small { color: var(--muted); font-size: 8px; }
+.feedback-recipient small {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+}
 
-.feedback-recipient a {
+.feedback-recipient strong {
   overflow: hidden;
   color: var(--deep);
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 850;
+  letter-spacing: -0.01em;
   text-overflow: ellipsis;
+  user-select: all;
   white-space: nowrap;
 }
-
-.feedback-recipient > button {
-  min-height: 32px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--cream);
-  cursor: pointer;
-  color: var(--deep);
-  font-size: 8px;
-  font-weight: 800;
-}
-
-.feedback-form { margin-top: 19px; }
-
-.feedback-error {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
-  padding: 10px 12px;
-  border: 1px solid rgba(224, 75, 52, 0.22);
-  border-radius: 11px;
-  background: #fff2ed;
-  color: #b73925;
-  font-size: 9px;
-  font-weight: 750;
-}
-
-.feedback-error span {
-  display: grid;
-  width: 17px;
-  height: 17px;
-  place-items: center;
-  border-radius: 50%;
-  background: #e04b34;
-  color: white;
-  font-size: 8px;
-}
-
-.feedback-field {
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.feedback-field + .feedback-field { margin-top: 17px; }
-
-.feedback-field legend,
-.feedback-field > label {
-  display: block;
-  margin-bottom: 8px;
-  color: var(--deep);
-  font-size: 10px;
-  font-weight: 820;
-}
-
-.feedback-field legend strong,
-.feedback-field > label strong {
-  margin-left: 5px;
-  color: var(--orange);
-  font-size: 7px;
-}
-
-.feedback-type-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 7px;
-}
-
-.feedback-type-grid button {
-  display: flex;
-  min-width: 0;
-  min-height: 54px;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  background: white;
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 9px;
-  font-weight: 780;
-  transition: border-color 150ms ease, background 150ms ease, color 150ms ease, transform 150ms ease;
-}
-
-.feedback-type-grid button:hover { transform: translateY(-1px); color: var(--deep); }
-
-.feedback-type-grid button.active {
-  border-color: var(--orange);
-  background: var(--orange-soft);
-  color: var(--orange);
-}
-
-.feedback-type-grid button span {
-  display: grid;
-  width: 20px;
-  height: 20px;
-  place-items: center;
-  border: 1px solid currentColor;
-  border-radius: 7px;
-  font-size: 8px;
-}
-
-.feedback-field > p {
-  margin: -2px 0 8px;
-  color: var(--muted);
-  font-size: 10px;
-  line-height: 1.5;
-}
-
-.feedback-field textarea {
-  width: 100%;
-  min-height: 132px;
-  resize: vertical;
-  padding: 13px;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  outline: none;
-  background: white;
-  color: var(--deep);
-  font: inherit;
-  font-size: 12px;
-  line-height: 1.6;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
-}
-
-.feedback-field textarea::placeholder { color: var(--faint); }
-
-.feedback-field textarea:focus {
-  border-color: var(--orange);
-  box-shadow: 0 0 0 3px rgba(189, 67, 20, 0.13);
-}
-
-.feedback-field > small {
-  display: block;
-  margin-top: 5px;
-  color: var(--faint);
-  font-size: 9.5px;
-  text-align: right;
-}
-
-.feedback-safety-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin-top: 16px;
-  padding: 11px 12px;
-  border-radius: 12px;
-  background: var(--mint-soft);
-  color: var(--green);
-}
-
-.feedback-safety-note > span {
-  display: grid;
-  width: 17px;
-  height: 17px;
-  flex: 0 0 auto;
-  place-items: center;
-  border: 1px solid currentColor;
-  border-radius: 50%;
-  font-size: 8px;
-  font-weight: 900;
-}
-
-.feedback-safety-note p {
-  margin: 0;
-  font-size: 10px;
-  line-height: 1.55;
-}
-
-.feedback-safety-note strong { color: var(--deep); }
-
-.feedback-submit {
-  width: 100%;
-  margin-top: 17px;
-}
-
-.feedback-submit span { margin-left: 4px; font-size: 11px; }
-
-.feedback-handoff,
-.feedback-copy-status {
-  margin: 8px auto 0;
-  color: var(--muted);
-  font-size: 9.5px;
-  line-height: 1.5;
-  text-align: center;
-}
-
-.feedback-copy-status { color: var(--green); font-weight: 750; }
 
 .feedback-modal :focus-visible {
   outline: 3px solid var(--orange);
@@ -3809,10 +3655,8 @@ button:disabled { cursor: not-allowed; opacity: 0.56; }
 
   .feedback-modal { padding: 21px 18px; border-radius: 22px; }
   .feedback-head h2 { font-size: 21px; }
-  .feedback-type-grid { grid-template-columns: repeat(2, 1fr); }
-  .feedback-type-grid button { min-height: 48px; }
-  .feedback-recipient { align-items: flex-start; flex-wrap: wrap; }
-  .feedback-recipient > button { margin-left: 45px; }
+  .feedback-instruction { padding: 14px; }
+  .feedback-recipient strong { font-size: 13px; }
 
   .campus-map-modal {
     width: 100%;

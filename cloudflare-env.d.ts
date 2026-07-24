@@ -49,24 +49,21 @@ interface R2Bucket {
     options?: Record<string, unknown>,
   ): Promise<unknown>;
   delete(key: string | string[]): Promise<void>;
-}
-
-interface CloudflareImagesBinding {
-  input(stream: ReadableStream): {
-    transform(options: Record<string, unknown>): {
-      output(options: {
-        format: string;
-        quality?: number;
-      }): Promise<{ response(): Response }>;
-    };
-  };
+  list(options?: {
+    prefix?: string;
+    cursor?: string;
+    limit?: number;
+  }): Promise<{
+    objects: Array<{ key: string }>;
+    truncated: boolean;
+    cursor?: string;
+  }>;
 }
 
 declare module "cloudflare:workers" {
   export const env: {
     DB: D1Database;
     UPLOADS?: R2Bucket;
-    IMAGES?: CloudflareImagesBinding;
     [key: string]: unknown;
   };
 }

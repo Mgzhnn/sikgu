@@ -106,6 +106,69 @@ const estimatedArrivalLabel = (value?: string | null) => {
 const kakaoMapSearchUrl = (restaurant: Restaurant) =>
   `https://map.kakao.com/?q=${encodeURIComponent(`${restaurant.name} ${restaurant.address || "현풍 테크노폴리스"}`)}`;
 
+const maxReceiptUploadBytes = 8 * 1024 * 1024;
+
+const canvasBlob = (canvas: HTMLCanvasElement, type: string, quality?: number) =>
+  new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error("이미지를 처리하지 못했어요."))),
+      type,
+      quality,
+    );
+  });
+
+async function prepareReceiptUpload(file: File) {
+  let source: ImageBitmap | HTMLImageElement;
+  let release: () => void = () => undefined;
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    source = bitmap;
+    release = () => bitmap.close();
+  } catch {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.decoding = "async";
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error("이미지 파일을 열 수 없어요."));
+      image.src = objectUrl;
+    }).finally(() => URL.revokeObjectURL(objectUrl));
+    source = image;
+  }
+
+  try {
+    const sourceWidth = source.width;
+    const sourceHeight = source.height;
+    if (!sourceWidth || !sourceHeight) throw new Error("이미지 크기를 확인할 수 없어요.");
+    const canvas = document.createElement("canvas");
+    let blob: Blob | null = null;
+    let previousSize = "";
+    for (const maxSide of [2400, 2000, 1600, 1280, 1024]) {
+      const scale = Math.min(1, maxSide / Math.max(sourceWidth, sourceHeight));
+      const width = Math.max(1, Math.round(sourceWidth * scale));
+      const height = Math.max(1, Math.round(sourceHeight * scale));
+      const size = `${width}x${height}`;
+      if (size === previousSize) continue;
+      previousSize = size;
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d", { alpha: false });
+      if (!context) throw new Error("이미지를 처리할 수 없는 브라우저예요.");
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, width, height);
+      context.drawImage(source, 0, 0, width, height);
+      blob = await canvasBlob(canvas, "image/png");
+      if (blob.size <= maxReceiptUploadBytes) break;
+    }
+    if (!blob || blob.size > maxReceiptUploadBytes) {
+      throw new Error("이미지를 8MB 이하로 줄이지 못했어요. 화면을 잘라서 다시 올려주세요.");
+    }
+    return new File([blob], "receipt.png", { type: "image/png", lastModified: Date.now() });
+  } finally {
+    release();
+  }
+}
+
 const dialogFocusableSelector = [
   "a[href]",
   "button:not([disabled])",
@@ -2136,7 +2199,7 @@ function RoomHubModal({
         setError("영수증은 JPG, PNG, WebP 이미지로 올려주세요.");
         return;
       }
-      if (receiptFile.size > 8 * 1024 * 1024) {
+      if (receiptFile.size > maxReceiptUploadBytes) {
         setError("영수증 이미지는 8MB 이하만 올릴 수 있어요.");
         return;
       }
@@ -2145,13 +2208,14 @@ function RoomHubModal({
     setSavingOrderInfo(true);
     setError("");
     try {
+      const preparedReceipt = receiptFile ? await prepareReceiptUpload(receiptFile) : null;
       const form = new FormData();
       form.set("action", "update_order_info");
       form.set("roomId", roomId);
       form.set("estimatedArrival", estimatedArrival);
       form.set("orderTotal", orderTotal);
       form.set("collectedTotal", collectedTotal);
-      if (receiptFile) form.set("receipt", receiptFile);
+      if (preparedReceipt) form.set("receipt", preparedReceipt);
       const response = await fetch(
         `/api/sikgu?action=update_order_info&roomId=${encodeURIComponent(roomId)}`,
         { method: "PUT", headers: { "x-sikgu-request": "1" }, body: form },
@@ -2181,6 +2245,10 @@ function RoomHubModal({
         headers: { "x-sikgu-request": "1" },
       });
       const data = await response.json() as { error?: string };
+      if (response.status === 404) {
+        onDeleted();
+        return;
+      }
       if (!response.ok) throw new Error(data.error || "주문방을 삭제하지 못했어요.");
       onDeleted();
     } catch (deleteError) {
@@ -2427,7 +2495,7 @@ function RoomHubModal({
                       <span aria-hidden="true">＋</span>
                       <p>
                         <strong>{receiptFile ? receiptFile.name : room.receiptUrl ? "새 이미지로 교체" : "영수증·주문 화면 올리기"}</strong>
-                        <small>JPG, PNG, WebP · 최대 8MB</small>
+                        <small>JPG, PNG, WebP · 최대 8MB · 자동 최적화</small>
                       </p>
                     </label>
                     <p className="receipt-privacy">주소·전화번호·주문번호 등 개인정보는 가린 뒤 올려주세요.</p>

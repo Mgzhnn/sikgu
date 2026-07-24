@@ -19,6 +19,8 @@ export const rooms = sqliteTable("rooms", {
   receiptKey: text("receipt_key"),
   receiptContentType: text("receipt_content_type"),
   receiptUploadedAt: integer("receipt_uploaded_at"),
+  mutationToken: text("mutation_token"),
+  mutationStartedAt: integer("mutation_started_at"),
   status: text("status").notNull().default("open"),
   createdAt: integer("created_at").notNull(),
 }, (table) => [

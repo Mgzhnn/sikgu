@@ -38,8 +38,6 @@ type Restaurant = {
   cuisine: string;
   mark: string;
   tone: string;
-  rating?: number;
-  reviews?: number;
   eta: string;
   minimum: Record<DeliveryApp, number>;
   deliveryFee: Record<DeliveryApp, number>;
@@ -258,8 +256,6 @@ const restaurants: Restaurant[] = [
     cuisine: "분식",
     mark: "신",
     tone: "coral",
-    rating: 4.8,
-    reviews: 326,
     eta: "25–35분",
     minimum: { baemin: 15000, coupang: 18000 },
     deliveryFee: { baemin: 3000, coupang: 2500 },
@@ -287,8 +283,6 @@ const restaurants: Restaurant[] = [
     cuisine: "버거",
     mark: "맘",
     tone: "gold",
-    rating: 4.7,
-    reviews: 512,
     eta: "30–40분",
     minimum: { baemin: 14000, coupang: 16000 },
     deliveryFee: { baemin: 2500, coupang: 3000 },
@@ -316,8 +310,6 @@ const restaurants: Restaurant[] = [
     cuisine: "중식",
     mark: "홍",
     tone: "indigo",
-    rating: 4.6,
-    reviews: 218,
     eta: "30–45분",
     minimum: { baemin: 16000, coupang: 14000 },
     deliveryFee: { baemin: 3500, coupang: 3500 },
@@ -345,8 +337,6 @@ const restaurants: Restaurant[] = [
     cuisine: "치킨",
     mark: "교",
     tone: "mint",
-    rating: 4.9,
-    reviews: 648,
     eta: "35–50분",
     minimum: { baemin: 18000, coupang: 20000 },
     deliveryFee: { baemin: 3000, coupang: 2500 },
@@ -374,8 +364,6 @@ const restaurants: Restaurant[] = [
     cuisine: "한식",
     mark: "한",
     tone: "sage",
-    rating: 4.7,
-    reviews: 184,
     eta: "20–30분",
     minimum: { baemin: 12000, coupang: 13000 },
     deliveryFee: { baemin: 2000, coupang: 2500 },
@@ -405,8 +393,6 @@ const restaurants: Restaurant[] = [
     cuisine: "초밥",
     mark: "스",
     tone: "plum",
-    rating: 4.8,
-    reviews: 291,
     eta: "35–45분",
     minimum: { baemin: 18000, coupang: 15000 },
     deliveryFee: { baemin: 4000, coupang: 3500 },
@@ -924,7 +910,7 @@ function PoolCard({
         <div className="pool-card-bottom">
           <span className="people-stack" aria-label={`${pool.people}명 참여 중`}>
             {Array.from({ length: Math.min(pool.people, 3) }).map((_, index) => (
-              <i key={index}>{["민", "서", "훈"][index]}</i>
+              <i key={index} aria-hidden="true" />
             ))}
             {pool.people > 3 && <em>+{pool.people - 3}</em>}
           </span>
@@ -1337,14 +1323,13 @@ function RestaurantsView({
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("전체");
-  const filters = ["전체", "위치 확인 매장", "최소금액 낮은 순", "평점 4.8+"];
+  const filters = ["전체", "위치 확인 매장", "최소금액 낮은 순"];
   const visible = restaurants
     .filter((restaurant) =>
       `${restaurant.name} ${restaurant.cuisine} ${restaurant.address || ""} ${restaurant.menu.flatMap((group) => group.items).map((item) => item.name).join(" ")}`
         .toLowerCase()
         .includes(query.toLowerCase()))
     .filter((restaurant) => filter !== "위치 확인 매장" || restaurant.verified)
-    .filter((restaurant) => filter !== "평점 4.8+" || (restaurant.rating || 0) >= 4.8)
     .sort((a, b) => filter === "최소금액 낮은 순"
       ? Math.min(...Object.values(a.minimum)) - Math.min(...Object.values(b.minimum))
       : 0);
@@ -1393,12 +1378,7 @@ function RestaurantsView({
                 <div className="restaurant-info">
                   <span className="cuisine-label">{restaurant.cuisine}{restaurant.verified && <em>위치 확인</em>}</span>
                   <h2>{restaurant.name}</h2>
-                  <p>
-                    {restaurant.rating
-                      ? <><b>★ {restaurant.rating}</b> ({restaurant.reviews}) · </>
-                      : <>테크노폴리스 상권 · </>}
-                    {restaurant.eta}
-                  </p>
+                  <p>테크노폴리스 상권 · {restaurant.eta}</p>
                 </div>
               </div>
               <a className="restaurant-location-link" href={kakaoMapSearchUrl(restaurant)} target="_blank" rel="noreferrer">

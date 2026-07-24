@@ -445,12 +445,13 @@ test("masks Korean and English display names consistently", async () => {
     readFile(new URL("../app/api/sikgu/route.ts", import.meta.url), "utf8"),
   ]);
 
-  assert.equal(maskDisplayName("Ugrp"), "Ug**");
-  assert.equal(maskDisplayName("Alex"), "Al**");
+  assert.equal(maskDisplayName("Ugrp"), "Ug***");
+  assert.equal(maskDisplayName("Alex"), "Al***");
+  assert.equal(maskDisplayName("Jonathan Smith"), "Jo***");
   assert.equal(maskDisplayName("권혁준"), "권*준");
   assert.equal(maskDisplayName("홍길동"), "홍*동");
   assert.equal(maskDisplayName("김준"), "김*");
-  assert.equal(maskDisplayName("Ug**"), "Ug**");
+  assert.equal(maskDisplayName("Ug***"), "Ug***");
   assert.equal(maskDisplayName("권*준"), "권*준");
 
   assert.match(page, /maskDisplayName\(user\.displayName\)/);

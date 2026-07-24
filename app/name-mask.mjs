@@ -1,7 +1,9 @@
 /**
  * Masks a user-facing display name without changing its identifying prefix.
- * Korean names keep the first and last character; other names hide the last
- * two characters. Applying the function more than once keeps the same result.
+ * Korean names keep the first and last character; other names keep only the
+ * first two characters and hide the rest behind a fixed-width mask so the
+ * name's length is not revealed. Applying the function more than once keeps
+ * the same result.
  *
  * @param {string} value
  * @returns {string}
@@ -16,5 +18,5 @@ export function maskDisplayName(value) {
     return `${characters[0]}${"*".repeat(characters.length - 2)}${characters.at(-1)}`;
   }
   if (characters.length <= 2) return "*".repeat(characters.length);
-  return `${characters.slice(0, -2).join("")}**`;
+  return `${characters.slice(0, 2).join("")}***`;
 }

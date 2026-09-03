@@ -337,7 +337,8 @@ function serializeRoom(row: Record<string, unknown>, includeOrderInfo = false) {
     note: String(row.note),
     myStatus: row.my_status ? String(row.my_status) : null,
     isHost: row.host_email === row.current_email,
-    pendingCount: Number(row.pending_count || 0),
+    // Only the host sees how many requests are waiting; everyone else gets 0.
+    pendingCount: row.host_email === row.current_email ? Number(row.pending_count || 0) : 0,
   };
   if (!includeOrderInfo) return room;
   return {
@@ -524,7 +525,9 @@ export async function GET(request: Request) {
 
     if (action === "bootstrap") {
       const now = Date.now();
-      const email = user?.email || "";
+      // NULL never equals a stored email, so an anonymous viewer can never be
+      // matched as a member or host.
+      const email = user?.email || null;
       const result = await withD1ReadRetry(() => env.DB.prepare(`
         SELECT
           r.*,

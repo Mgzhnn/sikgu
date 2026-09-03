@@ -240,6 +240,23 @@ function token() {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+/**
+ * Accepts a datetime-local value (YYYY-MM-DDTHH:mm) only if every component
+ * round-trips: Date.parse alone normalizes "2024-02-30" to March 1 and accepts
+ * "24:00", which the host's own date control then refuses to display.
+ */
+function isRealLocalDateTime(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return false;
+  const [year, month, day, hour, minute] = match.slice(1).map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  return date.getUTCFullYear() === year
+    && date.getUTCMonth() === month - 1
+    && date.getUTCDate() === day
+    && date.getUTCHours() === hour
+    && date.getUTCMinutes() === minute;
+}
+
 function publicDisplayName(value: unknown) {
   const name = String(value || "").trim();
   return name.includes("@") ? "사용자" : maskDisplayName(name);
@@ -696,13 +713,7 @@ export async function PUT(request: Request) {
     }
 
     const estimatedArrival = String(form.get("estimatedArrival") || "").trim();
-    if (
-      estimatedArrival
-      && (
-        !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(estimatedArrival)
-        || !Number.isFinite(Date.parse(estimatedArrival))
-      )
-    ) {
+    if (estimatedArrival && !isRealLocalDateTime(estimatedArrival)) {
       return json({ error: "도착 예상 시각을 다시 확인해주세요." }, 400);
     }
 

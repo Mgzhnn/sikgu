@@ -2773,6 +2773,10 @@ export default function Home() {
   const [toast, setToast] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const loadRoomsRequestRef = useRef(0);
+  // Server time minus device time, learned from every feed load, so that a
+  // phone whose clock is minutes off still shows the right countdown.
+  const clockOffsetRef = useRef(0);
+  const serverNow = useCallback(() => Date.now() + clockOffsetRef.current, []);
   const toastTimerRef = useRef<number | null>(null);
   const latestSelectedPool = selectedPool
     ? pools.find((pool) => pool.id === selectedPool.id) || null
@@ -2820,9 +2824,14 @@ export default function Home() {
       user: AuthUser | null;
       rooms: Pool[];
       myRooms?: Pool[];
+      serverNow?: number;
     }>(response);
     if (!response.ok) throw new Error(data.error || "주문방을 불러오지 못했어요.");
     if (requestId === loadRoomsRequestRef.current) {
+      if (typeof data.serverNow === "number") {
+        clockOffsetRef.current = data.serverNow - Date.now();
+        setNow(data.serverNow);
+      }
       const isValidRoom = (room: Pool) => (
         restaurants.some((restaurant) => restaurant.id === room.restaurantId)
         && pickupPoints.some((point) => point.id === room.pickup)
@@ -2842,9 +2851,9 @@ export default function Home() {
   const refreshRooms = useCallback(() => loadRooms().catch(() => undefined), [loadRooms]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 30000);
+    const timer = window.setInterval(() => setNow(serverNow()), 30000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [serverNow]);
 
   useEffect(() => {
     let active = true;
@@ -2977,11 +2986,20 @@ export default function Home() {
     const timer = window.setInterval(() => {
       if (!document.hidden) void loadRooms().catch(() => undefined);
     }, 30000);
+    // A tab that slept through its timers shows stale countdowns until the
+    // next tick; refresh the clock and the feed as soon as it is visible again.
+    const handleVisibility = () => {
+      if (document.hidden) return;
+      setNow(serverNow());
+      void loadRooms().catch(() => undefined);
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       active = false;
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [loadRooms, notify, postAction, signIn]);
+  }, [loadRooms, notify, postAction, signIn, serverNow]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

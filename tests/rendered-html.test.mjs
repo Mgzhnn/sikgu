@@ -649,3 +649,16 @@ test("the room hub shows the deadline state and disables host actions that a clo
   assert.match(roomHub, /disabled=\{Boolean\(reviewingMember\) \|\| isClosed\}[\s\S]{0,120}"승인"/);
   assert.match(page, /<RoomHubModal[\s\S]{0,120}now=\{now\}/);
 });
+
+test("countdowns follow the server clock and a tab returning from sleep refreshes immediately", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const home = page.slice(page.indexOf("export default function Home"));
+
+  assert.match(home, /const clockOffsetRef = useRef\(0\)/);
+  assert.match(home, /clockOffsetRef\.current = data\.serverNow - Date\.now\(\)/);
+  assert.match(home, /const serverNow = useCallback\(\(\) => Date\.now\(\) \+ clockOffsetRef\.current/);
+  assert.match(home, /setNow\(serverNow\(\)\)/);
+  assert.match(home, /document\.addEventListener\("visibilitychange", handleVisibility\)/);
+  assert.match(home, /document\.removeEventListener\("visibilitychange", handleVisibility\)/);
+  assert.doesNotMatch(home, /setNow\(Date\.now\(\)\)/);
+});

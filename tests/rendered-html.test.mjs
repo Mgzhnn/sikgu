@@ -589,3 +589,21 @@ test("the pool dialog disables joining a full room and Escape is ignored mid-IME
     assert.match(source, /event\.isComposing \|\| event\.keyCode === 229/, `${name} must ignore Escape during composition`);
   }
 });
+
+test("an invite token leaves the address bar before sign-in and a failed resume is not retried forever", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const initialize = page.slice(page.indexOf("const initialize = async"), page.indexOf("void initialize()"));
+  const inviteBranch = initialize.slice(initialize.indexOf("if (invite && invitedRoomId)"), initialize.indexOf("const pendingJoinRaw") > 0 ? initialize.indexOf("const pendingJoinRaw") : initialize.indexOf("let pendingJoinRaw"));
+
+  assert.match(page, /const pendingInviteStorageKey = "sikgu-pending-invite"/);
+  assert.ok(
+    inviteBranch.indexOf("window.history.replaceState") !== -1
+      && inviteBranch.indexOf("window.history.replaceState") < inviteBranch.indexOf("if (!data.user)"),
+    "the token must be removed from the URL before the sign-in redirect captures it",
+  );
+  assert.match(inviteBranch, /sessionStorage\.setItem\(pendingInviteStorageKey/);
+  assert.match(initialize, /sessionStorage\.getItem\(pendingInviteStorageKey\)/);
+  assert.match(initialize, /sessionStorage\.removeItem\(pendingInviteStorageKey\)/);
+  const pendingJoin = initialize.slice(initialize.indexOf("if (pendingJoinRoomId && data.user)"), initialize.indexOf("} catch (interactionError)"));
+  assert.match(pendingJoin, /catch \(joinError\) \{[\s\S]*?sessionStorage\.removeItem\(pendingJoinStorageKey\)/);
+});

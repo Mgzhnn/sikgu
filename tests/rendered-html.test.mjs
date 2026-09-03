@@ -770,3 +770,14 @@ test("server failures show the log reference the runbook tells operators to sear
   assert.match(readJson, /\(오류 코드 \$\{body\.reference\.slice\(0, 8\)\}\)/);
   assert.match(runbook, /오류 코드 XXXXXXXX/);
 });
+
+test("the room poll keeps a single timer chain and stops completely on unmount", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const roomHub = page.slice(page.indexOf("function RoomHubModal"), page.indexOf("function CreateModal"));
+  const pollEffect = roomHub.slice(roomHub.indexOf("const initialTimer = window.setTimeout"), roomHub.indexOf("}, [loadRoom]);"));
+
+  assert.match(pollEffect, /let cancelled = false;/);
+  assert.match(pollEffect, /const schedule = \(\) => \{\s*window\.clearTimeout\(timer\);\s*if \(cancelled\) return;/);
+  assert.match(pollEffect, /cancelled = true;/);
+  assert.doesNotMatch(pollEffect, /\.then\(\(\) => schedule\(\)\)/);
+});

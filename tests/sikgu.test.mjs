@@ -344,7 +344,7 @@ test("receipt updates and room deletion use fenced mutations with recoverable st
   assert.match(put, /영수증 이미지는 30초에 한 번만 교체할 수 있습니다/);
   assert.match(put, /"Retry-After": String\(Math\.ceil\(retryAfterMs \/ 1000\)\)/);
   assert.ok(
-    put.indexOf("uploadBucket().put(newReceiptKey") < put.indexOf("UPDATE rooms"),
+    put.indexOf("receiptBucket.put(newReceiptKey") < put.indexOf("UPDATE rooms"),
     "the replacement object must exist before its key is committed",
   );
   assert.ok(occurrences(put, "status = 'open' AND mutation_token = ?") >= 3);
@@ -612,4 +612,66 @@ test("the per-host open-room limit holds under concurrent create_room requests",
   );
   const rejected = results.find((result) => result.status === 429);
   assert.match(rejected.data.error, /5개까지/);
+});
+
+function crc32(data) {
+  let crc = 0xffffffff;
+  for (const byte of data) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type, data = []) {
+  const typeBytes = [...new TextEncoder().encode(type)];
+  const checksum = crc32([...typeBytes, ...data]);
+  const uint32 = (value) => [(value >>> 24) & 0xff, (value >>> 16) & 0xff, (value >>> 8) & 0xff, value & 0xff];
+  return [...uint32(data.length), ...typeBytes, ...data, ...uint32(checksum)];
+}
+
+async function tinyPng(width = 4, height = 4) {
+  const { deflateSync } = await import("node:zlib");
+  const uint32 = (value) => [(value >>> 24) & 0xff, (value >>> 16) & 0xff, (value >>> 8) & 0xff, value & 0xff];
+  const rows = new Uint8Array((width * 3 + 1) * height);
+  return new Uint8Array([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ...pngChunk("IHDR", [...uint32(width), ...uint32(height), 8, 2, 0, 0, 0]),
+    ...pngChunk("IDAT", [...deflateSync(rows)]),
+    ...pngChunk("IEND"),
+  ]);
+}
+
+test("a receipt upload without an R2 binding fails cleanly and releases the room's mutation lock", async () => {
+  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const api = await createApi({ uploads: null });
+  const host = identity("host@dgist.ac.kr", "홍길동");
+  const created = await api.post(host, {
+    action: "create_room",
+    restaurantId: "sinjeon",
+    pickup: "E1",
+    apps: ["baemin"],
+    capacity: 4,
+    closesAt: closesIn(30),
+  });
+  assert.equal(created.status, 201);
+  const roomId = created.data.roomId;
+  const receipt = new File([await tinyPng()], "receipt.png", { type: "image/png" });
+
+  const response = await api.call("PUT", host, {
+    query: `?action=update_order_info&roomId=${roomId}`,
+    form: { estimatedArrival: "", orderTotal: "12000", collectedTotal: "0", receipt },
+  });
+  assert.equal(response.status, 500);
+  assert.equal(typeof response.data.reference, "string", "the failure must be a JSON server error with a reference");
+  assert.deepEqual(
+    { ...api.sql("SELECT status, mutation_token, mutation_started_at FROM rooms WHERE id = ?", roomId)[0] },
+    { status: "open", mutation_token: null, mutation_started_at: null },
+    "the lock must be released so the host can retry or delete immediately",
+  );
+  assert.equal(
+    (await api.call("DELETE", host, { query: `?roomId=${roomId}` })).status,
+    503,
+    "deletion still needs R2 in this environment, but must not be blocked by a stale lock (409)",
+  );
 });

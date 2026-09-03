@@ -16,7 +16,7 @@ const root = new URL("../../", import.meta.url);
 const hooks = `data:text/javascript,${encodeURIComponent(`
   import { existsSync } from "node:fs";
   const stubs = new Map([
-    ["cloudflare:workers", "data:text/javascript,export const env = globalThis.__sikguEnv;"],
+    ["cloudflare:workers", "data:text/javascript,export const env = new Proxy({}, { get: (_, key) => globalThis.__sikguEnv?.[key] });"],
     ["next/headers", "data:text/javascript,export async function headers() { return new Headers(globalThis.__sikguHeaders || {}); }"],
     ["next/server", "data:text/javascript,export function after(task) { (globalThis.__sikguAfter ||= []).push(task); }"],
     ["next/navigation", "data:text/javascript,export function redirect(path) { throw new Error('redirect:' + path); }"],

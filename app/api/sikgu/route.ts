@@ -640,6 +640,7 @@ export async function PUT(request: Request) {
   let mutationToken = "";
   let mutationRoomId = "";
   let mutationHostEmail = "";
+  let receiptBucket: UploadBucket | null = null;
   try {
     if (!sameOrigin(request)) return json({ error: "허용되지 않은 요청입니다." }, 403);
     const auth = await requiredUser();
@@ -748,6 +749,9 @@ export async function PUT(request: Request) {
       }
     }
 
+    // Resolve the storage binding before taking the lock so a missing binding
+    // fails here, where nothing needs to be rolled back.
+    if (normalizedReceiptBuffer) receiptBucket = uploadBucket();
     mutationToken = await acquireRoomMutation(id, auth.email, "update") || "";
     if (!mutationToken) {
       return json({ error: "다른 변경이 진행 중입니다. 잠시 후 다시 시도해주세요." }, 409);
@@ -771,7 +775,7 @@ export async function PUT(request: Request) {
       return json({ error: "보관 기간이 지난 주문방은 수정할 수 없습니다." }, 410);
     }
 
-    if (normalizedReceiptBuffer) {
+    if (normalizedReceiptBuffer && receiptBucket) {
       const retryAfterMs = receiptUploadCooldownMs - (Date.now() - Number(room.receipt_uploaded_at || 0));
       if (retryAfterMs > 0) {
         await releaseRoomMutation(id, auth.email, mutationToken);
@@ -784,7 +788,7 @@ export async function PUT(request: Request) {
       }
       receiptUploadedAt = Date.now();
       newReceiptKey = `receipts/${id}/${mutationToken}.${receiptFileExtension}`;
-      await uploadBucket().put(newReceiptKey, normalizedReceiptBuffer, {
+      await receiptBucket.put(newReceiptKey, normalizedReceiptBuffer, {
         httpMetadata: {
           contentType: receiptContentType,
           contentDisposition: `inline; filename="receipt.${receiptFileExtension}"`,
@@ -883,16 +887,18 @@ export async function PUT(request: Request) {
     mutationToken = "";
     const committedReceiptKey = newReceiptKey;
     newReceiptKey = "";
-    if (committedReceiptKey && room.receipt_key && room.receipt_key !== committedReceiptKey) {
-      await uploadBucket().delete(room.receipt_key).catch((cleanupError) => {
+    if (committedReceiptKey && receiptBucket && room.receipt_key && room.receipt_key !== committedReceiptKey) {
+      await receiptBucket.delete(room.receipt_key).catch((cleanupError) => {
         // Room deletion and retention enumerate the room prefix and retry leftovers.
         console.error("Deferred previous receipt cleanup", cleanupError);
       });
     }
     return json({ ok: true, receiptUploadedAt });
   } catch (error) {
+    // Nothing in this block may throw: a second failure here would skip the
+    // lock release and leave the room stuck for the whole lock timeout.
     if (newReceiptKey && !preserveNewReceiptOnFailure) {
-      await uploadBucket().delete(newReceiptKey).catch(() => undefined);
+      if (receiptBucket) await receiptBucket.delete(newReceiptKey).catch(() => undefined);
     }
     if (mutationToken) {
       await releaseRoomMutation(mutationRoomId, mutationHostEmail, mutationToken).catch(() => undefined);

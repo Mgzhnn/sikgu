@@ -198,7 +198,15 @@ async function readJson<T extends object>(response: Response): Promise<T & { err
   if (contentType.includes("application/json")) {
     try {
       const parsed: unknown = JSON.parse(await response.text());
-      if (parsed && typeof parsed === "object") return parsed as T & { error?: string };
+      if (parsed && typeof parsed === "object") {
+        const body = parsed as T & { error?: string; reference?: string };
+        // A server failure carries a reference that is also in the log line;
+        // showing its prefix lets the student quote it when asking for help.
+        if (body.error && typeof body.reference === "string" && body.reference) {
+          body.error = `${body.error} (오류 코드 ${body.reference.slice(0, 8)})`;
+        }
+        return body;
+      }
     } catch {
       // A truncated or malformed body falls through to the status-based message.
     }
@@ -2170,7 +2178,7 @@ function RoomHubModal({
       await post({ action: "send_message", body });
       setMessage((current) => (current.startsWith(draft) ? current.slice(draft.length).trimStart() : current));
       const refreshed = await loadRoom(true);
-      if (!refreshed) setChatStatus("메시지는 전송됐어요. 새 메시지는 잠시 후 다시 확인해주세요.");
+      if (refreshed === false) setChatStatus("메시지는 전송됐어요. 새 메시지는 잠시 후 다시 확인해주세요.");
     } catch (messageError) {
       setError(messageError instanceof Error ? messageError.message : "메시지를 보내지 못했어요.");
     } finally {
@@ -2223,7 +2231,7 @@ function RoomHubModal({
       setReceiptFile(null);
       setOrderInfoStatus("방장이 주문 정보를 업데이트했어요.");
       const refreshed = await loadRoom(true);
-      if (!refreshed) setOrderInfoStatus("주문 정보는 저장됐어요. 화면은 잠시 후 새로고침됩니다.");
+      if (refreshed === false) setOrderInfoStatus("주문 정보는 저장됐어요. 화면은 잠시 후 새로고침됩니다.");
       onChanged();
     } catch (orderError) {
       setError(orderError instanceof Error ? orderError.message : "주문 정보를 저장하지 못했어요.");

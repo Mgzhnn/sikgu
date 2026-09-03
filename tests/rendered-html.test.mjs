@@ -759,3 +759,14 @@ test("the room poll treats a superseded response as neutral and resumes promptly
   assert.match(roomHub, /document\.addEventListener\("visibilitychange", handleVisibility\)/);
   assert.match(roomHub, /document\.removeEventListener\("visibilitychange", handleVisibility\)/);
 });
+
+test("server failures show the log reference the runbook tells operators to search for", async () => {
+  const [page, runbook] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../RUNBOOK.md", import.meta.url), "utf8"),
+  ]);
+  const readJson = page.slice(page.indexOf("async function readJson"), page.indexOf("const dialogFocusableSelector"));
+  assert.match(readJson, /typeof body\.reference === "string"/);
+  assert.match(readJson, /\(오류 코드 \$\{body\.reference\.slice\(0, 8\)\}\)/);
+  assert.match(runbook, /오류 코드 XXXXXXXX/);
+});

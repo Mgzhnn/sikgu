@@ -10,12 +10,14 @@ delivery orders from **Baemin** and **Coupang Eats**, so nobody has to clear a
 ## How it works
 
 1. **Open a room** — pick one of 21 local restaurants, a campus pickup point
-   (E1–E6 lockers, the 201–204 pickup spot, or Bisl Village), a deadline
-   (20 / 30 / 45 minutes), and a capacity (2–8 people).
-2. **Gather food family** — others request to join with the amount they want to
-   order; the host approves members until the room's combined total clears the
+   (the E1 front gate, the E2–E6 lockers, the 201–204 pickup spot, or Bisl
+   Village), a deadline (20 / 30 / 45 minutes, computed on the server), and a
+   capacity (2–8 people).
+2. **Gather food family** — others request to join; the host approves members
+   and keeps the room's collected order total up to date until it clears the
    restaurant's minimum. Capacity is reserved atomically, so a room can never
-   overfill.
+   overfill. A member the host removed or rejected can ask again, but cannot
+   re-enter through an invite link they already hold.
 3. **Order together** — the host places one order through Baemin or Coupang
    Eats, shares the estimated arrival, and uploads a receipt photo for
    transparent cost-splitting. Members coordinate in a private room chat.
@@ -46,7 +48,7 @@ show free delivery for everyone.
 | File storage | Cloudflare R2 (receipt images) |
 | Styling | Tailwind CSS 4 |
 | Identity | Sign in with ChatGPT (platform-injected identity headers) |
-| Tests | `node --test` — 43 tests covering rules, sanitization, migrations, and API invariants |
+| Tests | `node --test` — 85 tests covering rules, sanitization, migrations, and the real API run in-process against SQLite |
 
 ## Getting started
 
@@ -68,24 +70,29 @@ npm run db:generate  # regenerate Drizzle migrations after schema changes
 ```
 app/
   page.tsx            # the whole client UI (feed, rooms, chat, directory)
-  api/sikgu/route.ts  # the whole API (rooms, members, chat, receipts)
-  chatgpt-auth.ts     # Sign in with ChatGPT helpers
+  api/sikgu/route.ts  # the whole API (rooms, members, chat, receipts, health)
+  chatgpt-auth.ts     # Sign in with ChatGPT identity header parsing
   name-mask.mjs       # display-name masking (shared client/server)
   receipt-image.mjs   # receipt image validation + sanitization
-  sikgu-rules.mjs     # shared room rules (restaurants, pickups, limits)
+  sikgu-rules.mjs     # shared room rules (restaurants, pickups, limits, text)
+build/                # Vite plugin that packages hosting metadata + migrations
 db/                   # Drizzle schema + client
-drizzle/              # SQL migrations
+drizzle/              # SQL migrations (generated; never hand-edited)
 worker/               # Cloudflare Worker entry
-tests/                # node --test suites
+tests/                # node --test suites; tests/helpers/ runs the real API in-process
+AUDIT.md              # audit findings, fixes, and verification record
+RUNBOOK.md            # deploy, migrate, roll back, read logs, health check
 ```
 
 ## Security notes
 
 Writes require a custom same-origin request header, mutations on a room are
-fenced with single-use tokens (stale locks are recoverable), capacity and
-approvals are enforced in single atomic SQL statements, request bodies are
-size-bounded before parsing, and API responses carry privacy and browser
-security headers. Authentication relies on identity headers injected by the
+fenced with single-use tokens (stale locks are recoverable), capacity,
+approvals, and every per-user limit are enforced inside single atomic SQL
+statements, request bodies are size-bounded before parsing, free text is
+normalized (control and bidi characters removed), and API responses carry
+privacy and browser security headers. `GET /api/sikgu?action=health` reports
+liveness and database reachability without identity. Authentication relies on identity headers injected by the
 hosting platform's proxy; the worker must not be reachable except through it.
 
 ## Deployment

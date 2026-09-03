@@ -622,3 +622,11 @@ test("every choice group in the create dialog has an accessible name and pressed
     assert.match(createModal, new RegExp(`role="group" aria-label="${name}"`));
   }
 });
+
+test("the anonymous placeholder name survives re-masking on the client", () => {
+  assert.equal(maskDisplayName("사용자"), "사용자");
+  assert.equal(maskDisplayName(maskDisplayName("사용자")), "사용자");
+  assert.equal(maskDisplayName(" 사용자 "), "사용자");
+  // Ordinary three-syllable names are still masked in the middle.
+  assert.equal(maskDisplayName("사용재"), "사*재");
+});

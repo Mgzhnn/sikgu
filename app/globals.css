@@ -3710,3 +3710,25 @@ button:disabled { cursor: not-allowed; opacity: 0.56; }
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Phone ergonomics: 44px hit areas for the smallest controls, and sheets that
+   keep their scrolling to themselves. */
+.search-box button,
+.restaurant-picker-search button,
+.campus-map-preview-marker { position: relative; }
+
+.search-box button::before,
+.restaurant-picker-search button::before,
+.campus-map-preview-marker::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+}
+
+.room-hub-body,
+.chat-messages,
+.restaurant-picker-list,
+.pool-modal,
+.create-modal,
+.campus-map-modal,
+.feedback-modal { overscroll-behavior: contain; }

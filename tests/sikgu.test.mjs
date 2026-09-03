@@ -915,3 +915,23 @@ test("the build plugin that packages hosting metadata is linted like the rest of
   assert.match(eslintConfig, /"!build\/\*\*"/, "eslint-config-next ignores build/** itself, so it must be re-included");
   assert.match(eslintConfig, /\.next\/\*\*/);
 });
+
+test("the estimated arrival must be a real calendar time, not one that Date.parse silently rolls over", async () => {
+  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const api = await createApi();
+  const host = identity("host@dgist.ac.kr", "홍길동");
+  const { roomId } = (await api.post(host, {
+    action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 4, closesAt: closesIn(30),
+  })).data;
+  const put = (estimatedArrival) => api.call("PUT", host, {
+    query: `?action=update_order_info&roomId=${roomId}`,
+    form: { estimatedArrival, orderTotal: "", collectedTotal: "0" },
+  });
+  for (const invalid of ["2024-02-30T10:00", "2023-02-29T10:00", "2024-04-31T10:00", "2024-01-01T24:00", "2024-13-01T10:00"]) {
+    assert.equal((await put(invalid)).status, 400, `${invalid} is not a real time`);
+  }
+  assert.equal((await put("2024-02-29T10:00")).status, 200, "a leap day is real");
+  assert.equal((await put("")).status, 200, "clearing the time is allowed");
+  assert.equal((await put("2026-09-03T18:30")).status, 200);
+  assert.equal(api.sql("SELECT estimated_arrival FROM rooms WHERE id = ?", roomId)[0].estimated_arrival, "2026-09-03T18:30");
+});

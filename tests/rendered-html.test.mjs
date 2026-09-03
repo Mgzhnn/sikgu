@@ -605,9 +605,12 @@ test("an invite token leaves the address bar before sign-in and a failed resume 
       && inviteBranch.indexOf("window.history.replaceState") < inviteBranch.indexOf("if (!data.user)"),
     "the token must be removed from the URL before the sign-in redirect captures it",
   );
-  assert.match(inviteBranch, /sessionStorage\.setItem\(pendingInviteStorageKey/);
-  assert.match(initialize, /sessionStorage\.getItem\(pendingInviteStorageKey\)/);
-  assert.match(initialize, /sessionStorage\.removeItem\(pendingInviteStorageKey\)/);
+  // localStorage, not sessionStorage: the platform sign-in may finish in a
+  // different tab, and signing in can take longer than a few minutes.
+  assert.match(inviteBranch, /localStorage\.setItem\(pendingInviteStorageKey/);
+  assert.match(initialize, /localStorage\.getItem\(pendingInviteStorageKey\)/);
+  assert.match(initialize, /localStorage\.removeItem\(pendingInviteStorageKey\)/);
+  assert.match(initialize, /Date\.now\(\) - pendingInvite\.createdAt < 24 \* 60 \* 60 \* 1000/);
   const pendingJoin = initialize.slice(initialize.indexOf("if (pendingJoinRoomId && data.user)"), initialize.indexOf("} catch (interactionError)"));
   assert.match(pendingJoin, /catch \(joinError\) \{[\s\S]*?sessionStorage\.removeItem\(pendingJoinStorageKey\)/);
 });

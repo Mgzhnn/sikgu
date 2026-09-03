@@ -2936,7 +2936,10 @@ export default function Home() {
           window.history.replaceState({}, "", window.location.pathname);
           if (!data.user) {
             try {
-              window.sessionStorage.setItem(pendingInviteStorageKey, JSON.stringify({
+              // localStorage rather than sessionStorage: the platform sign-in
+              // can complete in another tab, and the invite itself is valid for
+              // 24 hours, so the resume window matches it.
+              window.localStorage.setItem(pendingInviteStorageKey, JSON.stringify({
                 roomId: invitedRoomId,
                 token: invite,
                 createdAt: Date.now(),
@@ -2953,15 +2956,15 @@ export default function Home() {
 
         let pendingInviteRaw: string | null = null;
         try {
-          pendingInviteRaw = window.sessionStorage.getItem(pendingInviteStorageKey);
-          if (pendingInviteRaw) window.sessionStorage.removeItem(pendingInviteStorageKey);
+          pendingInviteRaw = window.localStorage.getItem(pendingInviteStorageKey);
+          if (pendingInviteRaw && data.user) window.localStorage.removeItem(pendingInviteStorageKey);
         } catch {
           // Storage unavailable: nothing to resume.
         }
         if (pendingInviteRaw && data.user) {
           const pendingInvite = JSON.parse(pendingInviteRaw) as { roomId?: string; token?: string; createdAt?: number };
           const isFresh = typeof pendingInvite.createdAt === "number"
-            && Date.now() - pendingInvite.createdAt < 10 * 60 * 1000;
+            && Date.now() - pendingInvite.createdAt < 24 * 60 * 60 * 1000;
           if (isFresh && typeof pendingInvite.roomId === "string" && typeof pendingInvite.token === "string") {
             await acceptInvite(pendingInvite.roomId, pendingInvite.token);
             return;

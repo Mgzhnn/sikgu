@@ -1119,15 +1119,17 @@ export async function POST(request: Request) {
 
     if (action === "review_member") {
       if (room.host_email !== auth.email) return json({ error: "방장만 참여자를 선택할 수 있습니다." }, 403);
-      if (room.status !== "open" || room.closes_at <= Date.now()) {
-        return json({ error: "마감된 주문방에서는 참여자를 변경할 수 없습니다." }, 409);
-      }
       const memberRef = String(payload.memberRef || "");
       if (!/^[a-f0-9]{32,48}$/i.test(memberRef)) {
         return json({ error: "참여자 정보를 확인해 주세요." }, 400);
       }
       const decision = String(payload.decision || "");
       if (decision === "approve") {
+        // Only approval is tied to the deadline; a host must always be able to
+        // clear a pending request, otherwise the row lingers until retention.
+        if (room.status !== "open" || room.closes_at <= Date.now()) {
+          return json({ error: "마감된 주문방에서는 참여자를 변경할 수 없습니다." }, 409);
+        }
         const result = await env.DB.prepare(`
           UPDATE room_members SET status = 'approved'
           WHERE room_id = ? AND review_token = ? AND status = 'requested'

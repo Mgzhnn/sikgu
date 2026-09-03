@@ -278,13 +278,17 @@ function sanitizePng(bytes) {
       validateReceiptDimensions(header.getUint32(0), header.getUint32(4));
       bitDepth = header.getUint8(8);
       colorType = header.getUint8(9);
+      // 16-bit depths are refused on purpose: the browser re-encodes every
+      // receipt through a canvas, which produces 8-bit PNGs only, and a 16-bit
+      // 2400x2400 RGBA image would inflate to 46 MB, leaving the request within
+      // a few MB of the Workers memory cap. 8-bit caps the inflate at 23 MB.
       /** @type {Record<number, Set<number> | undefined>} */
       const validDepths = {
-        0: new Set([1, 2, 4, 8, 16]),
-        2: new Set([8, 16]),
+        0: new Set([1, 2, 4, 8]),
+        2: new Set([8]),
         3: new Set([1, 2, 4, 8]),
-        4: new Set([8, 16]),
-        6: new Set([8, 16]),
+        4: new Set([8]),
+        6: new Set([8]),
       };
       if (
         !validDepths[colorType]?.has(bitDepth)

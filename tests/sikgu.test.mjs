@@ -877,3 +877,35 @@ test("the invite cap and the chat rate limit hold under concurrent requests", as
   assert.deepEqual(sends.map((r) => r.status).sort(), [201, 429, 429, 429, 429], "750 ms spacing must hold for parallel sends");
   assert.equal(api.sql("SELECT COUNT(*) AS count FROM room_messages WHERE room_id = ?", roomId)[0].count, 1);
 });
+
+test("an empty or malformed identity header is anonymous, and anonymous viewers never look like a host or see pending counts", async () => {
+  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const api = await createApi();
+  const host = identity("  Host@DGIST.ac.kr ", "홍길동");
+  const member = identity("member@dgist.ac.kr", "김민수");
+  const nbsp = identity(String.fromCodePoint(0xa0), "Nobody");
+  const notAnEmail = identity("just-a-name", "Nobody");
+  const room = { action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 4, closesAt: closesIn(30) };
+
+  assert.equal((await api.post(nbsp, room)).status, 401, "a whitespace-only email header is not an identity");
+  assert.equal((await api.post(notAnEmail, room)).status, 401, "an email header without @ is not an identity");
+  assert.equal(api.sql("SELECT COUNT(*) AS count FROM rooms")[0].count, 0);
+
+  const created = await api.post(host, room);
+  assert.equal(created.status, 201);
+  assert.equal(api.sql("SELECT host_email FROM rooms")[0].host_email, "host@dgist.ac.kr", "identity is normalized once, at the edge");
+  await api.post(member, { action: "request_join", roomId: created.data.roomId });
+
+  const anonymous = (await api.get(undefined, "?action=bootstrap")).data;
+  assert.equal(anonymous.user, null);
+  assert.deepEqual(
+    anonymous.rooms.map((pool) => [pool.isHost, pool.myStatus, pool.pendingCount]),
+    [[false, null, 0]],
+    "anonymous viewers are nobody's host and do not learn how many requests are pending",
+  );
+  const asMember = (await api.get(member, "?action=bootstrap")).data.rooms[0];
+  assert.deepEqual([asMember.isHost, asMember.myStatus, asMember.pendingCount], [false, "requested", 0]);
+  const asHost = (await api.get(identity("host@dgist.ac.kr", "홍길동"), "?action=bootstrap")).data.rooms[0];
+  assert.deepEqual([asHost.isHost, asHost.pendingCount], [true, 1]);
+});
+

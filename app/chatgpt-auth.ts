@@ -18,8 +18,13 @@ const CALLBACK_PATH = "/callback";
 
 export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
   const requestHeaders = await headers();
-  const email = requestHeaders.get(USER_EMAIL_HEADER);
-  if (!email) return null;
+  // Normalize once, at the edge: the email is the user's identity everywhere
+  // (room ownership, membership, chat), so it must never be empty after
+  // trimming and must look like an address. Unicode spaces (NBSP) survive
+  // the HTTP header parser, and an empty identity would be shared by every
+  // request that carries one.
+  const email = requestHeaders.get(USER_EMAIL_HEADER)?.trim().toLowerCase() ?? "";
+  if (!email || !/^[^\s@]+@[^\s@]+$/.test(email)) return null;
 
   const encodedFullName = requestHeaders.get(USER_FULL_NAME_HEADER);
   const fullName =

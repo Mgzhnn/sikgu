@@ -335,3 +335,21 @@ test("PNG pixel validation rejects trailing bytes and concatenated zlib streams 
     );
   }
 });
+
+test("16-bit PNGs are refused so the largest accepted image inflates to at most 23 MB", () => {
+  // The browser re-encodes every receipt through a canvas, which only produces
+  // 8-bit PNGs; a hand-crafted 16-bit RGBA 2400x2400 upload would inflate to
+  // 46 MB, and the end-to-end request then sat within a few MB of the Workers
+  // memory cap.
+  for (const [colorType, depth] of [[0, 16], [2, 16], [4, 16], [6, 16]]) {
+    const input = bytes(
+      pngSignature,
+      pngChunk("IHDR", [...uint32(2), ...uint32(2), depth, colorType, 0, 0, 0]),
+      pngChunk("IDAT", [...deflateSync(new Uint8Array(4))]),
+      pngChunk("IEND"),
+    );
+    assert.throws(() => sanitizeReceiptImage(input.buffer, "image/png"), /Unsupported PNG header/, `color type ${colorType} depth 16`);
+  }
+  const eightBit = pngFixture(2, 2);
+  assert.doesNotThrow(() => sanitizeReceiptImage(eightBit.buffer, "image/png"));
+});

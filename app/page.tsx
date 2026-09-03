@@ -11,7 +11,12 @@ import {
   useState,
 } from "react";
 import { maskDisplayName } from "./name-mask.mjs";
-import { roomCapacities, roomDurations } from "./sikgu-rules.mjs";
+import {
+  maxChatMessageCharacters,
+  restaurantMinimums,
+  roomCapacities,
+  roomDurations,
+} from "./sikgu-rules.mjs";
 
 type View = "home" | "restaurants" | "profile";
 type DeliveryApp = "baemin" | "coupang";
@@ -312,7 +317,7 @@ const restaurants: Restaurant[] = [
     mark: "신",
     tone: "coral",
     eta: "25–35분",
-    minimum: { baemin: 15000, coupang: 18000 },
+    minimum: restaurantMinimums.sinjeon,
     deliveryFee: { baemin: 3000, coupang: 2500 },
     menu: [
       {
@@ -339,7 +344,7 @@ const restaurants: Restaurant[] = [
     mark: "맘",
     tone: "gold",
     eta: "30–40분",
-    minimum: { baemin: 14000, coupang: 16000 },
+    minimum: restaurantMinimums.mom,
     deliveryFee: { baemin: 2500, coupang: 3000 },
     menu: [
       {
@@ -366,7 +371,7 @@ const restaurants: Restaurant[] = [
     mark: "홍",
     tone: "indigo",
     eta: "30–45분",
-    minimum: { baemin: 16000, coupang: 14000 },
+    minimum: restaurantMinimums.hongkong,
     deliveryFee: { baemin: 3500, coupang: 3500 },
     menu: [
       {
@@ -393,7 +398,7 @@ const restaurants: Restaurant[] = [
     mark: "교",
     tone: "mint",
     eta: "35–50분",
-    minimum: { baemin: 18000, coupang: 20000 },
+    minimum: restaurantMinimums.kyochon,
     deliveryFee: { baemin: 3000, coupang: 2500 },
     menu: [
       {
@@ -420,7 +425,7 @@ const restaurants: Restaurant[] = [
     mark: "한",
     tone: "sage",
     eta: "20–30분",
-    minimum: { baemin: 12000, coupang: 13000 },
+    minimum: restaurantMinimums.dosirak,
     deliveryFee: { baemin: 2000, coupang: 2500 },
     address: "현풍읍 테크노상업로 48",
     verified: true,
@@ -449,7 +454,7 @@ const restaurants: Restaurant[] = [
     mark: "스",
     tone: "plum",
     eta: "35–45분",
-    minimum: { baemin: 18000, coupang: 15000 },
+    minimum: restaurantMinimums.sushi,
     deliveryFee: { baemin: 4000, coupang: 3500 },
     menu: [
       {
@@ -476,7 +481,7 @@ const restaurants: Restaurant[] = [
     mark: "카",
     tone: "coral",
     eta: "25–40분",
-    minimum: { baemin: 13000, coupang: 15000 },
+    minimum: restaurantMinimums.mykatsu,
     deliveryFee: { baemin: 2800, coupang: 2800 },
     address: "유가읍 테크노상업로 112",
     verified: true,
@@ -493,7 +498,7 @@ const restaurants: Restaurant[] = [
     mark: "써",
     tone: "sage",
     eta: "20–35분",
-    minimum: { baemin: 12000, coupang: 14000 },
+    minimum: restaurantMinimums.subway,
     deliveryFee: { baemin: 2500, coupang: 2500 },
     address: "현풍읍 테크노상업로 62",
     verified: true,
@@ -510,7 +515,7 @@ const restaurants: Restaurant[] = [
     mark: "별",
     tone: "gold",
     eta: "25–40분",
-    minimum: { baemin: 14000, coupang: 15000 },
+    minimum: restaurantMinimums.stella,
     deliveryFee: { baemin: 2800, coupang: 3000 },
     address: "유가읍 테크노상업로 84",
     verified: true,
@@ -527,7 +532,7 @@ const restaurants: Restaurant[] = [
     mark: "엽",
     tone: "plum",
     eta: "30–45분",
-    minimum: { baemin: 15000, coupang: 17000 },
+    minimum: restaurantMinimums.yup,
     deliveryFee: { baemin: 3000, coupang: 3000 },
     address: "유가읍 테크노상업로 100",
     verified: true,
@@ -544,7 +549,7 @@ const restaurants: Restaurant[] = [
     mark: "도",
     tone: "indigo",
     eta: "30–45분",
-    minimum: { baemin: 18000, coupang: 20000 },
+    minimum: restaurantMinimums.domino,
     deliveryFee: { baemin: 3000, coupang: 2500 },
     address: "현풍읍 테크노대로 24",
     verified: true,
@@ -561,7 +566,7 @@ const restaurants: Restaurant[] = [
     mark: "청",
     tone: "mint",
     eta: "30–50분",
-    minimum: { baemin: 17000, coupang: 18000 },
+    minimum: restaurantMinimums.youngpizza,
     deliveryFee: { baemin: 2800, coupang: 3000 },
     address: "현풍읍 테크노상업로 26",
     verified: true,
@@ -578,7 +583,7 @@ const restaurants: Restaurant[] = [
     mark: "헛",
     tone: "coral",
     eta: "30–50분",
-    minimum: { baemin: 18000, coupang: 18000 },
+    minimum: restaurantMinimums.pizzahut,
     deliveryFee: { baemin: 3000, coupang: 3000 },
     address: "현풍읍 테크노상업로 46",
     verified: true,
@@ -595,7 +600,7 @@ const restaurants: Restaurant[] = [
     mark: "비",
     tone: "gold",
     eta: "35–50분",
-    minimum: { baemin: 19000, coupang: 20000 },
+    minimum: restaurantMinimums.bbq,
     deliveryFee: { baemin: 3000, coupang: 2500 },
     address: "현풍읍 테크노공원로 17",
     verified: true,
@@ -612,7 +617,7 @@ const restaurants: Restaurant[] = [
     mark: "호",
     tone: "mint",
     eta: "35–55분",
-    minimum: { baemin: 20000, coupang: 21000 },
+    minimum: restaurantMinimums.hosigi,
     deliveryFee: { baemin: 2800, coupang: 3000 },
     address: "현풍읍 테크노중앙대로 325-9",
     verified: true,
@@ -629,7 +634,7 @@ const restaurants: Restaurant[] = [
     mark: "OG",
     tone: "indigo",
     eta: "25–40분",
-    minimum: { baemin: 14000, coupang: 15000 },
+    minimum: restaurantMinimums.ogburger,
     deliveryFee: { baemin: 2500, coupang: 2800 },
     address: "유가읍 테크노상업로 96",
     verified: true,
@@ -646,7 +651,7 @@ const restaurants: Restaurant[] = [
     mark: "본",
     tone: "sage",
     eta: "25–40분",
-    minimum: { baemin: 13000, coupang: 15000 },
+    minimum: restaurantMinimums.bonjuk,
     deliveryFee: { baemin: 2500, coupang: 2800 },
     address: "현풍읍 테크노중앙대로 243",
     verified: true,
@@ -663,7 +668,7 @@ const restaurants: Restaurant[] = [
     mark: "아",
     tone: "coral",
     eta: "35–55분",
-    minimum: { baemin: 22000, coupang: 23000 },
+    minimum: restaurantMinimums.agu,
     deliveryFee: { baemin: 3500, coupang: 3500 },
     address: "현풍읍 테크노상업로 50",
     verified: true,
@@ -680,7 +685,7 @@ const restaurants: Restaurant[] = [
     mark: "닭",
     tone: "gold",
     eta: "30–45분",
-    minimum: { baemin: 15000, coupang: 16000 },
+    minimum: restaurantMinimums.dakguksu,
     deliveryFee: { baemin: 2800, coupang: 3000 },
     address: "현풍읍 테크노상업로 68",
     verified: true,
@@ -697,7 +702,7 @@ const restaurants: Restaurant[] = [
     mark: "찜",
     tone: "plum",
     eta: "30–45분",
-    minimum: { baemin: 16000, coupang: 17000 },
+    minimum: restaurantMinimums.kimchijjim,
     deliveryFee: { baemin: 3000, coupang: 3000 },
     address: "현풍읍 테크노상업로2길 15-1",
     verified: true,
@@ -714,7 +719,7 @@ const restaurants: Restaurant[] = [
     mark: "코",
     tone: "indigo",
     eta: "35–55분",
-    minimum: { baemin: 18000, coupang: 20000 },
+    minimum: restaurantMinimums.cozy,
     deliveryFee: { baemin: 3500, coupang: 3500 },
     address: "현풍읍 테크노상업로2길 상권",
     verified: true,
@@ -2536,7 +2541,7 @@ function RoomHubModal({
                   }}
                   aria-label="채팅 메시지"
                   placeholder="메시지를 입력하세요"
-                  maxLength={1000}
+                  maxLength={maxChatMessageCharacters}
                   rows={1}
                 />
                 <button onClick={sendMessage} disabled={sending || !message.trim()} aria-label="메시지 보내기">↑</button>

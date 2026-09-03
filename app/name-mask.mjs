@@ -1,3 +1,5 @@
+const anonymousPlaceholder = "사용자";
+
 /**
  * Masks a user-facing display name without changing its identifying prefix.
  * Korean names keep the first and last character; other names keep only the
@@ -8,8 +10,6 @@
  * @param {string} value
  * @returns {string}
  */
-const anonymousPlaceholder = "사용자";
-
 export function maskDisplayName(value) {
   const trimmed = value.trim();
   // The placeholder the server substitutes for unusable names is not a name;

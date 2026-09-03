@@ -37,6 +37,8 @@ export const pickupFullNames = Object.freeze({
 
 export const roomDurations = Object.freeze([20, 30, 45]);
 export const roomCapacities = Object.freeze([2, 3, 4, 5, 6, 7, 8]);
+export const maxChatMessageCharacters = 1000;
+export const maxRoomNoteCharacters = 300;
 
 /**
  * Keep only supported delivery apps and remove duplicates.

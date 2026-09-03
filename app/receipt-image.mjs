@@ -278,6 +278,7 @@ function sanitizePng(bytes) {
       validateReceiptDimensions(header.getUint32(0), header.getUint32(4));
       bitDepth = header.getUint8(8);
       colorType = header.getUint8(9);
+      /** @type {Record<number, Set<number> | undefined>} */
       const validDepths = {
         0: new Set([1, 2, 4, 8, 16]),
         2: new Set([8, 16]),
@@ -413,12 +414,15 @@ async function validatePngImageData(buffer) {
   const rowLength = rowBytes + 1;
   const expectedBytes = rowLength * height;
   const compressed = new Uint8Array(joinByteChunks(imageData));
+  /** @type {{ buffer: Uint8Array; engine: { bytesWritten: number } }} */
   let inflated;
   try {
     // zlib stops the moment output would exceed maxOutputLength and never
     // allocates past it; the previous streaming decoder buffered ahead of the
     // reader and let a 1 MB bomb reach gigabytes of memory before rejection.
-    inflated = inflateSync(compressed, { info: true, maxOutputLength: expectedBytes });
+    // With `info: true` zlib returns { buffer, engine }; @types/node only
+    // declares the plain Buffer overload, hence the cast.
+    inflated = /** @type {any} */ (inflateSync(compressed, { info: true, maxOutputLength: expectedBytes }));
   } catch {
     throw new Error("Invalid PNG compressed image data.");
   }

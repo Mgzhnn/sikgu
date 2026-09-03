@@ -1045,3 +1045,12 @@ test("a health check answers without identity and server errors are logged as on
     console.error = originalError;
   }
 });
+
+test("the feed carries the server clock so phones with a skewed clock count down correctly", async () => {
+  const { createApi } = await import("./helpers/api-harness.mjs");
+  const api = await createApi();
+  const before = Date.now();
+  const boot = await api.get(undefined, "?action=bootstrap");
+  assert.equal(boot.status, 200);
+  assert.ok(typeof boot.data.serverNow === "number" && boot.data.serverNow >= before && boot.data.serverNow <= Date.now());
+});

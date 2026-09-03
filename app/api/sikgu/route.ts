@@ -613,6 +613,9 @@ export async function GET(request: Request) {
       after(() => purgeExpiredRooms(now).catch((error) => console.error("Retention sweep failed", error)));
       return json({
         user: user ? { displayName: user.displayName } : null,
+        // Deadlines are server timestamps; the client offsets its own clock
+        // by this value so countdowns do not depend on the phone's clock.
+        serverNow: now,
         rooms: result.results.map((row) => serializeRoom(row)).filter(isUsableRoom),
         myRooms,
       });

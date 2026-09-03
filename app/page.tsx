@@ -2180,12 +2180,17 @@ function RoomHubModal({
     setError("");
     setChatStatus("");
     stickToBottomRef.current = true;
+    // Clear now, synchronously with the send gesture: a delayed clear after
+    // the round trip would race with new typing and could interrupt a Korean
+    // syllable being composed. If the send fails, the draft comes back in
+    // front of anything typed meanwhile.
+    setMessage("");
     try {
       await post({ action: "send_message", body });
-      setMessage((current) => (current.startsWith(draft) ? current.slice(draft.length).trimStart() : current));
       const refreshed = await loadRoom(true);
       if (refreshed === false) setChatStatus("메시지는 전송됐어요. 새 메시지는 잠시 후 다시 확인해주세요.");
     } catch (messageError) {
+      setMessage((current) => (current ? `${draft} ${current}` : draft));
       setError(messageError instanceof Error ? messageError.message : "메시지를 보내지 못했어요.");
     } finally {
       setSending(false);
@@ -2987,7 +2992,12 @@ export default function Home() {
           // Storage unavailable: nothing to resume.
         }
         if (pendingInviteRaw && data.user) {
-          const pendingInvite = JSON.parse(pendingInviteRaw) as { roomId?: string; token?: string; createdAt?: number };
+          let pendingInvite: { roomId?: string; token?: string; createdAt?: number } = {};
+          try {
+            pendingInvite = JSON.parse(pendingInviteRaw) as typeof pendingInvite;
+          } catch {
+            // A corrupted entry is simply not resumed.
+          }
           const isFresh = typeof pendingInvite.createdAt === "number"
             && Date.now() - pendingInvite.createdAt < 60 * 60 * 1000;
           if (isFresh && typeof pendingInvite.roomId === "string" && typeof pendingInvite.token === "string") {

@@ -498,12 +498,11 @@ test("the chat composer keeps focus while a message is sending and never discard
   assert.doesNotMatch(composer, /<textarea[\s\S]*?disabled=\{sending\}[\s\S]*?\/>/);
   assert.match(composer, /disabled=\{sending \|\| !message\.trim\(\)\}/);
   assert.match(sendMessage, /if \(!body \|\| sending\) return/);
-  assert.doesNotMatch(sendMessage, /setMessage\(""\)/);
-  // The draft captured at send time is removed from the front of whatever the
-  // composer holds when the request returns, so text typed meanwhile survives
-  // and the sent text never lingers.
+  // The composer is cleared on the send gesture itself and the draft is only
+  // put back if the request fails (see the dedicated test below), so nothing
+  // typed during the round trip is ever discarded.
   assert.match(sendMessage, /const draft = message;/);
-  assert.match(sendMessage, /setMessage\(\(current\) => \(current\.startsWith\(draft\) \? current\.slice\(draft\.length\)\.trimStart\(\) : current\)\)/);
+  assert.doesNotMatch(sendMessage, /current\.trim\(\) === body/);
 });
 
 test("the client never shows a JSON parser error when the platform answers with an HTML error page", async () => {
@@ -782,4 +781,20 @@ test("the room poll keeps a single timer chain and stops completely on unmount",
   assert.match(pollEffect, /const schedule = \(\) => \{\s*window\.clearTimeout\(timer\);\s*if \(cancelled\) return;/);
   assert.match(pollEffect, /cancelled = true;/);
   assert.doesNotMatch(pollEffect, /\.then\(\(\) => schedule\(\)\)/);
+});
+
+test("the composer is cleared when the message is sent and the draft comes back only if sending fails", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const sendMessage = page.slice(page.indexOf("const sendMessage = async"), page.indexOf("const openOrderEditor"));
+  const initialize = page.slice(page.indexOf("const initialize = async"), page.indexOf("void initialize()"));
+
+  assert.match(sendMessage, /const draft = message;/);
+  // Cleared synchronously on send (before any later typing or IME composition
+  // could be interrupted by a delayed state change); restored in front of any
+  // new text if the request fails.
+  assert.ok(sendMessage.indexOf('setMessage("")') < sendMessage.indexOf("await post({ action: \"send_message\""));
+  assert.match(sendMessage, /catch \(messageError\) \{[\s\S]*?setMessage\(\(current\) => \(current \? `\$\{draft\} \$\{current\}` : draft\)\)/);
+  assert.doesNotMatch(sendMessage, /startsWith\(draft\)/);
+  // A corrupted pending-invite entry must not surface as an English parse error.
+  assert.match(initialize, /let pendingInvite: \{ roomId\?: string; token\?: string; createdAt\?: number \} = \{\};[\s\S]{0,80}try \{[\s\S]{0,120}JSON\.parse\(pendingInviteRaw\)/);
 });

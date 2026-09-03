@@ -224,6 +224,19 @@ async function requiredUser(): Promise<AuthUser | Response> {
   }, 401);
 }
 
+/** A JSON field expected to hold a string; anything else (including objects
+ * whose toString throws inside String()) is treated as absent. */
+function textField(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
+/** A JSON field expected to hold a number; numeric strings are accepted, nothing else. */
+function numberField(value: unknown) {
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && value.trim() !== "") return Number(value);
+  return Number.NaN;
+}
+
 function isResponse(value: AuthUser | Response): value is Response {
   return value instanceof Response;
 }
@@ -1070,15 +1083,15 @@ export async function POST(request: Request) {
       // null, arrays, scalars, and invalid JSON are client mistakes, not server errors.
       return json({ error: "요청 형식을 확인해 주세요." }, 400);
     }
-    const action = String(payload.action || "");
+    const action = textField(payload.action);
 
     if (action === "create_room") {
       const now = Date.now();
-      const capacity = Number(payload.capacity);
+      const capacity = numberField(payload.capacity);
       const apps = parseDeliveryApps(payload.apps);
-      const restaurantId = String(payload.restaurantId || "");
-      const pickup = String(payload.pickup || "");
-      const minutes = Number(payload.minutes);
+      const restaurantId = textField(payload.restaurantId);
+      const pickup = textField(payload.pickup);
+      const minutes = numberField(payload.minutes);
       const membership = payload.membership === "baemin" || payload.membership === "coupang"
         ? payload.membership
         : "";
@@ -1156,7 +1169,7 @@ export async function POST(request: Request) {
       return json({ roomId: id }, 201);
     }
 
-    const id = String(payload.roomId || "");
+    const id = textField(payload.roomId);
     if (!id) return json({ error: "주문방 정보가 없습니다." }, 400);
 
     if (action === "request_join") {
@@ -1191,11 +1204,11 @@ export async function POST(request: Request) {
 
     if (action === "review_member") {
       if (room.host_email !== auth.email) return json({ error: "방장만 참여자를 선택할 수 있습니다." }, 403);
-      const memberRef = String(payload.memberRef || "");
+      const memberRef = textField(payload.memberRef);
       if (!/^[a-f0-9]{32,48}$/.test(memberRef)) {
         return json({ error: "참여자 정보를 확인해 주세요." }, 400);
       }
-      const decision = String(payload.decision || "");
+      const decision = textField(payload.decision);
       if (decision === "approve") {
         // Only approval is tied to the deadline; a host must always be able to
         // clear a pending request, otherwise the row lingers until retention.
@@ -1245,7 +1258,7 @@ export async function POST(request: Request) {
 
     if (action === "remove_member") {
       if (room.host_email !== auth.email) return json({ error: "방장만 참여자를 내보낼 수 있습니다." }, 403);
-      const memberRef = String(payload.memberRef || "");
+      const memberRef = textField(payload.memberRef);
       if (!/^[a-f0-9]{32,48}$/.test(memberRef)) {
         return json({ error: "참여자 정보를 확인해 주세요." }, 400);
       }
@@ -1310,8 +1323,10 @@ export async function POST(request: Request) {
     }
 
     if (action === "accept_invite") {
-      const inviteToken = String(payload.token || "");
-      if (!/^[a-f0-9]{48}$/i.test(inviteToken)) {
+      const inviteToken = textField(payload.token);
+      // Tokens are always lowercase hex; a case-insensitive check let uppercase
+      // input pass and then fail the exact SQL match as "expired".
+      if (!/^[a-f0-9]{48}$/.test(inviteToken)) {
         return json({ error: "초대 링크를 확인해 주세요." }, 400);
       }
       const existingMember = await roomForUser(id, auth.email);

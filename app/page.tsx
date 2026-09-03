@@ -201,6 +201,10 @@ async function readJson<T extends object>(response: Response): Promise<T & { err
   return (response.ok ? {} : { error: fallbackErrorByStatus(response.status) }) as T & { error?: string };
 }
 
+/** The CSS rule for reduced motion cannot reach JavaScript-initiated scrolls. */
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 /** Poll spacing: the base delay, doubled per consecutive failure, capped at five minutes. */
 const pollDelay = (base: number, failures: number) => Math.min(base * 2 ** failures, 5 * 60 * 1000);
 
@@ -3196,7 +3200,7 @@ export default function Home() {
 
   const navigate = (next: View) => {
     setView(next);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
   };
 
   const closeFeedback = useCallback(() => setShowFeedback(false), []);

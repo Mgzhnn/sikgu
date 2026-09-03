@@ -501,3 +501,16 @@ test("the chat composer keeps focus while a message is sending and never discard
   assert.doesNotMatch(sendMessage, /setMessage\(""\)/);
   assert.match(sendMessage, /setMessage\(\(current\) => \(current\.trim\(\) === body \? "" : current\)\)/);
 });
+
+test("the client never shows a JSON parser error when the platform answers with an HTML error page", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const occurrences = (fragment) => page.split(fragment).length - 1;
+  const readJson = page.slice(page.indexOf("const fallbackErrorByStatus"), page.indexOf("const dialogFocusableSelector"));
+
+  assert.match(page, /async function readJson/);
+  assert.match(readJson, /content-type/);
+  assert.match(readJson, /catch/);
+  assert.match(readJson, /서버 오류가 발생했습니다/);
+  assert.equal(occurrences("await response.json()"), 0, "every response body must go through readJson");
+  assert.ok(occurrences("await readJson<") >= 6, "post, saveOrderInfo, deleteRoom, postAction, loadRooms, loadRoom");
+});

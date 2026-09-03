@@ -167,6 +167,34 @@ async function prepareReceiptUpload(file: File) {
   }
 }
 
+const fallbackErrorByStatus = (status: number) => {
+  if (status === 401) return "로그인이 필요합니다.";
+  if (status === 403) return "허용되지 않은 요청입니다.";
+  if (status === 404) return "주문방을 찾을 수 없습니다.";
+  if (status === 413) return "요청 내용이 너무 큽니다.";
+  if (status === 429) return "요청이 너무 잦아요. 잠시 후 다시 시도해주세요.";
+  if (status >= 500) return "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+  return "요청을 처리하지 못했어요.";
+};
+
+/**
+ * Reads an API response body. Platform error pages (HTML 502/504, edge 413)
+ * are not JSON; parsing them blindly threw a SyntaxError whose English
+ * message ended up in the UI, so non-JSON bodies map to a Korean message.
+ */
+async function readJson<T extends object>(response: Response): Promise<T & { error?: string }> {
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    try {
+      const parsed: unknown = JSON.parse(await response.text());
+      if (parsed && typeof parsed === "object") return parsed as T & { error?: string };
+    } catch {
+      // A truncated or malformed body falls through to the status-based message.
+    }
+  }
+  return (response.ok ? {} : { error: fallbackErrorByStatus(response.status) }) as T & { error?: string };
+}
+
 const dialogFocusableSelector = [
   "a[href]",
   "button:not([disabled])",
@@ -1917,12 +1945,11 @@ function RoomHubModal({
       const response = await fetch(`/api/sikgu?action=room&roomId=${encodeURIComponent(roomId)}`, {
         cache: "no-store",
       });
-      const data = await response.json() as {
-        error?: string;
+      const data = await readJson<{
         room?: Pool;
         members?: RoomMember[];
         messages?: ChatMessage[];
-      };
+      }>(response);
       if (requestId !== loadRoomRequestRef.current) return false;
       if (!response.ok || !data.room) {
         if (response.status === 401 || response.status === 403) {
@@ -1970,7 +1997,7 @@ function RoomHubModal({
       headers: { "content-type": "application/json", "x-sikgu-request": "1" },
       body: JSON.stringify({ ...payload, roomId }),
     });
-    const data = await response.json() as { error?: string; token?: string };
+    const data = await readJson<{ token?: string }>(response);
     if (!response.ok) throw new Error(data.error || "요청을 처리하지 못했어요.");
     return data;
   };
@@ -2093,7 +2120,7 @@ function RoomHubModal({
         `/api/sikgu?action=update_order_info&roomId=${encodeURIComponent(roomId)}`,
         { method: "PUT", headers: { "x-sikgu-request": "1" }, body: form },
       );
-      const data = await response.json() as { error?: string };
+      const data = await readJson<object>(response);
       if (!response.ok) throw new Error(data.error || "주문 정보를 저장하지 못했어요.");
       setEditingOrderInfo(false);
       setReceiptFile(null);
@@ -2117,7 +2144,7 @@ function RoomHubModal({
         method: "DELETE",
         headers: { "x-sikgu-request": "1" },
       });
-      const data = await response.json() as { error?: string };
+      const data = await readJson<object>(response);
       if (response.status === 404) {
         onDeleted();
         return;
@@ -2716,7 +2743,7 @@ export default function Home() {
       headers: { "content-type": "application/json", "x-sikgu-request": "1" },
       body: JSON.stringify(payload),
     });
-    const data = await response.json() as { error?: string; signInPath?: string; roomId?: string };
+    const data = await readJson<{ signInPath?: string; roomId?: string }>(response);
     if (response.status === 401) {
       signIn();
       throw new Error("로그인이 필요합니다.");
@@ -2728,12 +2755,11 @@ export default function Home() {
   const loadRooms = useCallback(async () => {
     const requestId = ++loadRoomsRequestRef.current;
     const response = await fetch("/api/sikgu?action=bootstrap", { cache: "no-store" });
-    const data = await response.json() as {
+    const data = await readJson<{
       user: AuthUser | null;
       rooms: Pool[];
       myRooms?: Pool[];
-      error?: string;
-    };
+    }>(response);
     if (!response.ok) throw new Error(data.error || "주문방을 불러오지 못했어요.");
     if (requestId === loadRoomsRequestRef.current) {
       const isValidRoom = (room: Pool) => (

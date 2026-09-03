@@ -1803,11 +1803,14 @@ function FeedbackModal({ onClose }: { onClose: () => void }) {
 function PoolModal({
   pool,
   now,
+  unavailable = false,
   onClose,
   onToggleJoin,
 }: {
   pool: Pool;
   now: number;
+  /** The room left the live feed (deadline passed or host deleted it) while the dialog was open. */
+  unavailable?: boolean;
   onClose: () => void;
   onToggleJoin: (pool: Pool) => Promise<void>;
 }) {
@@ -1833,8 +1836,13 @@ function PoolModal({
       <section className="pool-modal" role="dialog" aria-modal="true" aria-label={`${restaurant.name} 공동주문`} ref={dialogRef}>
         <div className="modal-topbar">
           <button onClick={onClose} aria-label="공동주문 닫기">←</button>
-          <span>{timeLeft(pool.closesAt, now)}</span>
+          <span>{unavailable ? "마감" : timeLeft(pool.closesAt, now)}</span>
         </div>
+        {unavailable && (
+          <p className="pool-unavailable" role="status">
+            마감되었거나 삭제된 주문방이에요. 다른 주문방을 찾아보세요.
+          </p>
+        )}
         <div className="pool-modal-hero">
           <RestaurantMark restaurant={restaurant} large />
           <div><span>{restaurant.cuisine}</span><h2>{restaurant.name}</h2><p>{pool.pickupFull} · {pool.people}/{pool.capacity}명</p></div>
@@ -1889,7 +1897,7 @@ function PoolModal({
                 setJoining(false);
               }
             }}
-            disabled={pool.myStatus === "requested" || joining || isFull}
+            disabled={pool.myStatus === "requested" || joining || isFull || unavailable}
           >
             {joining
               ? "처리 중…"
@@ -3264,7 +3272,15 @@ export default function Home() {
         ))}
       </nav>
 
-      {latestSelectedPool && <PoolModal pool={latestSelectedPool} now={now} onClose={() => setSelectedPool(null)} onToggleJoin={handleToggleJoin} />}
+      {selectedPool && (
+        <PoolModal
+          pool={latestSelectedPool ?? selectedPool}
+          now={now}
+          unavailable={!latestSelectedPool}
+          onClose={() => setSelectedPool(null)}
+          onToggleJoin={handleToggleJoin}
+        />
+      )}
       {showCampusMap && (
         <CampusMapModal
           pools={pools}

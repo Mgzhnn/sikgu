@@ -5,13 +5,14 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  // Override default ignores of eslint-config-next.
+  // Override default ignores of eslint-config-next. Its own list ignores
+  // build/** (a CRA output directory name), but here build/ holds source
+  // (the Sites Vite plugin), so it is explicitly re-included.
   globalIgnores([
-    // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
-    "build/**",
     "next-env.d.ts",
+    "!build/**",
   ]),
 ]);
 

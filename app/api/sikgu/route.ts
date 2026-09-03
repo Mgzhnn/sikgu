@@ -1233,22 +1233,25 @@ export async function POST(request: Request) {
       }
       const approved = await approvedCount(id);
       if (approved >= room.capacity) return json({ error: "주문방 정원이 모두 찼습니다." }, 409);
-      await env.DB.prepare("DELETE FROM room_invites WHERE room_id = ? AND expires_at <= ?").bind(id, now).run();
-      const activeInvites = await env.DB.prepare(`
-        SELECT COUNT(*) AS count FROM room_invites WHERE room_id = ? AND expires_at > ?
-      `).bind(id, now).first<{ count: number }>();
-      if (Number(activeInvites?.count || 0) >= 5) {
+      const inviteToken = token();
+      const remaining = room.capacity - approved;
+      // The active-invite cap lives inside the INSERT so parallel requests
+      // cannot all pass a separate COUNT check.
+      const [, inserted] = await env.DB.batch([
+        env.DB.prepare("DELETE FROM room_invites WHERE room_id = ? AND expires_at <= ?").bind(id, now),
+        env.DB.prepare(`
+          INSERT INTO room_invites (
+            token, room_id, created_by_email, max_uses, uses, expires_at, created_at
+          )
+          SELECT ?, ?, ?, ?, 0, ?, ?
+          WHERE (SELECT COUNT(*) FROM room_invites WHERE room_id = ? AND expires_at > ?) < 5
+        `).bind(inviteToken, id, auth.email, remaining, now + 24 * 60 * 60 * 1000, now, id, now),
+      ]);
+      if (!inserted.meta.changes) {
         return json({ error: "사용 중인 초대 링크가 너무 많습니다. 기존 링크를 이용해주세요." }, 429, {
           "Retry-After": "300",
         });
       }
-      const inviteToken = token();
-      const remaining = room.capacity - approved;
-      await env.DB.prepare(`
-        INSERT INTO room_invites (
-          token, room_id, created_by_email, max_uses, uses, expires_at, created_at
-        ) VALUES (?, ?, ?, ?, 0, ?, ?)
-      `).bind(inviteToken, id, auth.email, remaining, now + 24 * 60 * 60 * 1000, now).run();
       return json({ token: inviteToken, expiresInHours: 24 });
     }
 
@@ -1338,23 +1341,30 @@ export async function POST(request: Request) {
       const body = cleanText(payload.body, 1000);
       if (!body) return json({ error: "메시지를 입력해 주세요." }, 400);
       const now = Date.now();
-      const recentMessages = await env.DB.prepare(`
-        SELECT COUNT(*) AS count, MAX(created_at) AS latest
-        FROM room_messages
-        WHERE room_id = ? AND sender_email = ? AND created_at > ?
-      `).bind(id, auth.email, now - 60_000).first<{ count: number; latest: number | null }>();
-      if (
-        Number(recentMessages?.count || 0) >= 30
-        || (recentMessages?.latest != null && now - Number(recentMessages.latest) < 750)
-      ) {
+      // Both rate-limit predicates live inside the INSERT so that parallel
+      // sends cannot all pass a separate SELECT: at most 30 per minute and at
+      // least 750 ms between messages from one member in one room.
+      const inserted = await env.DB.prepare(`
+        INSERT INTO room_messages (id, room_id, sender_email, sender_name, body, created_at)
+        SELECT ?, ?, ?, ?, ?, ?
+        WHERE (
+          SELECT COUNT(*) FROM room_messages
+          WHERE room_id = ? AND sender_email = ? AND created_at > ?
+        ) < 30
+        AND COALESCE((
+          SELECT MAX(created_at) FROM room_messages
+          WHERE room_id = ? AND sender_email = ?
+        ), 0) <= ?
+      `).bind(
+        `msg_${crypto.randomUUID()}`, id, auth.email, auth.displayName, body, now,
+        id, auth.email, now - 60_000,
+        id, auth.email, now - 750,
+      ).run();
+      if (!inserted.meta.changes) {
         return json({ error: "메시지를 너무 빠르게 보내고 있어요. 잠시 후 다시 시도해주세요." }, 429, {
           "Retry-After": "1",
         });
       }
-      await env.DB.prepare(`
-        INSERT INTO room_messages (id, room_id, sender_email, sender_name, body, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).bind(`msg_${crypto.randomUUID()}`, id, auth.email, auth.displayName, body, now).run();
       return json({ ok: true }, 201);
     }
 

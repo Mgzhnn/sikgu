@@ -855,3 +855,25 @@ test("a missing room is 404 for join requests and a malformed member reference i
   assert.equal((await api.post(host, { action: "remove_member", roomId, memberRef: upper })).status, 400);
   assert.equal((await api.post(host, { action: "review_member", roomId, memberRef: ref, decision: "approve" })).status, 200);
 });
+
+test("the invite cap and the chat rate limit hold under concurrent requests", async () => {
+  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const api = await createApi();
+  const host = identity("host@dgist.ac.kr", "홍길동");
+  const member = identity("member@dgist.ac.kr", "김민수");
+  const { roomId } = (await api.post(host, {
+    action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 8, closesAt: closesIn(30),
+  })).data;
+
+  for (let index = 0; index < 4; index += 1) assert.equal((await api.post(host, { action: "create_invite", roomId })).status, 200);
+  const invites = await Promise.all([1, 2, 3].map(() => api.post(host, { action: "create_invite", roomId })));
+  assert.deepEqual(invites.map((r) => r.status).sort(), [200, 429, 429]);
+  assert.equal(api.sql("SELECT COUNT(*) AS count FROM room_invites WHERE room_id = ?", roomId)[0].count, 5);
+
+  await api.post(member, { action: "request_join", roomId });
+  const ref = (await api.get(host, `?action=room&roomId=${roomId}`)).data.members.find((m) => m.status === "requested").member_ref;
+  await api.post(host, { action: "review_member", roomId, memberRef: ref, decision: "approve" });
+  const sends = await Promise.all([1, 2, 3, 4, 5].map((n) => api.post(member, { action: "send_message", roomId, body: `메시지 ${n}` })));
+  assert.deepEqual(sends.map((r) => r.status).sort(), [201, 429, 429, 429, 429], "750 ms spacing must hold for parallel sends");
+  assert.equal(api.sql("SELECT COUNT(*) AS count FROM room_messages WHERE room_id = ?", roomId)[0].count, 1);
+});

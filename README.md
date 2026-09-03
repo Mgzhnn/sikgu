@@ -95,6 +95,14 @@ privacy and browser security headers. `GET /api/sikgu?action=health` reports
 liveness and database reachability without identity. Authentication relies on identity headers injected by the
 hosting platform's proxy; the worker must not be reachable except through it.
 
+## Audit and operations
+
+A full correctness, security, and robustness audit was completed on
+2026-09-03 (53 commits): every finding, its fix commit, four rounds of
+independent adversarial verification, and the hand checks to run before a
+release are recorded in [AUDIT.md](AUDIT.md). Deploy, migration, rollback,
+log, and health-check procedures are in [RUNBOOK.md](RUNBOOK.md).
+
 ## Deployment
 
 The app is built for OpenAI workspace Sites hosting: `.openai/hosting.json`

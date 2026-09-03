@@ -675,3 +675,39 @@ test("a receipt upload without an R2 binding fails cleanly and releases the room
     "deletion still needs R2 in this environment, but must not be blocked by a stale lock (409)",
   );
 });
+
+test("a host can still reject or remove a pending requester after the room's deadline has passed", async () => {
+  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const api = await createApi();
+  const host = identity("host@dgist.ac.kr", "홍길동");
+  const early = identity("early@dgist.ac.kr", "김민수");
+  const late = identity("late@dgist.ac.kr", "이영희");
+  const created = await api.post(host, {
+    action: "create_room",
+    restaurantId: "sinjeon",
+    pickup: "E1",
+    apps: ["baemin"],
+    capacity: 4,
+    closesAt: closesIn(30),
+  });
+  const roomId = created.data.roomId;
+  assert.equal((await api.post(early, { action: "request_join", roomId })).status, 200);
+  assert.equal((await api.post(late, { action: "request_join", roomId })).status, 200);
+  api.db.prepare("UPDATE rooms SET closes_at = ? WHERE id = ?").run(Date.now() - 1000, roomId);
+
+  const hostView = await api.get(host, `?action=room&roomId=${roomId}`);
+  const refs = hostView.data.members.filter((member) => member.status === "requested").map((member) => member.member_ref);
+  assert.equal(refs.length, 2);
+
+  const approve = await api.post(host, { action: "review_member", roomId, memberRef: refs[0], decision: "approve" });
+  assert.equal(approve.status, 409, "approving after the deadline stays blocked");
+
+  const reject = await api.post(host, { action: "review_member", roomId, memberRef: refs[0], decision: "reject" });
+  assert.equal(reject.status, 200, "rejecting after the deadline must work so the request row does not linger");
+  const remove = await api.post(host, { action: "remove_member", roomId, memberRef: refs[1] });
+  assert.equal(remove.status, 200);
+  assert.equal(
+    api.sql("SELECT COUNT(*) AS count FROM room_members WHERE room_id = ? AND status = 'requested'", roomId)[0].count,
+    0,
+  );
+});

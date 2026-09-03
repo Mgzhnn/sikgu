@@ -499,7 +499,11 @@ test("the chat composer keeps focus while a message is sending and never discard
   assert.match(composer, /disabled=\{sending \|\| !message\.trim\(\)\}/);
   assert.match(sendMessage, /if \(!body \|\| sending\) return/);
   assert.doesNotMatch(sendMessage, /setMessage\(""\)/);
-  assert.match(sendMessage, /setMessage\(\(current\) => \(current\.trim\(\) === body \? "" : current\)\)/);
+  // The draft captured at send time is removed from the front of whatever the
+  // composer holds when the request returns, so text typed meanwhile survives
+  // and the sent text never lingers.
+  assert.match(sendMessage, /const draft = message;/);
+  assert.match(sendMessage, /setMessage\(\(current\) => \(current\.startsWith\(draft\) \? current\.slice\(draft\.length\)\.trimStart\(\) : current\)\)/);
 });
 
 test("the client never shows a JSON parser error when the platform answers with an HTML error page", async () => {

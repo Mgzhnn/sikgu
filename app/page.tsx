@@ -2149,7 +2149,8 @@ function RoomHubModal({
   };
 
   const sendMessage = async () => {
-    const body = message.trim();
+    const draft = message;
+    const body = draft.trim();
     if (!body || sending) return;
     setSending(true);
     setError("");
@@ -2157,7 +2158,7 @@ function RoomHubModal({
     stickToBottomRef.current = true;
     try {
       await post({ action: "send_message", body });
-      setMessage((current) => (current.trim() === body ? "" : current));
+      setMessage((current) => (current.startsWith(draft) ? current.slice(draft.length).trimStart() : current));
       const refreshed = await loadRoom(true);
       if (!refreshed) setChatStatus("메시지는 전송됐어요. 새 메시지는 잠시 후 다시 확인해주세요.");
     } catch (messageError) {

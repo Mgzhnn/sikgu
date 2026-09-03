@@ -11,6 +11,8 @@ import {
   cleanText,
   isPickupId,
   isRestaurantId,
+  maxChatMessageCharacters,
+  maxRoomNoteCharacters,
   parseDeliveryApps,
   pickupFullNames,
   restaurantMinimums,
@@ -1084,7 +1086,9 @@ export async function POST(request: Request) {
         return json({ error: "가게, 픽업 장소, 주문 앱을 확인해 주세요." }, 400);
       }
       if (!roomCapacities.includes(capacity)) {
-        return json({ error: "모집 인원은 2명부터 8명까지 선택할 수 있습니다." }, 400);
+        return json({
+          error: `모집 인원은 ${roomCapacities[0]}명부터 ${roomCapacities[roomCapacities.length - 1]}명까지 선택할 수 있습니다.`,
+        }, 400);
       }
       // The deadline is computed here from the shared preset list: a client
       // timestamp would tie the room's life to the phone's clock (a fast
@@ -1128,7 +1132,7 @@ export async function POST(request: Request) {
           target,
           capacity,
           membership,
-          cleanText(payload.note, 300) || "같이 맛있게 먹어요!",
+          cleanText(payload.note, maxRoomNoteCharacters) || "같이 맛있게 먹어요!",
           now,
           auth.email,
           now,
@@ -1388,7 +1392,7 @@ export async function POST(request: Request) {
       if (Number(membership.closes_at) < Date.now() - recentRoomWindowMs) {
         return json({ error: "보관 기간이 지난 주문방에는 메시지를 보낼 수 없습니다." }, 410);
       }
-      const body = cleanText(payload.body, 1000);
+      const body = cleanText(payload.body, maxChatMessageCharacters);
       if (!body) return json({ error: "메시지를 입력해 주세요." }, 400);
       const now = Date.now();
       // Both rate-limit predicates live inside the INSERT so that parallel

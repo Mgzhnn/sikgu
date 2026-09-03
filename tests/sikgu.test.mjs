@@ -94,7 +94,7 @@ test("shared room rules reject unsupported values and drive both client and serv
   assert.equal(Object.isFrozen(deliveryAppIds), true);
   assert.equal(Object.isFrozen(restaurantMinimums), true);
   assert.equal(Object.isFrozen(pickupFullNames), true);
-  assert.match(page, /import \{ roomCapacities, roomDurations \} from "\.\/sikgu-rules\.mjs"/);
+  assert.match(page, /import \{[^}]*\broomCapacities,[^}]*\broomDurations,?[^}]*\} from "\.\/sikgu-rules\.mjs"/);
   assert.match(api, /from "\.\.\/\.\.\/sikgu-rules\.mjs"/);
   assert.match(page, /const \[apps, setApps\] = useState<DeliveryApp\[\]>\(\[\]\)/);
   assert.doesNotMatch(page, /useState<DeliveryApp\[\]>\(\["baemin"\]\)/);
@@ -1053,4 +1053,28 @@ test("the feed carries the server clock so phones with a skewed clock count down
   const boot = await api.get(undefined, "?action=bootstrap");
   assert.equal(boot.status, 200);
   assert.ok(typeof boot.data.serverNow === "number" && boot.data.serverNow >= before && boot.data.serverNow <= Date.now());
+});
+
+test("shared limits and restaurant minimums have one definition, dead template code is gone, and .mjs modules are type-checked", async () => {
+  const { maxChatMessageCharacters, maxRoomNoteCharacters, restaurantMinimums } = await import("../app/sikgu-rules.mjs");
+  const { api, page } = await sourceFiles;
+  const [tsconfig, auth] = await Promise.all([
+    readFile(new URL("tsconfig.json", root), "utf8"),
+    readFile(new URL("app/chatgpt-auth.ts", root), "utf8"),
+  ]);
+
+  assert.equal(maxChatMessageCharacters, 1000);
+  assert.equal(maxRoomNoteCharacters, 300);
+  assert.match(api, /cleanText\(payload\.body, maxChatMessageCharacters\)/);
+  assert.match(api, /cleanText\(payload\.note, maxRoomNoteCharacters\)/);
+  assert.match(page, /maxLength=\{maxChatMessageCharacters\}/);
+  assert.match(api, /roomCapacities\[0\]\}명부터 \$\{roomCapacities\[roomCapacities\.length - 1\]\}명까지/);
+  assert.doesNotMatch(page, /minimum: \{ baemin: \d+, coupang: \d+ \}/, "client minimums must come from restaurantMinimums");
+  for (const id of Object.keys(restaurantMinimums)) {
+    assert.match(page, new RegExp(`minimum: restaurantMinimums\\.${id},`));
+  }
+  assert.doesNotMatch(auth, /requireChatGPTUser|chatGPTSignInPath|chatGPTSignOutPath/);
+  assert.equal((await readdir(new URL("./", root))).includes("examples"), false, "the unrouted D1 example is gone");
+  assert.match(tsconfig, /"checkJs": true/);
+  assert.match(tsconfig, /"app\/\*\*\/\*\.mjs"/);
 });

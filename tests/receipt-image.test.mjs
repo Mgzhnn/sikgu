@@ -285,3 +285,53 @@ test("PNG sanitization rejects excessive pixel counts", () => {
     /Receipt image dimensions are unsupported/,
   );
 });
+
+test("PNG pixel validation never inflates past the declared size, so a decompression bomb cannot exhaust memory", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const source = await readFile(new URL("../app/receipt-image.mjs", import.meta.url), "utf8");
+  const validator = source.slice(source.indexOf("async function validatePngImageData"), source.indexOf("export function sanitizeReceiptImage"));
+
+  // Structural guard: the inflate must be capped at the declared byte count
+  // (zlib stops allocating at maxOutputLength) instead of streaming through
+  // DecompressionStream, which buffers ahead of a slow reader.
+  assert.match(source, /from "node:zlib"/);
+  assert.match(validator, /inflateSync\([\s\S]*maxOutputLength: expectedBytes/);
+  assert.doesNotMatch(validator, /DecompressionStream/);
+
+  // Behavioral guard: a 1x1 RGB image whose IDAT inflates to 64 MiB declares
+  // 4 bytes of pixel data. It must be rejected without inflating the whole
+  // stream, which a capped inflate does in a few milliseconds.
+  const bomb = bytes(
+    pngSignature,
+    pngChunk("IHDR", [...uint32(1), ...uint32(1), 8, 2, 0, 0, 0]),
+    pngChunk("IDAT", [...deflateSync(new Uint8Array(64 * 1024 * 1024), { level: 9 })]),
+    pngChunk("IEND"),
+  );
+  const sanitized = sanitizeReceiptImage(bomb.buffer, "image/png");
+  const started = performance.now();
+  await assert.rejects(validateReceiptImageData(sanitized, "image/png"), /Invalid PNG compressed image data/);
+  assert.ok(performance.now() - started < 250, `bomb rejection took ${Math.round(performance.now() - started)} ms`);
+});
+
+test("PNG pixel validation rejects trailing bytes and concatenated zlib streams after the image data", async () => {
+  const width = 2;
+  const height = 2;
+  const rows = new Uint8Array((width * 3 + 1) * height);
+  const clean = [...deflateSync(rows)];
+  for (const [label, idat] of [
+    ["trailing junk", [...clean, 1, 2, 3]],
+    ["concatenated stream", [...clean, ...clean]],
+  ]) {
+    const input = bytes(
+      pngSignature,
+      pngChunk("IHDR", [...uint32(width), ...uint32(height), 8, 2, 0, 0, 0]),
+      pngChunk("IDAT", idat),
+      pngChunk("IEND"),
+    );
+    await assert.rejects(
+      validateReceiptImageData(sanitizeReceiptImage(input.buffer, "image/png"), "image/png"),
+      /Invalid PNG compressed image data/,
+      label,
+    );
+  }
+});

@@ -1,3 +1,5 @@
+import { inflateSync } from "node:zlib";
+
 const maxReceiptDimension = 2400;
 const maxReceiptPixels = 5_760_000;
 const maxJpegSegments = 4096;
@@ -365,7 +367,9 @@ function sanitizePng(bytes) {
 
 /**
  * Fully inflates a sanitized non-interlaced PNG and validates its exact scanline
- * length plus every row filter byte. This bounds decompression before storage.
+ * length plus every row filter byte. The inflate is capped at the declared
+ * pixel byte count, so a decompression bomb costs at most that much memory
+ * regardless of how large the stream would expand to.
  *
  * @param {ArrayBuffer} buffer
  */
@@ -408,32 +412,26 @@ async function validatePngImageData(buffer) {
   const rowBytes = Math.ceil((width * channels * bitDepth) / 8);
   const rowLength = rowBytes + 1;
   const expectedBytes = rowLength * height;
-  const compressed = joinByteChunks(imageData);
-  const reader = new Blob([compressed])
-    .stream()
-    .pipeThrough(new DecompressionStream("deflate"))
-    .getReader();
-  let inflatedBytes = 0;
+  const compressed = new Uint8Array(joinByteChunks(imageData));
+  let inflated;
   try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      for (let index = 0; index < value.byteLength; index += 1) {
-        if ((inflatedBytes + index) % rowLength === 0 && value[index] > 4) {
-          throw new Error("Invalid PNG row filter.");
-        }
-      }
-      inflatedBytes += value.byteLength;
-      if (inflatedBytes > expectedBytes) {
-        throw new Error("PNG image data exceeds its declared dimensions.");
-      }
-    }
+    // zlib stops the moment output would exceed maxOutputLength and never
+    // allocates past it; the previous streaming decoder buffered ahead of the
+    // reader and let a 1 MB bomb reach gigabytes of memory before rejection.
+    inflated = inflateSync(compressed, { info: true, maxOutputLength: expectedBytes });
   } catch {
-    await reader.cancel().catch(() => undefined);
     throw new Error("Invalid PNG compressed image data.");
   }
-  if (inflatedBytes !== expectedBytes) {
+  if (inflated.engine.bytesWritten !== compressed.byteLength) {
+    // Trailing bytes or a second zlib stream after the image data.
+    throw new Error("Invalid PNG compressed image data.");
+  }
+  const raw = inflated.buffer;
+  if (raw.byteLength !== expectedBytes) {
     throw new Error("PNG image data does not match its declared dimensions.");
+  }
+  for (let offset = 0; offset < raw.byteLength; offset += rowLength) {
+    if (raw[offset] > 4) throw new Error("Invalid PNG compressed image data: bad row filter.");
   }
 }
 

@@ -583,7 +583,7 @@ test("the pool dialog disables joining a full room and Escape is ignored mid-IME
   const homeView = page.slice(page.indexOf("function HomeView"), page.indexOf("function RestaurantsView"));
 
   assert.match(poolModal, /const isFull = !pool\.isHost && pool\.myStatus !== "approved" && pool\.people >= pool\.capacity/);
-  assert.match(poolModal, /disabled=\{pool\.myStatus === "requested" \|\| joining \|\| isFull\}/);
+  assert.match(poolModal, /disabled=\{pool\.myStatus === "requested" \|\| joining \|\| isFull \|\| unavailable\}/);
   assert.match(poolModal, /isFull[\s\S]{0,40}"정원 마감"/);
   for (const [name, source] of [["dialog hook", dialogHook], ["location picker", locationPicker], ["home filter", homeView]]) {
     assert.match(source, /event\.isComposing \|\| event\.keyCode === 229/, `${name} must ignore Escape during composition`);
@@ -673,4 +673,19 @@ test("polling backs off after failures instead of hammering a struggling API", a
   assert.doesNotMatch(roomHub, /setInterval\(/);
   assert.match(home, /pollDelay\(30000, failures\)/);
   assert.equal((home.match(/setInterval\(/g) || []).length, 1, "only the clock ticker keeps a fixed interval");
+});
+
+test("the pool dialog explains a room that closed or was deleted instead of vanishing", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  const poolModal = page.slice(page.indexOf("function PoolModal"), page.indexOf("function RoomHubModal"));
+  const home = page.slice(page.indexOf("export default function Home"));
+
+  assert.match(poolModal, /unavailable\?: boolean;/);
+  assert.match(poolModal, /마감되었거나 삭제된 주문방이에요/);
+  assert.match(poolModal, /disabled=\{pool\.myStatus === "requested" \|\| joining \|\| isFull \|\| unavailable\}/);
+  assert.match(home, /<PoolModal[\s\S]{0,200}pool=\{latestSelectedPool \?\? selectedPool\}[\s\S]{0,200}unavailable=\{!latestSelectedPool\}/);
+  assert.match(css, /\.pool-unavailable/);
 });

@@ -711,3 +711,43 @@ test("a host can still reject or remove a pending requester after the room's dea
     0,
   );
 });
+
+test("a member the host removed or rejected cannot re-enter through an invite link, but may request again", async () => {
+  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const api = await createApi();
+  const host = identity("host@dgist.ac.kr", "홍길동");
+  const kicked = identity("kicked@dgist.ac.kr", "김민수");
+  const rejected = identity("rejected@dgist.ac.kr", "이영희");
+  const friend = identity("friend@dgist.ac.kr", "박철수");
+  const created = await api.post(host, {
+    action: "create_room",
+    restaurantId: "sinjeon",
+    pickup: "E1",
+    apps: ["baemin"],
+    capacity: 5,
+    closesAt: closesIn(30),
+  });
+  const roomId = created.data.roomId;
+  const invite = (await api.post(host, { action: "create_invite", roomId })).data.token;
+  const memberRef = async (email) => {
+    const view = await api.get(host, `?action=room&roomId=${roomId}`);
+    const masked = (await import("../app/name-mask.mjs")).maskDisplayName(email);
+    return view.data.members.find((member) => member.display_name === masked)?.member_ref;
+  };
+
+  assert.equal((await api.post(kicked, { action: "accept_invite", roomId, token: invite })).status, 200);
+  assert.equal((await api.post(host, { action: "remove_member", roomId, memberRef: await memberRef("김민수") })).status, 200);
+  const reentry = await api.post(kicked, { action: "accept_invite", roomId, token: invite });
+  assert.equal(reentry.status, 409, "a removed member must not be able to re-enter with the old link");
+  assert.equal((await api.get(kicked, `?action=room&roomId=${roomId}`)).status, 403);
+
+  assert.equal((await api.post(rejected, { action: "request_join", roomId })).status, 200);
+  assert.equal((await api.post(host, { action: "review_member", roomId, memberRef: await memberRef("이영희"), decision: "reject" })).status, 200);
+  assert.equal((await api.post(rejected, { action: "accept_invite", roomId, token: invite })).status, 409, "a rejected requester must not be auto-approved by an invite link");
+
+  assert.equal((await api.post(friend, { action: "accept_invite", roomId, token: invite })).status, 200, "the link keeps working for everyone else");
+
+  assert.equal((await api.post(kicked, { action: "request_join", roomId })).status, 200, "a removed member may still ask again");
+  assert.equal((await api.post(host, { action: "review_member", roomId, memberRef: await memberRef("김민수"), decision: "approve" })).status, 200, "and the host can explicitly approve them");
+  assert.equal((await api.get(kicked, `?action=room&roomId=${roomId}`)).status, 200);
+});

@@ -105,7 +105,7 @@ test("shared room rules reject unsupported values and drive both client and serv
 test("server derives room data from allowlists and bounds every request before parsing", async () => {
   const { api } = await sourceFiles;
   const post = section(api, "export async function POST", "return serverError(\"Failed to mutate SIKGU data\"");
-  const createRoom = section(post, "if (action === \"create_room\")", "const id = String(payload.roomId");
+  const createRoom = section(post, "if (action === \"create_room\")", "const id = textField(payload.roomId");
   const put = section(api, "export async function PUT", "export async function DELETE");
 
   assert.match(api, /const maxJsonBytes = 32 \* 1024/);
@@ -158,7 +158,7 @@ test("member review uses opaque references and never serializes member email add
   assert.doesNotMatch(memberResponse, /user_email|\.\.\.member/);
   assert.match(roomMemberType, /member_ref\?: string/);
   assert.doesNotMatch(roomMemberType, /user_email/);
-  assert.match(reviewAction, /const memberRef = String\(payload\.memberRef \|\| ""\)/);
+  assert.match(reviewAction, /const memberRef = textField\(payload\.memberRef\)/);
   assert.match(reviewAction, /review_token = \?/);
   assert.doesNotMatch(reviewAction, /memberEmail|payload\.user_email/);
   assert.match(api, /return `User-\$\{suffix\}`/);
@@ -1090,4 +1090,33 @@ test("the README states the current test count", async () => {
   const stated = /`node --test` — (\d+) tests/.exec(readme);
   assert.ok(stated, "README must state the test count");
   assert.equal(Number(stated[1]), total, `README says ${stated?.[1]} tests, the suite has ${total}`);
+});
+
+test("fields that should be strings or numbers never reach String()/Number() on a hostile object", async () => {
+  const { createApi, identity } = await import("./helpers/api-harness.mjs");
+  const api = await createApi();
+  const host = identity("host@dgist.ac.kr", "홍길동");
+  const hostile = { toString: 1 };
+  const errors = [];
+  const originalError = console.error;
+  console.error = (...args) => errors.push(args);
+  try {
+    const base = { action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 4, minutes: 30 };
+    for (const field of ["action", "restaurantId", "pickup", "capacity", "minutes"]) {
+      const response = await api.post(host, { ...base, [field]: hostile });
+      assert.equal(response.status, 400, `${field} = {toString: 1} must be a client error, got ${response.status}`);
+    }
+    assert.equal((await api.post(host, { action: "request_join", roomId: hostile })).status, 400);
+    const { roomId } = (await api.post(host, base)).data;
+    for (const [action, extra] of [["review_member", { memberRef: hostile, decision: "approve" }], ["remove_member", { memberRef: hostile }], ["accept_invite", { token: hostile }], ["send_message", { body: hostile }]]) {
+      const response = await api.post(host, { action, roomId, ...extra });
+      assert.ok(response.status >= 400 && response.status < 500, `${action}: ${response.status}`);
+    }
+    assert.equal((await api.post(host, { ...base, minutes: [30] })).status, 400, "an array is not a number");
+    assert.equal(errors.length, 0, `nothing logged: ${errors.map(String).join(" | ")}`);
+    const upper = await api.post(host, { action: "accept_invite", roomId, token: "A".repeat(48) });
+    assert.equal(upper.status, 400, "an uppercase token can never match and is malformed, not expired");
+  } finally {
+    console.error = originalError;
+  }
 });

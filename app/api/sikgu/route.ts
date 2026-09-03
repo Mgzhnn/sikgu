@@ -1130,22 +1130,40 @@ export async function POST(request: Request) {
         if (room.status !== "open" || room.closes_at <= Date.now()) {
           return json({ error: "마감된 주문방에서는 참여자를 변경할 수 없습니다." }, 409);
         }
-        const result = await env.DB.prepare(`
+        const [result] = await env.DB.batch([
+          env.DB.prepare(`
           UPDATE room_members SET status = 'approved'
           WHERE room_id = ? AND review_token = ? AND status = 'requested'
             AND (
               SELECT COUNT(*) FROM room_members
               WHERE room_id = ? AND status = 'approved'
             ) < ?
-        `).bind(id, memberRef, id, room.capacity).run();
+        `).bind(id, memberRef, id, room.capacity),
+          // An explicit approval lifts any earlier removal or rejection.
+          env.DB.prepare(`
+            DELETE FROM room_blocks
+            WHERE changes() > 0 AND room_id = ? AND user_email = (
+              SELECT user_email FROM room_members WHERE room_id = ? AND review_token = ?
+            )
+          `).bind(id, id, memberRef),
+        ]);
         if (!result.meta.changes) {
           return json({ error: "신청을 찾을 수 없거나 주문방 정원이 모두 찼습니다." }, 409);
         }
       } else if (decision === "reject") {
-        const result = await env.DB.prepare(`
+        // Record the rejection first so an invite link the requester already
+        // holds cannot approve them without the host; then drop the request.
+        const [, result] = await env.DB.batch([
+          env.DB.prepare(`
+            INSERT OR IGNORE INTO room_blocks (room_id, user_email, created_at)
+            SELECT room_id, user_email, ? FROM room_members
+            WHERE room_id = ? AND review_token = ? AND status = 'requested'
+          `).bind(Date.now(), id, memberRef),
+          env.DB.prepare(`
           DELETE FROM room_members
           WHERE room_id = ? AND review_token = ? AND status = 'requested'
-        `).bind(id, memberRef).run();
+        `).bind(id, memberRef),
+        ]);
         if (!result.meta.changes) return json({ error: "대기 중인 신청을 찾을 수 없습니다." }, 404);
       } else {
         return json({ error: "승인 또는 거절을 선택해 주세요." }, 400);
@@ -1159,10 +1177,19 @@ export async function POST(request: Request) {
       if (!/^[a-f0-9]{32,48}$/i.test(memberRef)) {
         return json({ error: "참여자 정보를 확인해 주세요." }, 400);
       }
-      const result = await env.DB.prepare(`
+      // Blocking closes the unattended path only: the removed member can still
+      // request again, but an invite link they already hold no longer works.
+      const [, result] = await env.DB.batch([
+        env.DB.prepare(`
+          INSERT OR IGNORE INTO room_blocks (room_id, user_email, created_at)
+          SELECT room_id, user_email, ? FROM room_members
+          WHERE room_id = ? AND review_token = ? AND role = 'member'
+        `).bind(Date.now(), id, memberRef),
+        env.DB.prepare(`
         DELETE FROM room_members
         WHERE room_id = ? AND review_token = ? AND role = 'member'
-      `).bind(id, memberRef).run();
+      `).bind(id, memberRef),
+      ]);
       if (!result.meta.changes) return json({ error: "참여자를 찾을 수 없습니다." }, 404);
       return json({ ok: true });
     }
@@ -1258,7 +1285,11 @@ export async function POST(request: Request) {
               WHERE mine.room_id = room_invites.room_id
                 AND mine.user_email = ? AND mine.status = 'approved'
             )
-        `).bind(inviteToken, id, now, now, auth.email),
+            AND NOT EXISTS (
+              SELECT 1 FROM room_blocks blocked
+              WHERE blocked.room_id = room_invites.room_id AND blocked.user_email = ?
+            )
+        `).bind(inviteToken, id, now, now, auth.email, auth.email),
         env.DB.prepare(`
           INSERT INTO room_members (
             room_id, user_email, display_name, role, status, review_token, created_at

@@ -54,6 +54,19 @@ export const roomInvites = sqliteTable("room_invites", {
   index("room_invites_room_idx").on(table.roomId),
 ]);
 
+/**
+ * Users the host has removed or rejected from a room. A block only closes the
+ * unattended path (invite links); a blocked user can still request to join
+ * and be approved explicitly by the host.
+ */
+export const roomBlocks = sqliteTable("room_blocks", {
+  roomId: text("room_id").notNull().references(() => rooms.id, { onDelete: "cascade" }),
+  userEmail: text("user_email").notNull(),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.roomId, table.userEmail] }),
+]);
+
 export const roomMessages = sqliteTable("room_messages", {
   id: text("id").primaryKey(),
   roomId: text("room_id").notNull().references(() => rooms.id, { onDelete: "cascade" }),

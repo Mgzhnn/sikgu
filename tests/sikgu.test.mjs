@@ -582,3 +582,34 @@ test("the mutation-lock migration preserves existing rooms", async () => {
   );
   database.close();
 });
+
+test("the per-host open-room limit holds under concurrent create_room requests", async () => {
+  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const api = await createApi();
+  const host = identity("host@dgist.ac.kr", "홍길동");
+  const create = () => api.post(host, {
+    action: "create_room",
+    restaurantId: "sinjeon",
+    pickup: "E1",
+    apps: ["baemin"],
+    capacity: 4,
+    closesAt: closesIn(30),
+  });
+
+  for (let index = 0; index < 4; index += 1) assert.equal((await create()).status, 201);
+
+  const results = await Promise.all([create(), create(), create()]);
+  const statuses = results.map((result) => result.status).sort();
+  assert.deepEqual(statuses, [201, 429, 429]);
+  assert.equal(
+    api.sql("SELECT COUNT(*) AS count FROM rooms WHERE host_email = 'host@dgist.ac.kr' AND status = 'open'")[0].count,
+    5,
+  );
+  assert.equal(
+    api.sql("SELECT COUNT(*) AS count FROM room_members WHERE role = 'host'")[0].count,
+    5,
+    "every stored room has exactly one host member row",
+  );
+  const rejected = results.find((result) => result.status === 429);
+  assert.match(rejected.data.error, /5개까지/);
+});

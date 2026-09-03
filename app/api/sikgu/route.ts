@@ -1026,26 +1026,22 @@ export async function POST(request: Request) {
       if (membership && !apps.includes(membership)) {
         return json({ error: "선택한 주문 앱과 무료배달 멤버십이 일치하지 않습니다." }, 400);
       }
-      const activeRooms = await env.DB.prepare(`
-        SELECT COUNT(*) AS count
-        FROM rooms
-        WHERE host_email = ? AND status = 'open' AND closes_at > ?
-      `).bind(auth.email, now).first<{ count: number }>();
-      if (Number(activeRooms?.count || 0) >= maxOpenRoomsPerHost) {
-        return json(
-          { error: `동시에 운영할 수 있는 주문방은 ${maxOpenRoomsPerHost}개까지입니다.` },
-          429,
-          { "Retry-After": "300" },
-        );
-      }
       const id = roomId();
       const target = Math.min(...apps.map((app) => restaurantMinimums[restaurantId][app]));
-      await env.DB.batch([
+      // The per-host limit lives inside the INSERT so that concurrent requests
+      // cannot all pass a separate COUNT check; the host member row is only
+      // written when the room row was.
+      const [createdRoom] = await env.DB.batch([
         env.DB.prepare(`
           INSERT INTO rooms (
             id, host_email, host_name, restaurant_id, pickup, pickup_full, apps,
             closes_at, total, target, capacity, membership, note, status, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?)
+          )
+          SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?
+          WHERE (
+            SELECT COUNT(*) FROM rooms
+            WHERE host_email = ? AND status = 'open' AND closes_at > ?
+          ) < ?
         `).bind(
           id,
           auth.email,
@@ -1061,13 +1057,25 @@ export async function POST(request: Request) {
           membership,
           String(payload.note || "같이 맛있게 먹어요!").slice(0, 300),
           now,
+          auth.email,
+          now,
+          maxOpenRoomsPerHost,
         ),
         env.DB.prepare(`
           INSERT INTO room_members (
             room_id, user_email, display_name, role, status, review_token, created_at
-          ) VALUES (?, ?, ?, 'host', 'approved', ?, ?)
+          )
+          SELECT ?, ?, ?, 'host', 'approved', ?, ?
+          WHERE changes() > 0
         `).bind(id, auth.email, auth.displayName, token(), now),
       ]);
+      if (!createdRoom.meta.changes) {
+        return json(
+          { error: `동시에 운영할 수 있는 주문방은 ${maxOpenRoomsPerHost}개까지입니다.` },
+          429,
+          { "Retry-After": "300" },
+        );
+      }
       return json({ roomId: id }, 201);
     }
 

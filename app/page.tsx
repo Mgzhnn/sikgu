@@ -1954,6 +1954,7 @@ function RoomHubModal({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [message, setMessage] = useState("");
   const [inviteLink, setInviteLink] = useState("");
+  const [inviteHours, setInviteHours] = useState(24);
   const [inviteStatus, setInviteStatus] = useState("");
   const [creatingInvite, setCreatingInvite] = useState(false);
   const [chatStatus, setChatStatus] = useState("");
@@ -2071,7 +2072,7 @@ function RoomHubModal({
       headers: { "content-type": "application/json", "x-sikgu-request": "1" },
       body: JSON.stringify({ ...payload, roomId }),
     });
-    const data = await readJson<{ token?: string }>(response);
+    const data = await readJson<{ token?: string; expiresInHours?: number }>(response);
     if (response.status === 401) {
       redirectToSignIn();
       throw new Error("로그인이 필요합니다.");
@@ -2118,6 +2119,7 @@ function RoomHubModal({
       const data = await post({ action: "create_invite" });
       const link = `${window.location.origin}/?room=${encodeURIComponent(roomId)}&invite=${encodeURIComponent(data.token || "")}`;
       setInviteLink(link);
+      setInviteHours(typeof data.expiresInHours === "number" ? data.expiresInHours : 24);
       try {
         await navigator.clipboard.writeText(link);
         setInviteStatus("초대 링크를 복사했어요.");
@@ -2323,7 +2325,7 @@ function RoomHubModal({
                   <span>✓</span>
                   <div>
                     <strong>{inviteStatus || "초대 링크를 만들었어요."}</strong>
-                    <small>24시간 동안 사용할 수 있어요.</small>
+                    <small>{inviteHours}시간 동안 사용할 수 있어요.</small>
                     <label>
                       <span className="sr-only">초대 링크</span>
                       <input value={inviteLink} readOnly onFocus={(event) => event.currentTarget.select()} />

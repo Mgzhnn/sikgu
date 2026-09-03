@@ -79,10 +79,12 @@ const disallowedTextCharacters =
   /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u115F\u1160\u3164\uFFA0]|(?![\u200C-\u200F\u061C\u{E0000}-\u{E007F}])\p{Cf}/gu;
 
 // Text that renders as nothing when this is all there is: whitespace,
-// combining marks with no base, braille blank, variation selectors, joiners,
-// bidi marks, tag characters.
-const blankCharacters =
-  /^(?:[\s\p{M}\u2800\uFE00-\uFE0F\u200C-\u200F\u061C]|[\u{E0000}-\u{E007F}]|[\u{E0100}-\u{E01EF}])*$/u;
+// combining marks with no base (which already include the variation
+// selectors U+FE00-FE0F and U+E0100-E01EF), braille blank, joiners, bidi
+// marks, tag characters. One character class, never a quantified
+// alternation: overlapping alternatives made this regex backtrack
+// exponentially on a run of variation selectors followed by a letter.
+const blankCharacters = /^[\s\p{M}\u2800\u200C-\u200F\u061C\u{E0000}-\u{E007F}]*$/u;
 
 /**
  * Normalizes user-entered free text (room notes, chat messages, display

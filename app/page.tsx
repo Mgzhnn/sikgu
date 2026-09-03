@@ -2639,10 +2639,15 @@ function CreateModal({
         </div>
 
         <div className="form-field">
-          <label>픽업 장소</label>
-          <div className="choice-grid">
+          <label id="create-pickup-label">픽업 장소</label>
+          <div className="choice-grid" role="group" aria-labelledby="create-pickup-label">
             {pickupPoints.map((point) => (
-              <button className={pickup === point.id ? "active" : ""} onClick={() => setPickup(point.id)} key={point.id}>
+              <button
+                className={pickup === point.id ? "active" : ""}
+                onClick={() => setPickup(point.id)}
+                aria-pressed={pickup === point.id}
+                key={point.id}
+              >
                 <span>{point.code ?? point.id}</span><small>{point.full}</small>
               </button>
             ))}
@@ -2651,9 +2656,18 @@ function CreateModal({
 
         <div className="form-two-col">
           <div className="form-field">
-            <label>모집 시간</label>
-            <div className="segmented">
-              {roomDurations.map((value) => <button className={minutes === value ? "active" : ""} onClick={() => setMinutes(value)} key={value}>{value}분</button>)}
+            <label id="create-duration-label">모집 시간</label>
+            <div className="segmented" role="group" aria-labelledby="create-duration-label">
+              {roomDurations.map((value) => (
+                <button
+                  className={minutes === value ? "active" : ""}
+                  onClick={() => setMinutes(value)}
+                  aria-pressed={minutes === value}
+                  key={value}
+                >
+                  {value}분
+                </button>
+              ))}
             </div>
           </div>
           <div className="form-field">

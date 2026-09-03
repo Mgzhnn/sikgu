@@ -607,3 +607,18 @@ test("an invite token leaves the address bar before sign-in and a failed resume 
   const pendingJoin = initialize.slice(initialize.indexOf("if (pendingJoinRoomId && data.user)"), initialize.indexOf("} catch (interactionError)"));
   assert.match(pendingJoin, /catch \(joinError\) \{[\s\S]*?sessionStorage\.removeItem\(pendingJoinStorageKey\)/);
 });
+
+test("every choice group in the create dialog has an accessible name and pressed state", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const createModal = page.slice(page.indexOf("function CreateModal"), page.indexOf("export default function Home"));
+
+  assert.match(createModal, /<label id="create-pickup-label">픽업 장소<\/label>/);
+  assert.match(createModal, /className="choice-grid" role="group" aria-labelledby="create-pickup-label"/);
+  assert.match(createModal, /aria-pressed=\{pickup === point\.id\}/);
+  assert.match(createModal, /<label id="create-duration-label">모집 시간<\/label>/);
+  assert.match(createModal, /className="segmented" role="group" aria-labelledby="create-duration-label"/);
+  assert.match(createModal, /aria-pressed=\{minutes === value\}/);
+  for (const name of ["주문 앱 복수 선택", "무료배달 멤버십 선택", "주문방 최대 인원"]) {
+    assert.match(createModal, new RegExp(`role="group" aria-label="${name}"`));
+  }
+});

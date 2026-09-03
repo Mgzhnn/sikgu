@@ -2044,7 +2044,13 @@ function RoomHubModal({
     const initialTimer = window.setTimeout(() => void loadRoom(), 0);
     let failures = 0;
     let timer = 0;
+    let cancelled = false;
+    // schedule() always replaces the pending timer, so however many reloads
+    // overlap (rapid tab switches) exactly one chain survives, and nothing is
+    // scheduled after the effect has been cleaned up.
     const schedule = () => {
+      window.clearTimeout(timer);
+      if (cancelled) return;
       timer = window.setTimeout(async () => {
         // null means a newer request superseded this one: neither a success
         // nor a failure for backoff purposes.
@@ -2056,11 +2062,11 @@ function RoomHubModal({
     const handleVisibility = () => {
       if (document.hidden) return;
       failures = 0;
-      window.clearTimeout(timer);
-      void loadRoom(true).then(() => schedule());
+      void loadRoom(true).finally(schedule);
     };
     document.addEventListener("visibilitychange", handleVisibility);
     return () => {
+      cancelled = true;
       window.clearTimeout(initialTimer);
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", handleVisibility);

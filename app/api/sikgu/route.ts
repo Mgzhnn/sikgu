@@ -470,30 +470,33 @@ async function purgeExpiredRooms(now: number) {
         `).bind(sweepToken).all<{ id: string; receipt_key: string | null }>());
         if (!claimed.results.length) return;
 
-        try {
-          const bucket = uploadBucket();
-          const receiptKeys = [...new Set((await Promise.all(
-            claimed.results.map((room) =>
-              listReceiptKeysForRoom(bucket, room.id, room.receipt_key, true)),
-          )).flat())];
-          for (let offset = 0; offset < receiptKeys.length; offset += 1000) {
-            await bucket.delete(receiptKeys.slice(offset, offset + 1000));
+        // One room at a time, committing each deletion as soon as its objects
+        // are gone: a single storage error then defers only that room instead
+        // of the whole claimed batch, and a subrequest budget cuts the sweep
+        // short without losing the progress made so far.
+        const bucket = uploadBucket();
+        for (const room of claimed.results) {
+          try {
+            const receiptKeys = await listReceiptKeysForRoom(bucket, room.id, room.receipt_key, true);
+            for (let offset = 0; offset < receiptKeys.length; offset += 1000) {
+              await bucket.delete(receiptKeys.slice(offset, offset + 1000));
+            }
+          } catch (error) {
+            console.error("Deferred stale receipt cleanup", error);
+            // Keep this room hidden. A later sweep can safely reclaim the stale
+            // deletion token without resurrecting a partially cleaned room.
+            continue;
           }
-        } catch (error) {
-          console.error("Deferred stale receipt cleanup", error);
-          // Keep claimed rooms hidden. A later sweep can safely reclaim the stale
-          // deletion token without resurrecting a partially cleaned room.
-          return;
-        }
-        try {
-          // All private room tables use ON DELETE CASCADE in the production schema.
-          await env.DB.prepare(`
-            DELETE FROM rooms
-            WHERE status = 'deleting' AND mutation_token = ?
-          `).bind(sweepToken).run();
-        } catch (error) {
-          console.error("Deferred stale room cleanup", error);
-          // Leave the tombstone claimed; ambiguous D1 outcomes are retried later.
+          try {
+            // All private room tables use ON DELETE CASCADE in the production schema.
+            await env.DB.prepare(`
+              DELETE FROM rooms
+              WHERE id = ? AND status = 'deleting' AND mutation_token = ?
+            `).bind(room.id, sweepToken).run();
+          } catch (error) {
+            console.error("Deferred stale room cleanup", error);
+            // Leave the tombstone claimed; ambiguous D1 outcomes are retried later.
+          }
         }
       }
     } finally {

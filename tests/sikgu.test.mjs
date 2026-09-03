@@ -203,7 +203,7 @@ test("approved users can reopen recent rooms and stale rooms are purged after re
   assert.match(purge, /WHERE id IN \(\$\{placeholders\}\)/);
   assert.match(purge, /WHERE status = 'deleting' AND mutation_token = \?/);
   assert.match(purge, /Deferred stale receipt cleanup/);
-  assert.match(purge, /claimed\.results\.map\(\(room\) =>[\s\S]*listReceiptKeysForRoom/);
+  assert.match(purge, /for \(const room of claimed\.results\)[\s\S]*listReceiptKeysForRoom/);
   assert.match(purge, /await bucket\.delete\(receiptKeys\.slice\(offset, offset \+ 1000\)\)/);
   assert.match(purge, /DELETE FROM rooms[\s\S]*status = 'deleting' AND mutation_token = \?/);
   assert.doesNotMatch(purge, /DELETE FROM room_(?:messages|invites|members)/);
@@ -956,4 +956,42 @@ test("the room deadline comes from the shared duration rule on the server, never
   }
   const skewed = await api.post(host, { ...base, closesAt: Date.now() + 59 * 60 * 1000 });
   assert.equal(skewed.status, 400, "a client-computed deadline is no longer accepted");
+});
+
+test("the retention sweep keeps its progress per room, so one storage failure cannot defer every expired room", async () => {
+  const { createApi, identity, r2 } = await import("./helpers/api-harness.mjs");
+  const uploads = r2();
+  const originalList = uploads.list.bind(uploads);
+  let failingRoomId = "";
+  uploads.list = async (options) => {
+    if (options.prefix === `receipts/${failingRoomId}/`) throw new Error("R2 listing outage for one room");
+    return originalList(options);
+  };
+  const api = await createApi({ uploads });
+  const host = identity("host@dgist.ac.kr", "홍길동");
+  const ids = [];
+  for (let index = 0; index < 3; index += 1) {
+    const created = await api.post(host, {
+      action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 4, minutes: 30,
+    });
+    ids.push(created.data.roomId);
+    await uploads.put(`receipts/${created.data.roomId}/old.png`, new ArrayBuffer(4), { httpMetadata: {} });
+  }
+  failingRoomId = ids[1];
+  const expired = Date.now() - 31 * 24 * 60 * 60 * 1000;
+  for (const id of ids) api.db.prepare("UPDATE rooms SET closes_at = ?, receipt_key = ? WHERE id = ?").run(expired, `receipts/${id}/old.png`, id);
+
+  const originalError = console.error;
+  console.error = () => undefined;
+  try {
+    assert.equal((await api.get(undefined, "?action=bootstrap")).status, 200);
+    await api.runAfterTasks();
+  } finally {
+    console.error = originalError;
+  }
+
+  const remaining = api.sql("SELECT id, status FROM rooms ORDER BY created_at");
+  assert.deepEqual(remaining.map((row) => row.id), [ids[1]], "the two rooms whose storage worked are gone");
+  assert.equal(remaining[0].status, "deleting", "the failed room stays claimed for a later sweep");
+  assert.deepEqual([...uploads.objects.keys()].sort(), [`receipts/${ids[1]}/old.png`], "their receipt objects are gone too");
 });

@@ -390,50 +390,31 @@ A fresh verifier attacked the five round-2 follow-up commits (9de664b, ba74bec, 
 
 ### Round 4
 
-CHECKPOINT: a fresh verifier is re-checking the three round-3 follow-up commits (3183e03, 733110d, 3b3e4c1). If this sentence is still present, round 4 has not been closed out; rerun it (regex timing on adversarial runs, blank-after-truncation, the null guard) before treating the branch as final. The "Final gate" and "Summary" sections below still show the pre-round-3 numbers (92 tests, 46 commits); at this checkpoint the suite has 95 tests and the branch is 50 commits ahead of main with the gate green.
+Round 4 was started as a fresh-context re-check of the three round-3 follow-up commits (3183e03, 733110d, 3b3e4c1) and was stopped by the owner before it reported, so those three commits are covered only by their own tests (each shown failing before and passing after its change) and by the full gate below, not by an independent verifier. The regex fix was additionally checked by the round-3 verifier's own equivalence script before it was applied. This is the one open item in the verification loop: a final adversarial pass over those three commits should be run before release.
 
 ## Final gate
 
-Run after the last commit on `audit-2026-09-03`. `npm test`, exit 0; build and typecheck sections unchanged from the baseline (same unclassified-route note, no TypeScript output). Test summary, verbatim:
+Run after the last code commit on `audit-2026-09-03` (3b3e4c1; the two commits after it touch only AUDIT.md). `npm test`, exit 0; build and typecheck sections unchanged from the baseline. Test summary, verbatim:
 
 ```
-# tests 92
+# tests 95
 # suites 0
-# pass 92
+# pass 95
 # fail 0
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 223.727599
+# duration_ms 221.804259
 npm test exit: 0
 ```
 
-`npm run lint`, exit 0, no output beyond the script banner. `npm audit`, exit 1, verbatim package lines and summary:
-
-```
-esbuild  <=0.24.2 || 0.27.3 - 0.28.0
-image-size  *
-next  9.3.4-canary.0 - 16.3.0-preview.10
-postcss  <=8.5.22
-sharp  <0.35.0
-undici  7.0.0 - 7.28.0
-vite  8.0.0 - 8.0.15
-ws  8.0.0 - 8.20.1
-
-15 vulnerabilities (4 moderate, 11 high)
-
-To address all issues (including breaking changes), run:
-  npm audit fix --force
-npm audit exit: 1
-```
-
-The 15 remaining advisories are all in build or dev-server tooling that is absent from the production bundle (classification in Phase 3); resolving them means major or out-of-range upgrades of vinext, vite, next, and the Cloudflare Vite plugin, deferred as a dedicated migration.
+`npm run lint`, exit 0, no output beyond the script banner. `npm audit`, exit 1: `15 vulnerabilities (4 moderate, 11 high)`, the same toolchain-only set classified in Phase 3 (esbuild, image-size, next, postcss, sharp, undici, vite, ws), none of which is present in the production bundle.
 
 ## Summary
 
-Outcome: on branch `audit-2026-09-03` (46 commits, not pushed) every high and medium finding that code can fix is fixed with a test that failed before and passes after, three rounds of fresh-context adversarial verification could not break authorization, capacity, invite blocking, the mutation lock, the retention sweep, or the receipt pipeline, and the full gate is green (92 tests, lint clean).
+Outcome: on branch `audit-2026-09-03` (51 commits, not pushed) every high and medium finding that code can fix is fixed with a test that failed before and passes after, three completed rounds of fresh-context adversarial verification could not break authorization, capacity, invite blocking, the mutation lock, the retention sweep, or the receipt pipeline, the regressions those rounds found in my own fixes (including one exponential-backtracking regex) are fixed, and the full gate is green (95 tests, lint clean); a fourth verification pass over the last three code commits was stopped before it reported and remains the one open item.
 
-Findings by severity (Phase 1): 41 in total. 4 high (all FIXED: receipt bomb memory, camera-only picker, money step validation, chat keyboard closing). 8 medium (7 FIXED; A1, forgeable identity headers if the worker is ever reachable outside the platform proxy, DEFERRED as a platform constraint with a hand test). 28 low (26 FIXED, including the four deferred to the polish phase and completed there; P4, the Korean masking policy, DEFERRED as a product decision; R2, the polyglot residue, NOT A BUG given the serving headers). 1 informational (R3, unreachable JPEG/WebP sanitizer code, DEFERRED). Phase 5 verifiers found 15 further issues across three rounds: 14 FIXED in the same test-first loop, 1 ACCEPTED (an object orphaned under a deleted room's prefix only when an upload stalls past the two-minute lock and its compensating delete then fails). No finding was DECLINED.
+Findings by severity (Phase 1): 41 in total. 4 high (all FIXED: receipt bomb memory, camera-only picker, money step validation, chat keyboard closing). 8 medium (7 FIXED; A1, forgeable identity headers if the worker is ever reachable outside the platform proxy, DEFERRED as a platform constraint with a hand test). 28 low (26 FIXED, including the four deferred to the polish phase and completed there; P4, the Korean masking policy, DEFERRED as a product decision; R2, the polyglot residue, NOT A BUG given the serving headers). 1 informational (R3, unreachable JPEG/WebP sanitizer code, DEFERRED). Phase 5 verifiers found 18 further issues across three completed rounds: 17 FIXED in the same test-first loop, 1 ACCEPTED (an object orphaned under a deleted room's prefix only when an upload stalls past the two-minute lock and its compensating delete then fails). No finding was DECLINED.
 
 What changed for users. Phase 2 fixes a student can notice: the receipt picker on a phone now offers the photo library instead of forcing the camera; any whole won amount is accepted in the order form; the chat keyboard stays open across sends and the composer clears on send; a host can reject or remove a pending requester after the deadline; a removed or rejected user can no longer re-enter through an invite link they already have, though they may ask again; the pool dialog disables joining a full room and says so; a missing room is reported as not found; platform outages show Korean messages instead of parser errors; room creation sends the chosen preset and the server sets the deadline, so a phone with a wrong clock no longer breaks room creation. Phase 4 polish: the room hub shows the countdown and the closed state and disables the controls that would fail; countdowns follow the server clock and refresh when a tab wakes; polling backs off during outages; a room that closes or is deleted while its dialog is open is explained instead of vanishing; screen readers get a real progress bar, new-message announcements, and alerts; small buttons have phone-sized hit areas and sheets no longer scroll the page behind them on iOS; reduced motion is respected; server errors end with an error code an operator can search for; the invite card shows the validity the API returned. Operability: a health endpoint, one structured log line per server error with no personal data, and RUNBOOK.md.
 

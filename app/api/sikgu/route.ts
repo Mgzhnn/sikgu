@@ -681,7 +681,15 @@ export async function PUT(request: Request) {
     if (requestBytes > maxReceiptBytes + 512 * 1024) {
       return json({ error: "영수증 이미지는 8MB 이하만 올릴 수 있습니다." }, 413);
     }
-    const form = await request.formData();
+    if (!request.headers.get("content-type")?.toLowerCase().startsWith("multipart/form-data")) {
+      return json({ error: "주문 정보는 파일 업로드 형식으로만 보낼 수 있습니다." }, 415);
+    }
+    let form: FormData;
+    try {
+      form = await request.formData();
+    } catch {
+      return json({ error: "주문 정보 요청 형식을 확인해주세요." }, 400);
+    }
 
     const estimatedArrival = String(form.get("estimatedArrival") || "").trim();
     if (
@@ -1007,7 +1015,15 @@ export async function POST(request: Request) {
     const requestBytes = contentLength(request);
     if (requestBytes === null) return json({ error: "요청 크기를 확인할 수 없습니다." }, 411);
     if (requestBytes > maxJsonBytes) return json({ error: "요청 내용이 너무 큽니다." }, 413);
-    const payload = await request.json() as Record<string, unknown>;
+    let payload: Record<string, unknown>;
+    try {
+      const parsed: unknown = await request.json();
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("not an object");
+      payload = parsed as Record<string, unknown>;
+    } catch {
+      // null, arrays, scalars, and invalid JSON are client mistakes, not server errors.
+      return json({ error: "요청 형식을 확인해 주세요." }, 400);
+    }
     const action = String(payload.action || "");
 
     if (action === "create_room") {

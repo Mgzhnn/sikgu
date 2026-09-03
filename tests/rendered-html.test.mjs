@@ -537,3 +537,26 @@ test("browser storage that throws (private mode, blocked site data) never breaks
   const toggleJoin = page.slice(page.indexOf("const handleToggleJoin = async"), page.indexOf("const handleCreate = async"));
   assert.match(toggleJoin, /catch \{[\s\S]*?\}\s*signIn\(\);/);
 });
+
+test("new chat messages scroll only the message list, and only when the reader is at the bottom", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  const scrollEffect = page.slice(page.indexOf("const list = chatListRef.current"), page.indexOf("const post = async"));
+
+  assert.match(css, /\.chat-messages \{[^}]*overflow-y: auto/);
+  assert.match(page, /const chatListRef = useRef<HTMLDivElement \| null>\(null\)/);
+  assert.match(page, /const stickToBottomRef = useRef\(true\)/);
+  assert.match(page, /className="chat-messages"[\s\S]{0,200}ref=\{chatListRef\}/);
+  assert.match(page, /className="chat-messages"[\s\S]{0,300}onScroll=/);
+  assert.match(scrollEffect, /if \(!stickToBottomRef\.current\) return/);
+  assert.match(scrollEffect, /list\.scrollTop = list\.scrollHeight/);
+  assert.match(scrollEffect, /messagesEndRef\.current\?\.scrollIntoView/);
+  assert.ok(
+    scrollEffect.indexOf("list.scrollTop = list.scrollHeight") < scrollEffect.indexOf("scrollIntoView"),
+    "the list is scrolled directly; scrollIntoView (which scrolls every ancestor) is only the fallback",
+  );
+  const sendMessage = page.slice(page.indexOf("const sendMessage = async"), page.indexOf("const openOrderEditor"));
+  assert.match(sendMessage, /stickToBottomRef\.current = true/);
+});

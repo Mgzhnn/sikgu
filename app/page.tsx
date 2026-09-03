@@ -1931,6 +1931,8 @@ function RoomHubModal({
   const [reviewingMember, setReviewingMember] = useState("");
   const roomDialogRef = useRef<HTMLElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const chatListRef = useRef<HTMLDivElement | null>(null);
+  const stickToBottomRef = useRef(true);
   const loadRoomRequestRef = useRef(0);
   const restaurant = room
     ? restaurants.find((item) => item.id === room.restaurantId)
@@ -1988,7 +1990,16 @@ function RoomHubModal({
   }, [loadRoom]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    // Scroll the message list itself: scrollIntoView walks every scrolling
+    // ancestor, which on phones dragged the whole room sheet (member list and
+    // order form included) to the bottom on open and on each polled message.
+    const list = chatListRef.current;
+    if (!stickToBottomRef.current) return;
+    if (list) {
+      list.scrollTop = list.scrollHeight;
+      return;
+    }
+    messagesEndRef.current?.scrollIntoView({ block: "nearest" });
   }, [messages.length]);
 
   const post = async (payload: Record<string, unknown>) => {
@@ -2069,6 +2080,7 @@ function RoomHubModal({
     setSending(true);
     setError("");
     setChatStatus("");
+    stickToBottomRef.current = true;
     try {
       await post({ action: "send_message", body });
       setMessage((current) => (current.trim() === body ? "" : current));
@@ -2409,7 +2421,15 @@ function RoomHubModal({
                 <div><span className="lock-mark">⌁</span><strong>주문방 채팅</strong></div>
                 <small>초대·승인된 구성원 전용</small>
               </div>
-              <div className="chat-messages" aria-live="polite">
+              <div
+                className="chat-messages"
+                aria-live="polite"
+                ref={chatListRef}
+                onScroll={(event) => {
+                  const list = event.currentTarget;
+                  stickToBottomRef.current = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+                }}
+              >
                 {!messages.length && (
                   <div className="chat-empty">
                     <span>식</span>

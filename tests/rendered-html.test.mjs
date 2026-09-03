@@ -465,3 +465,39 @@ test("masks Korean and English display names consistently", async () => {
   assert.match(api, /display_name: publicDisplayName\(member\.display_name\)/);
   assert.match(api, /sender_name: publicDisplayName\(message\.sender_name\)/);
 });
+
+test("the receipt picker lets phones choose an existing screenshot instead of forcing the camera", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const receiptInput = page.slice(
+    page.indexOf('className="receipt-upload"'),
+    page.indexOf("receipt-privacy"),
+  );
+
+  assert.match(receiptInput, /accept="image\/jpeg,image\/png,image\/webp"/);
+  assert.doesNotMatch(receiptInput, /capture=/);
+});
+
+test("money inputs accept any whole won amount instead of only multiples of 100", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const orderForm = page.slice(
+    page.indexOf('className="order-info-form"'),
+    page.indexOf('className="receipt-upload"'),
+  );
+
+  assert.equal((orderForm.match(/type="number"/g) || []).length, 2);
+  assert.doesNotMatch(orderForm, /step="100"/);
+  assert.equal((orderForm.match(/step="1"/g) || []).length, 2);
+});
+
+test("the chat composer keeps focus while a message is sending and never discards text typed meanwhile", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const composer = page.slice(page.indexOf('className="chat-composer"'), page.indexOf("</section>", page.indexOf('className="chat-composer"')));
+  const sendMessage = page.slice(page.indexOf("const sendMessage = async"), page.indexOf("const openOrderEditor"));
+
+  assert.match(composer, /<textarea[\s\S]*?\/>/);
+  assert.doesNotMatch(composer, /<textarea[\s\S]*?disabled=\{sending\}[\s\S]*?\/>/);
+  assert.match(composer, /disabled=\{sending \|\| !message\.trim\(\)\}/);
+  assert.match(sendMessage, /if \(!body \|\| sending\) return/);
+  assert.doesNotMatch(sendMessage, /setMessage\(""\)/);
+  assert.match(sendMessage, /setMessage\(\(current\) => \(current\.trim\(\) === body \? "" : current\)\)/);
+});

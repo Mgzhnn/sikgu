@@ -2044,7 +2044,7 @@ function RoomHubModal({
     setChatStatus("");
     try {
       await post({ action: "send_message", body });
-      setMessage("");
+      setMessage((current) => (current.trim() === body ? "" : current));
       const refreshed = await loadRoom(true);
       if (!refreshed) setChatStatus("메시지는 전송됐어요. 새 메시지는 잠시 후 다시 확인해주세요.");
     } catch (messageError) {
@@ -2325,7 +2325,7 @@ function RoomHubModal({
                             inputMode="numeric"
                             min="0"
                             max="10000000"
-                            step="100"
+                            step="1"
                             value={collectedTotal}
                             onChange={(event) => setCollectedTotal(event.target.value)}
                             placeholder="예: 15000"
@@ -2349,7 +2349,7 @@ function RoomHubModal({
                             inputMode="numeric"
                             min="0"
                             max="10000000"
-                            step="100"
+                            step="1"
                             value={orderTotal}
                             onChange={(event) => setOrderTotal(event.target.value)}
                             placeholder="예: 28500"
@@ -2362,7 +2362,6 @@ function RoomHubModal({
                       <input
                         type="file"
                         accept="image/jpeg,image/png,image/webp"
-                        capture="environment"
                         onChange={(event) => setReceiptFile(event.target.files?.[0] || null)}
                       />
                       <span aria-hidden="true">＋</span>
@@ -2403,7 +2402,6 @@ function RoomHubModal({
               <div className="chat-composer">
                 <textarea
                   value={message}
-                  disabled={sending}
                   onChange={(event) => setMessage(event.target.value)}
                   onKeyDown={(event) => {
                     if (

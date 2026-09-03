@@ -201,6 +201,9 @@ async function readJson<T extends object>(response: Response): Promise<T & { err
   return (response.ok ? {} : { error: fallbackErrorByStatus(response.status) }) as T & { error?: string };
 }
 
+/** Poll spacing: the base delay, doubled per consecutive failure, capped at five minutes. */
+const pollDelay = (base: number, failures: number) => Math.min(base * 2 ** failures, 5 * 60 * 1000);
+
 const dialogFocusableSelector = [
   "a[href]",
   "button:not([disabled])",
@@ -2000,12 +2003,18 @@ function RoomHubModal({
 
   useEffect(() => {
     const initialTimer = window.setTimeout(() => void loadRoom(), 0);
-    const timer = window.setInterval(() => {
-      if (!document.hidden) void loadRoom(true);
-    }, 10000);
+    let failures = 0;
+    let timer = 0;
+    const schedule = () => {
+      timer = window.setTimeout(async () => {
+        if (!document.hidden) failures = (await loadRoom(true)) ? 0 : failures + 1;
+        schedule();
+      }, pollDelay(10000, failures));
+    };
+    schedule();
     return () => {
       window.clearTimeout(initialTimer);
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
     };
   }, [loadRoom]);
 
@@ -2983,20 +2992,34 @@ export default function Home() {
       }
     };
     void initialize();
-    const timer = window.setInterval(() => {
-      if (!document.hidden) void loadRooms().catch(() => undefined);
-    }, 30000);
+    let failures = 0;
+    let timer = 0;
+    const schedule = () => {
+      timer = window.setTimeout(async () => {
+        if (!document.hidden) {
+          try {
+            await loadRooms();
+            failures = 0;
+          } catch {
+            failures += 1;
+          }
+        }
+        schedule();
+      }, pollDelay(30000, failures));
+    };
+    schedule();
     // A tab that slept through its timers shows stale countdowns until the
     // next tick; refresh the clock and the feed as soon as it is visible again.
     const handleVisibility = () => {
       if (document.hidden) return;
       setNow(serverNow());
+      failures = 0;
       void loadRooms().catch(() => undefined);
     };
     document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       active = false;
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [loadRooms, notify, postAction, signIn, serverNow]);

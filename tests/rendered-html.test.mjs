@@ -662,3 +662,15 @@ test("countdowns follow the server clock and a tab returning from sleep refreshe
   assert.match(home, /document\.removeEventListener\("visibilitychange", handleVisibility\)/);
   assert.doesNotMatch(home, /setNow\(Date\.now\(\)\)/);
 });
+
+test("polling backs off after failures instead of hammering a struggling API", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const roomHub = page.slice(page.indexOf("function RoomHubModal"), page.indexOf("function CreateModal"));
+  const home = page.slice(page.indexOf("export default function Home"));
+
+  assert.match(page, /const pollDelay = \(base: number, failures: number\) => Math\.min\(base \* 2 \*\* failures, 5 \* 60 \* 1000\)/);
+  assert.match(roomHub, /pollDelay\(10000, failures\)/);
+  assert.doesNotMatch(roomHub, /setInterval\(/);
+  assert.match(home, /pollDelay\(30000, failures\)/);
+  assert.equal((home.match(/setInterval\(/g) || []).length, 1, "only the clock ticker keeps a fixed interval");
+});

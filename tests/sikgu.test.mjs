@@ -995,3 +995,22 @@ test("the retention sweep keeps its progress per room, so one storage failure ca
   assert.equal(remaining[0].status, "deleting", "the failed room stays claimed for a later sweep");
   assert.deepEqual([...uploads.objects.keys()].sort(), [`receipts/${ids[1]}/old.png`], "their receipt objects are gone too");
 });
+
+test("the React packages bundled into the worker are pinned to a release without the Server Functions advisory", async () => {
+  const pkg = JSON.parse(await readFile(new URL("package.json", root), "utf8"));
+  const versions = {
+    react: pkg.dependencies.react,
+    "react-dom": pkg.dependencies["react-dom"],
+    "react-server-dom-webpack": pkg.devDependencies["react-server-dom-webpack"],
+  };
+  const atLeast = (version, floor) => {
+    const [a, b, c] = version.split(".").map(Number);
+    const [x, y, z] = floor.split(".").map(Number);
+    return a > x || (a === x && (b > y || (b === y && c >= z)));
+  };
+  for (const [name, version] of Object.entries(versions)) {
+    assert.match(version, /^\d+\.\d+\.\d+$/, `${name} must stay exact-pinned`);
+    assert.ok(atLeast(version, "19.2.8"), `${name}@${version} predates the GHSA-wx67-qw84-cm4g fix`);
+  }
+  assert.equal(new Set(Object.values(versions)).size, 1, "react, react-dom and the RSC transport must share one version");
+});

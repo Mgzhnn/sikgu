@@ -1148,3 +1148,11 @@ test("display names are normalized and bounded, and invisible-only text never co
     assert.ok(Array.from(row.host_name).length <= maxDisplayNameCharacters);
   }
 });
+
+test("subdivision flag emoji survive text normalization while tag-only text stays blank", async () => {
+  const { cleanText } = await import("../app/sikgu-rules.mjs");
+  const scotland = String.fromCodePoint(0x1f3f4, 0xe0067, 0xe0062, 0xe0073, 0xe0063, 0xe0074, 0xe007f);
+  assert.equal(cleanText(`${scotland} 응원`, 300), `${scotland} 응원`, "tag characters that build a flag are kept");
+  assert.equal(cleanText(String.fromCodePoint(0xe0067, 0xe0062), 300), "", "tags with nothing visible are blank");
+  assert.equal(cleanText(`안녕${String.fromCodePoint(0xe0067)}`, 300), `안녕${String.fromCodePoint(0xe0067)}`);
+});

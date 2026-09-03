@@ -2812,7 +2812,13 @@ export default function Home() {
           return;
         }
 
-        const pendingJoinRaw = window.sessionStorage.getItem(pendingJoinStorageKey);
+        let pendingJoinRaw: string | null = null;
+        try {
+          pendingJoinRaw = window.sessionStorage.getItem(pendingJoinStorageKey);
+        } catch {
+          // Storage can be unavailable (private mode, blocked site data); a join
+          // that could not be remembered is simply not resumed.
+        }
         let pendingJoinRoomId = "";
         if (pendingJoinRaw && data.user) {
           try {
@@ -2881,7 +2887,12 @@ export default function Home() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const savedPickup = window.localStorage.getItem(currentPickupStorageKey);
+      let savedPickup: string | null = null;
+      try {
+        savedPickup = window.localStorage.getItem(currentPickupStorageKey);
+      } catch {
+        // Fall back to the default pickup point when storage is unavailable.
+      }
       if (savedPickup && pickupPoints.some((point) => point.id === savedPickup)) {
         setCurrentPickup(savedPickup);
       }
@@ -2892,7 +2903,11 @@ export default function Home() {
 
   useEffect(() => {
     if (locationReady) {
-      window.localStorage.setItem(currentPickupStorageKey, currentPickup);
+      try {
+        window.localStorage.setItem(currentPickupStorageKey, currentPickup);
+      } catch {
+        // A quota or security error must not unmount the app.
+      }
     }
   }, [currentPickup, locationReady]);
 
@@ -2921,10 +2936,14 @@ export default function Home() {
 
   const handleToggleJoin = async (pool: Pool) => {
     if (!user) {
-      window.sessionStorage.setItem(pendingJoinStorageKey, JSON.stringify({
-        roomId: pool.id,
-        createdAt: Date.now(),
-      }));
+      try {
+        window.sessionStorage.setItem(pendingJoinStorageKey, JSON.stringify({
+          roomId: pool.id,
+          createdAt: Date.now(),
+        }));
+      } catch {
+        // Sign-in must still proceed; the join is just not resumed afterwards.
+      }
       signIn();
       return;
     }

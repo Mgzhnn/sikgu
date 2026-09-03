@@ -514,3 +514,26 @@ test("the client never shows a JSON parser error when the platform answers with 
   assert.equal(occurrences("await response.json()"), 0, "every response body must go through readJson");
   assert.ok(occurrences("await readJson<") >= 6, "post, saveOrderInfo, deleteRoom, postAction, loadRooms, loadRoom");
 });
+
+test("browser storage that throws (private mode, blocked site data) never breaks joining or loading", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const insideTry = (literal) => {
+    const at = page.indexOf(literal);
+    assert.notEqual(at, -1, `missing ${literal}`);
+    const tryAt = page.lastIndexOf("try {", at);
+    const catchAt = page.lastIndexOf("} catch", at);
+    return tryAt !== -1 && tryAt > catchAt;
+  };
+
+  for (const literal of [
+    "window.sessionStorage.getItem(pendingJoinStorageKey)",
+    "window.localStorage.getItem(currentPickupStorageKey)",
+    "window.localStorage.setItem(currentPickupStorageKey, currentPickup)",
+    "window.sessionStorage.setItem(pendingJoinStorageKey",
+  ]) {
+    assert.ok(insideTry(literal), `${literal} must be wrapped in try/catch`);
+  }
+  // The pending join must reach sign-in even when storage is unavailable.
+  const toggleJoin = page.slice(page.indexOf("const handleToggleJoin = async"), page.indexOf("const handleCreate = async"));
+  assert.match(toggleJoin, /catch \{[\s\S]*?\}\s*signIn\(\);/);
+});

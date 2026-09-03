@@ -1182,3 +1182,20 @@ test("blank detection covers combining marks, every format character, and variat
   assert.equal(cleanText(cp(0x202e) + "abc", 300), "abc", "overrides are still removed");
   assert.equal(cleanText("ab" + cp(0x206a) + "c", 300), "abc", "deprecated format characters inside text are removed");
 });
+
+test("cleanText runs in linear time on adversarial runs of variation selectors and marks", async () => {
+  const { cleanText } = await import("../app/sikgu-rules.mjs");
+  const vs17 = String.fromCodePoint(0xe0100);
+  for (const [label, text] of [
+    ["40 variation selectors then a letter", vs17.repeat(40) + "a"],
+    ["4000 variation selectors then a letter", vs17.repeat(4000) + "김"],
+    ["4000 combining marks then a letter", String.fromCodePoint(0x301).repeat(4000) + "a"],
+    ["mixed blank runs then a letter", (vs17 + String.fromCodePoint(0x301, 0x200d, 0x2800)).repeat(1000) + "x"],
+  ]) {
+    const started = performance.now();
+    const result = cleanText(text, 5000);
+    const elapsed = performance.now() - started;
+    assert.ok(elapsed < 100, `${label} took ${Math.round(elapsed)} ms`);
+    assert.ok(result.length > 0, `${label} is not blank`);
+  }
+});

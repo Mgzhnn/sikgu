@@ -8,9 +8,15 @@
  * @param {string} value
  * @returns {string}
  */
+const anonymousPlaceholder = "사용자";
+
 export function maskDisplayName(value) {
-  const characters = Array.from(value.trim());
-  if (!characters.length) return "사용자";
+  const trimmed = value.trim();
+  // The placeholder the server substitutes for unusable names is not a name;
+  // masking it again would show "사*자" to every viewer.
+  if (trimmed === anonymousPlaceholder) return anonymousPlaceholder;
+  const characters = Array.from(trimmed);
+  if (!characters.length) return anonymousPlaceholder;
   const hasKorean = characters.some((character) => /[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(character));
   if (hasKorean) {
     if (characters.length === 1) return characters[0];

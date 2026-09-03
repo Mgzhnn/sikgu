@@ -68,19 +68,21 @@ export function isPickupId(value) {
   return typeof value === "string" && Object.hasOwn(pickupFullNames, value);
 }
 
-// C0/C1 controls except tab, newline, carriage return; zero-width and bidi
-// format characters; and characters that render as nothing on their own
-// (Hangul fillers, soft hyphen, combining grapheme joiner, Mongolian vowel
-// separator, Arabic letter mark), all of which can hide text or reverse its
-// reading direction. Tag characters (U+E0000-E007F) are deliberately kept:
-// they spell subdivision flags such as the Scotland flag emoji.
+// Removed from free text: C0/C1 controls except tab, newline, and carriage
+// return; every Unicode format character (bidi overrides and isolates, zero
+// width space, word joiner, deprecated and interlinear controls, soft hyphen)
+// except the joiners, bidi marks, and tag characters listed below, which are
+// harmless alone and needed inside real text (emoji sequences, Persian and
+// Indic words, subdivision flags); and the Hangul fillers, which are letters
+// that render as nothing.
 const disallowedTextCharacters =
-  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u00AD\u034F\u061C\u115F\u1160\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\u3164\uFEFF\uFFA0]/gu;
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u115F\u1160\u3164\uFFA0]|(?![\u200C-\u200F\u061C\u{E0000}-\u{E007F}])\p{Cf}/gu;
 
-// Characters that survive the filter but still render as nothing when they
-// are all there is: braille blank, variation selectors, tag characters,
-// whitespace.
-const blankCharacters = /^(?:[\s\u2800\uFE00-\uFE0F]|[\u{E0000}-\u{E007F}])*$/u;
+// Text that renders as nothing when this is all there is: whitespace,
+// combining marks with no base, braille blank, variation selectors, joiners,
+// bidi marks, tag characters.
+const blankCharacters =
+  /^(?:[\s\p{M}\u2800\uFE00-\uFE0F\u200C-\u200F\u061C]|[\u{E0000}-\u{E007F}]|[\u{E0100}-\u{E01EF}])*$/u;
 
 /**
  * Normalizes user-entered free text (room notes, chat messages, display

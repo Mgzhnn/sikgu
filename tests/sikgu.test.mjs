@@ -1078,3 +1078,16 @@ test("shared limits and restaurant minimums have one definition, dead template c
   assert.match(tsconfig, /"checkJs": true/);
   assert.match(tsconfig, /"app\/\*\*\/\*\.mjs"/);
 });
+
+test("the README states the current test count", async () => {
+  const readme = await readFile(new URL("README.md", root), "utf8");
+  const files = (await readdir(new URL("tests/", root))).filter((name) => name.endsWith(".test.mjs"));
+  let total = 0;
+  for (const name of files) {
+    const source = await readFile(new URL(`tests/${name}`, root), "utf8");
+    total += (source.match(/^test\(/gm) || []).length;
+  }
+  const stated = /`node --test` — (\d+) tests/.exec(readme);
+  assert.ok(stated, "README must state the test count");
+  assert.equal(Number(stated[1]), total, `README says ${stated?.[1]} tests, the suite has ${total}`);
+});

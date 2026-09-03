@@ -32,6 +32,11 @@ after every deploy and from any uptime monitor.
    not yet applied to the production D1 database, in file order.
 3. After the deploy, open `/api/sikgu?action=health`, then sign in and
    create, join, approve, chat in, and delete one test room.
+4. Releases that change the API contract (the 2026-09-03 audit branch moved
+   room creation from a client `closesAt` to `minutes`) make a browser tab
+   that still holds the previous bundle fail its next room creation with a
+   400 until the page is reloaded. Expect a few such reports right after the
+   deploy; a reload fixes them.
 
 ## Migrations
 
@@ -59,15 +64,18 @@ after every deploy and from any uptime monitor.
 
 - API failures are logged as one JSON line:
   `{"level":"error","reference":"<uuid>","context":"...","error":{...}}`.
-  The same `reference` is shown to the user in the error toast, so ask them
-  for it and search the platform log viewer for that string.
+  The user's error message ends with `(오류 코드 XXXXXXXX)`, the first eight
+  characters of that `reference`; ask them for it and search the platform
+  log viewer for that prefix.
 - Log lines never contain emails, names, or request bodies. Keep it that
   way: log identifiers (room id, reference), not people.
 - Deferred cleanups log with a fixed prefix: "Deferred stale receipt
   cleanup", "Deferred stale room cleanup", "Deferred previous receipt
-  cleanup", "Receipt deletion must succeed before room deletion". They are
-  retried automatically (see below); a steady stream of them means R2 or D1
-  is unhealthy.
+  cleanup", "Deferred receipt commit verification", "Deferred claimed room
+  deletion", "Receipt deletion must succeed before room deletion", and
+  "Retention sweep failed". They are retried automatically (see below); a
+  steady stream of them means R2 or D1 is unhealthy. A failed health probe
+  logs `{"level":"error","context":"Health check database probe failed",...}`.
 
 ## Background behaviour worth knowing
 

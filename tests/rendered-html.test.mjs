@@ -637,3 +637,15 @@ test("the create dialog sends the chosen preset, not a deadline computed from th
   assert.match(handleCreate, /minutes: values\.minutes/);
   assert.doesNotMatch(handleCreate, /closesAt/);
 });
+
+test("the room hub shows the deadline state and disables host actions that a closed room would refuse", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const roomHub = page.slice(page.indexOf("function RoomHubModal"), page.indexOf("function CreateModal"));
+
+  assert.match(roomHub, /now: number;/);
+  assert.match(roomHub, /const isClosed = Boolean\(room\) && room!\.closesAt <= now/);
+  assert.match(roomHub, /isClosed \? "마감됨" : timeLeft\(room\.closesAt, now\)/);
+  assert.match(roomHub, /disabled=\{creatingInvite \|\| isClosed\}/);
+  assert.match(roomHub, /disabled=\{Boolean\(reviewingMember\) \|\| isClosed\}[\s\S]{0,120}"승인"/);
+  assert.match(page, /<RoomHubModal[\s\S]{0,120}now=\{now\}/);
+});

@@ -1910,12 +1910,14 @@ function PoolModal({
 
 function RoomHubModal({
   roomId,
+  now,
   onClose,
   onChanged,
   onDeleted,
   onLeft,
 }: {
   roomId: string;
+  now: number;
   onClose: () => void;
   onChanged: () => void;
   onDeleted: () => void;
@@ -1952,6 +1954,9 @@ function RoomHubModal({
   const restaurant = room
     ? restaurants.find((item) => item.id === room.restaurantId)
     : undefined;
+  // Once the deadline passes the server refuses invites and approvals; the
+  // room stays readable (chat, receipt) for 30 days.
+  const isClosed = Boolean(room) && room!.closesAt <= now;
 
   useDialogLifecycle(roomDialogRef, onClose);
 
@@ -2210,7 +2215,11 @@ function RoomHubModal({
           <div>
             <span>PRIVATE ORDER ROOM</span>
             <h2>{restaurant?.name || "주문방"}</h2>
-            <p>{room ? `${room.pickupFull} · ${room.people}/${room.capacity}명` : "주문방 정보를 불러오는 중"}</p>
+            <p>
+              {room
+                ? `${room.pickupFull} · ${room.people}/${room.capacity}명 · ${isClosed ? "마감됨" : timeLeft(room.closesAt, now)}`
+                : "주문방 정보를 불러오는 중"}
+            </p>
           </div>
           <div className="room-hub-head-actions">
             {room?.isHost && (
@@ -2261,7 +2270,7 @@ function RoomHubModal({
               <div className="member-panel-head">
                 <div><strong>함께할 식구</strong><small>승인된 사람만 채팅 가능</small></div>
                 {room.isHost && (
-                  <button onClick={createInvite} disabled={creatingInvite}>
+                  <button onClick={createInvite} disabled={creatingInvite || isClosed}>
                     {creatingInvite ? "만드는 중…" : "초대 링크"}
                   </button>
                 )}
@@ -2291,7 +2300,7 @@ function RoomHubModal({
                         <span className="member-actions">
                           <button
                             onClick={() => review(member.member_ref!, "approve")}
-                            disabled={Boolean(reviewingMember)}
+                            disabled={Boolean(reviewingMember) || isClosed}
                           >
                             {reviewingMember === member.member_ref ? "처리 중" : "승인"}
                           </button>
@@ -3238,6 +3247,7 @@ export default function Home() {
       {roomHubId && (
         <RoomHubModal
           roomId={roomHubId}
+          now={now}
           onClose={() => setRoomHubId(null)}
           onChanged={() => void refreshRooms()}
           onDeleted={() => {

@@ -833,3 +833,25 @@ test("free-text fields are normalized: control and format characters stripped, c
   const messages = (await api.get(member, `?action=room&roomId=${roomId}`)).data.messages;
   assert.deepEqual(messages.map((m) => m.body), ["안녕하세요"]);
 });
+
+test("a missing room is 404 for join requests and a malformed member reference is 400, not a misleading 409", async () => {
+  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const api = await createApi();
+  const host = identity("host@dgist.ac.kr", "홍길동");
+  const member = identity("member@dgist.ac.kr", "김민수");
+  const ghost = "room_00000000-0000-4000-8000-000000000000";
+  assert.equal((await api.post(member, { action: "request_join", roomId: ghost })).status, 404);
+  assert.equal((await api.post(member, { action: "leave_room", roomId: ghost })).status, 404);
+
+  const { roomId } = (await api.post(host, {
+    action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 4, closesAt: closesIn(30),
+  })).data;
+  await api.post(member, { action: "request_join", roomId });
+  const ref = (await api.get(host, `?action=room&roomId=${roomId}`)).data.members.find((m) => m.status === "requested").member_ref;
+  const upper = ref.toUpperCase();
+  assert.notEqual(upper, ref);
+  const approve = await api.post(host, { action: "review_member", roomId, memberRef: upper, decision: "approve" });
+  assert.equal(approve.status, 400, `uppercase reference never matches the stored token; got ${approve.status} ${approve.data.error}`);
+  assert.equal((await api.post(host, { action: "remove_member", roomId, memberRef: upper })).status, 400);
+  assert.equal((await api.post(host, { action: "review_member", roomId, memberRef: ref, decision: "approve" })).status, 200);
+});

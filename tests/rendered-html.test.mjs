@@ -560,3 +560,17 @@ test("new chat messages scroll only the message list, and only when the reader i
   const sendMessage = page.slice(page.indexOf("const sendMessage = async"), page.indexOf("const openOrderEditor"));
   assert.match(sendMessage, /stickToBottomRef\.current = true/);
 });
+
+test("feed refreshes after room actions never reject unhandled, and an expired session in the room hub goes to sign-in", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const occurrences = (fragment) => page.split(fragment).length - 1;
+  const roomPost = page.slice(page.indexOf("const post = async"), page.indexOf("const review = async"));
+  const globalPost = page.slice(page.indexOf("const postAction = useCallback"), page.indexOf("const loadRooms = useCallback"));
+
+  assert.equal((page.match(/void loadRooms\(\)(?!\.catch)/g) || []).length, 0, "bare loadRooms() calls reject unhandled when bootstrap fails");
+  assert.match(page, /const refreshRooms = useCallback\(\(\) => loadRooms\(\)\.catch\(\(\) => undefined\), \[loadRooms\]\)/);
+  assert.ok(occurrences("refreshRooms()") >= 3, "onChanged, onDeleted, onLeft");
+  assert.match(page, /function redirectToSignIn\(\)/);
+  assert.match(roomPost, /response\.status === 401[\s\S]{0,80}redirectToSignIn\(\)/);
+  assert.match(globalPost, /response\.status === 401[\s\S]{0,80}signIn\(\)/);
+});

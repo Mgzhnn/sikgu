@@ -167,6 +167,12 @@ async function prepareReceiptUpload(file: File) {
   }
 }
 
+/** Sends the browser to the platform sign-in route and back to the current page. */
+function redirectToSignIn() {
+  const returnTo = `${window.location.pathname}${window.location.search}`;
+  window.location.assign(`/signin-with-chatgpt?return_to=${encodeURIComponent(returnTo)}`);
+}
+
 const fallbackErrorByStatus = (status: number) => {
   if (status === 401) return "로그인이 필요합니다.";
   if (status === 403) return "허용되지 않은 요청입니다.";
@@ -2009,6 +2015,10 @@ function RoomHubModal({
       body: JSON.stringify({ ...payload, roomId }),
     });
     const data = await readJson<{ token?: string }>(response);
+    if (response.status === 401) {
+      redirectToSignIn();
+      throw new Error("로그인이 필요합니다.");
+    }
     if (!response.ok) throw new Error(data.error || "요청을 처리하지 못했어요.");
     return data;
   };
@@ -2753,8 +2763,7 @@ export default function Home() {
   }, []);
 
   const signIn = useCallback(() => {
-    const returnTo = `${window.location.pathname}${window.location.search}`;
-    window.location.assign(`/signin-with-chatgpt?return_to=${encodeURIComponent(returnTo)}`);
+    redirectToSignIn();
   }, []);
 
   const postAction = useCallback(async (payload: Record<string, unknown>) => {
@@ -2795,6 +2804,10 @@ export default function Home() {
     }
     return data;
   }, []);
+
+  // Background refreshes after room actions: a failed bootstrap must not
+  // surface as an unhandled rejection; the next poll retries anyway.
+  const refreshRooms = useCallback(() => loadRooms().catch(() => undefined), [loadRooms]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30000);
@@ -3170,15 +3183,15 @@ export default function Home() {
         <RoomHubModal
           roomId={roomHubId}
           onClose={() => setRoomHubId(null)}
-          onChanged={() => void loadRooms()}
+          onChanged={() => void refreshRooms()}
           onDeleted={() => {
             setRoomHubId(null);
-            void loadRooms();
+            void refreshRooms();
             notify("주문방과 관련 기록을 모두 삭제했어요.", "success");
           }}
           onLeft={() => {
             setRoomHubId(null);
-            void loadRooms();
+            void refreshRooms();
             notify("주문방에서 나왔어요.", "success");
           }}
         />

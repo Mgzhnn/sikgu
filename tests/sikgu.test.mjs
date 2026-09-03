@@ -1156,3 +1156,29 @@ test("subdivision flag emoji survive text normalization while tag-only text stay
   assert.equal(cleanText(String.fromCodePoint(0xe0067, 0xe0062), 300), "", "tags with nothing visible are blank");
   assert.equal(cleanText(`안녕${String.fromCodePoint(0xe0067)}`, 300), `안녕${String.fromCodePoint(0xe0067)}`);
 });
+
+test("blank detection covers combining marks, every format character, and variation selectors, while joiners and marks in real text survive", async () => {
+  const { cleanText } = await import("../app/sikgu-rules.mjs");
+  const cp = (...codes) => String.fromCodePoint(...codes);
+  for (const [label, text] of [
+    ["combining acute only", cp(0x301, 0x301, 0x301)],
+    ["braille plus mark", cp(0x2800, 0x301)],
+    ["filler plus mark", cp(0x3164, 0x301)],
+    ["lone keycap", cp(0x20e3)],
+    ["variation selector supplement", cp(0xe0100, 0xe0100)],
+    ["deprecated format characters", cp(0x206a, 0x206b)],
+    ["musical format characters", cp(0x1d173, 0x1d17a)],
+    ["interlinear annotation", cp(0xfff9, 0xfffa, 0xfffb)],
+    ["joiners only", cp(0x200c, 0x200d)],
+    ["bidi marks only", cp(0x200e, 0x200f, 0x061c)],
+  ]) {
+    assert.equal(cleanText(text, 300), "", `${label} is blank`);
+  }
+  const family = cp(0x1f468, 0x200d, 0x1f469, 0x200d, 0x1f467);
+  assert.equal(cleanText(family, 300), family, "ZWJ emoji sequences survive");
+  const persian = "می" + cp(0x200c) + "خواهم";
+  assert.equal(cleanText(persian, 300), persian, "ZWNJ inside words survives");
+  assert.equal(cleanText("é" , 300), "é", "a base letter with its combining mark survives");
+  assert.equal(cleanText(cp(0x202e) + "abc", 300), "abc", "overrides are still removed");
+  assert.equal(cleanText("ab" + cp(0x206a) + "c", 300), "abc", "deprecated format characters inside text are removed");
+});

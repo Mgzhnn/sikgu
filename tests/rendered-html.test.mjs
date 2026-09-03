@@ -703,3 +703,25 @@ test("progress, chat updates, and errors are exposed to screen readers with the 
   assert.match(page, /className="campus-map-canvas" role="group" aria-label="DGIST 픽업 지점 지도"/);
   assert.doesNotMatch(page, /<div className="brand" aria-label/);
 });
+
+test("small controls get phone-sized hit areas and sheets do not scroll the page behind them", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  const dialogHook = page.slice(page.indexOf("function useDialogLifecycle"), page.indexOf("const appLabels"));
+
+  const hitAreaRule = css.slice(css.lastIndexOf(".search-box button::before"), css.indexOf("}", css.lastIndexOf(".search-box button::before")));
+  for (const selector of [".search-box button", ".restaurant-picker-search button", ".campus-map-preview-marker"]) {
+    assert.ok(hitAreaRule.includes(`${selector}::before`), `${selector} needs an enlarged hit area`);
+  }
+  assert.match(hitAreaRule, /inset: -10px/);
+  const overscrollRule = css.slice(css.lastIndexOf("\n\n", css.indexOf("overscroll-behavior: contain")), css.indexOf("overscroll-behavior: contain"));
+  for (const selector of [".room-hub-body", ".chat-messages", ".restaurant-picker-list", ".pool-modal", ".create-modal", ".campus-map-modal"]) {
+    assert.ok(overscrollRule.includes(selector), `${selector} must contain overscroll`);
+  }
+  assert.match(dialogHook, /document\.body\.style\.overflow = "hidden"/);
+  assert.match(dialogHook, /document\.body\.style\.position = "fixed"/);
+  assert.match(dialogHook, /document\.body\.style\.top = `-\$\{scrollY\}px`/);
+  assert.match(dialogHook, /window\.scrollTo\(0, scrollY\)/);
+});

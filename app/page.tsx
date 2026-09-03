@@ -225,8 +225,15 @@ function useDialogLifecycle(
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
     const dialog = dialogRef.current;
-    const previousOverflow = document.body.style.overflow;
+    const { overflow: previousOverflow, position: previousPosition, top: previousTop, width: previousWidth } = document.body.style;
+    const scrollY = window.scrollY;
     document.body.style.overflow = "hidden";
+    // iOS Safari ignores overflow: hidden for touch scrolling; pinning the body
+    // at the current scroll offset is what actually stops the feed behind the
+    // sheet from moving.
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
     window.requestAnimationFrame(() => {
       dialog?.querySelector<HTMLElement>(dialogFocusableSelector)?.focus();
     });
@@ -263,6 +270,10 @@ function useDialogLifecycle(
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
+      document.body.style.position = previousPosition;
+      document.body.style.top = previousTop;
+      document.body.style.width = previousWidth;
+      window.scrollTo(0, scrollY);
       previouslyFocused?.focus();
     };
   }, [dialogRef]);

@@ -64,3 +64,29 @@ export function isRestaurantId(value) {
 export function isPickupId(value) {
   return typeof value === "string" && Object.hasOwn(pickupFullNames, value);
 }
+
+// C0/C1 controls except tab, newline, carriage return; zero-width and bidi
+// format characters that can hide text or reverse its reading direction.
+const disallowedTextCharacters =
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
+
+/**
+ * Normalizes user-entered free text (room notes, chat messages): only strings
+ * are accepted, NFC-normalized, control and format characters removed, line
+ * endings unified, trimmed, and truncated by code point so an emoji is never
+ * cut in half. Returns "" for anything that has no visible character.
+ *
+ * @param {unknown} value
+ * @param {number} maxCharacters
+ * @returns {string}
+ */
+export function cleanText(value, maxCharacters) {
+  if (typeof value !== "string") return "";
+  const normalized = value
+    .normalize("NFC")
+    .replace(disallowedTextCharacters, "")
+    .replace(/\r\n?/g, "\n")
+    .trim();
+  if (!normalized) return "";
+  return Array.from(normalized).slice(0, maxCharacters).join("");
+}

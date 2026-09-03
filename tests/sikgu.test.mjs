@@ -787,3 +787,49 @@ test("malformed request bodies are rejected with 400 instead of becoming server 
     console.error = originalError;
   }
 });
+
+test("free-text fields are normalized: control and format characters stripped, code-point bounded, never blank", async () => {
+  const { cleanText } = await import("../app/sikgu-rules.mjs");
+  const rlo = String.fromCodePoint(0x202e);
+  const pdf = String.fromCodePoint(0x202c);
+  const zwsp = String.fromCodePoint(0x200b);
+  const nul = String.fromCodePoint(0);
+  const emoji = String.fromCodePoint(0x1f600);
+  assert.equal(cleanText("  안녕하세요  ", 300), "안녕하세요");
+  assert.equal(cleanText(`${rlo}ABC 무료 배달${pdf}`, 300), "ABC 무료 배달", "bidi overrides are removed");
+  assert.equal(cleanText(zwsp, 300), "", "zero-width-only text counts as empty");
+  assert.equal(cleanText(`a${nul}bc`, 300), "abc", "C0 controls are removed");
+  assert.equal(cleanText("line1\r\nline2\tx", 300), "line1\nline2\tx", "newlines and tabs survive");
+  assert.equal(cleanText("a".repeat(299) + emoji + emoji, 300), "a".repeat(299) + emoji, "truncation counts code points");
+  assert.equal(cleanText("a".repeat(299) + emoji, 300).isWellFormed(), true);
+  assert.equal(cleanText({}, 300), "");
+  assert.equal(cleanText(["x"], 300), "");
+  assert.equal(cleanText(12, 300), "");
+
+  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const api = await createApi();
+  const host = identity("host@dgist.ac.kr", "홍길동");
+  const member = identity("member@dgist.ac.kr", "김민수");
+  const room = (note) => api.post(host, {
+    action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 4, closesAt: closesIn(30), note,
+  });
+  const emojiNote = "a".repeat(299) + emoji;
+  const { roomId } = (await room(emojiNote)).data;
+  await room("   ");
+  await room({ a: 1 });
+  await room(`${rlo}거꾸로${pdf}`);
+  const feed = (await api.get(undefined, "?action=bootstrap")).data.rooms;
+  const notes = feed.map((pool) => pool.note);
+  assert.ok(notes.includes(emojiNote), "an emoji at the boundary is kept whole");
+  assert.ok(notes.every((note) => note.isWellFormed()));
+  assert.equal(notes.filter((note) => note === "같이 맛있게 먹어요!").length, 2, "blank and non-string notes fall back to the default");
+  assert.ok(notes.includes("거꾸로"));
+
+  await api.post(member, { action: "request_join", roomId });
+  const ref = (await api.get(host, `?action=room&roomId=${roomId}`)).data.members.find((m) => m.status === "requested").member_ref;
+  await api.post(host, { action: "review_member", roomId, memberRef: ref, decision: "approve" });
+  assert.equal((await api.post(member, { action: "send_message", roomId, body: zwsp })).status, 400, "a zero-width-only message is empty");
+  assert.equal((await api.post(member, { action: "send_message", roomId, body: `안녕${zwsp}하세요` })).status, 201);
+  const messages = (await api.get(member, `?action=room&roomId=${roomId}`)).data.messages;
+  assert.deepEqual(messages.map((m) => m.body), ["안녕하세요"]);
+});

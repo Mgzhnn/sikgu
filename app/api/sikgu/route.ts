@@ -8,6 +8,7 @@ import {
   validateReceiptImageData,
 } from "../../receipt-image.mjs";
 import {
+  cleanText,
   isPickupId,
   isRestaurantId,
   parseDeliveryApps,
@@ -1077,7 +1078,7 @@ export async function POST(request: Request) {
           target,
           capacity,
           membership,
-          String(payload.note || "같이 맛있게 먹어요!").slice(0, 300),
+          cleanText(payload.note, 300) || "같이 맛있게 먹어요!",
           now,
           auth.email,
           now,
@@ -1333,7 +1334,7 @@ export async function POST(request: Request) {
       if (Number(membership.closes_at) < Date.now() - recentRoomWindowMs) {
         return json({ error: "보관 기간이 지난 주문방에는 메시지를 보낼 수 없습니다." }, 410);
       }
-      const body = String(payload.body || "").trim().slice(0, 1000);
+      const body = cleanText(payload.body, 1000);
       if (!body) return json({ error: "메시지를 입력해 주세요." }, 400);
       const now = Date.now();
       const recentMessages = await env.DB.prepare(`

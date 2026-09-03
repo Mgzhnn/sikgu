@@ -15,6 +15,7 @@ import {
   pickupFullNames,
   restaurantMinimums,
   roomCapacities,
+  roomDurations,
 } from "../../sikgu-rules.mjs";
 
 export const dynamic = "force-dynamic";
@@ -1047,7 +1048,7 @@ export async function POST(request: Request) {
       const apps = parseDeliveryApps(payload.apps);
       const restaurantId = String(payload.restaurantId || "");
       const pickup = String(payload.pickup || "");
-      const closesAt = Number(payload.closesAt);
+      const minutes = Number(payload.minutes);
       const membership = payload.membership === "baemin" || payload.membership === "coupang"
         ? payload.membership
         : "";
@@ -1057,9 +1058,16 @@ export async function POST(request: Request) {
       if (!roomCapacities.includes(capacity)) {
         return json({ error: "모집 인원은 2명부터 8명까지 선택할 수 있습니다." }, 400);
       }
-      if (!Number.isSafeInteger(closesAt) || closesAt < now + 5 * 60 * 1000 || closesAt > now + 60 * 60 * 1000) {
-        return json({ error: "모집 마감 시간은 지금부터 5분~60분 사이여야 합니다." }, 400);
+      // The deadline is computed here from the shared preset list: a client
+      // timestamp would tie the room's life to the phone's clock (a fast
+      // clock rejected valid presets, a slow one shortened every room) and
+      // let a hand-crafted request pick any length.
+      if (!roomDurations.includes(minutes)) {
+        return json({
+          error: `모집 시간은 ${roomDurations.map((value) => `${value}분`).join(", ")} 중에서 선택할 수 있습니다.`,
+        }, 400);
       }
+      const closesAt = now + minutes * 60 * 1000;
       if (membership && !apps.includes(membership)) {
         return json({ error: "선택한 주문 앱과 무료배달 멤버십이 일치하지 않습니다." }, 400);
       }

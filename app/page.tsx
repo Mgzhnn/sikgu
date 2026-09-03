@@ -3079,7 +3079,7 @@ export default function Home() {
         restaurantId: values.restaurantId,
         pickup: point.id,
         apps: values.apps,
-        closesAt: Date.now() + values.minutes * 60 * 1000,
+        minutes: values.minutes,
         capacity: values.capacity,
         membership: values.membership,
         note: "같이 맛있게 먹어요!",

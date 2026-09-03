@@ -1109,7 +1109,8 @@ export async function POST(request: Request) {
       const room = await env.DB.prepare(
         "SELECT capacity, status, closes_at FROM rooms WHERE id = ?",
       ).bind(id).first<{ capacity: number; status: string; closes_at: number }>();
-      if (!room || room.status !== "open" || room.closes_at <= Date.now()) {
+      if (!room) return json({ error: "주문방을 찾을 수 없습니다." }, 404);
+      if (room.status !== "open" || room.closes_at <= Date.now()) {
         return json({ error: "참여할 수 없는 주문방입니다." }, 409);
       }
       if (await approvedCount(id) >= room.capacity) {
@@ -1137,7 +1138,7 @@ export async function POST(request: Request) {
     if (action === "review_member") {
       if (room.host_email !== auth.email) return json({ error: "방장만 참여자를 선택할 수 있습니다." }, 403);
       const memberRef = String(payload.memberRef || "");
-      if (!/^[a-f0-9]{32,48}$/i.test(memberRef)) {
+      if (!/^[a-f0-9]{32,48}$/.test(memberRef)) {
         return json({ error: "참여자 정보를 확인해 주세요." }, 400);
       }
       const decision = String(payload.decision || "");
@@ -1191,7 +1192,7 @@ export async function POST(request: Request) {
     if (action === "remove_member") {
       if (room.host_email !== auth.email) return json({ error: "방장만 참여자를 내보낼 수 있습니다." }, 403);
       const memberRef = String(payload.memberRef || "");
-      if (!/^[a-f0-9]{32,48}$/i.test(memberRef)) {
+      if (!/^[a-f0-9]{32,48}$/.test(memberRef)) {
         return json({ error: "참여자 정보를 확인해 주세요." }, 400);
       }
       // Blocking closes the unattended path only: the removed member can still

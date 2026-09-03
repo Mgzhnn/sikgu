@@ -725,3 +725,10 @@ test("small controls get phone-sized hit areas and sheets do not scroll the page
   assert.match(dialogHook, /document\.body\.style\.top = `-\$\{scrollY\}px`/);
   assert.match(dialogHook, /window\.scrollTo\(0, scrollY\)/);
 });
+
+test("JavaScript-driven scrolling respects the reduced-motion preference", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /const prefersReducedMotion = \(\) =>[\s\S]{0,120}matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches/);
+  assert.match(page, /window\.scrollTo\(\{ top: 0, behavior: prefersReducedMotion\(\) \? "auto" : "smooth" \}\)/);
+  assert.doesNotMatch(page, /behavior: "smooth"/);
+});

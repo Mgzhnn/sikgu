@@ -229,6 +229,9 @@ function useDialogLifecycle(
     });
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Escape during Korean/Japanese IME composition cancels the candidate,
+      // not the dialog; closing here would discard the chat draft.
+      if (event.isComposing || event.keyCode === 229) return;
       if (event.key === "Escape") {
         event.preventDefault();
         onCloseRef.current();
@@ -816,6 +819,7 @@ function LocationPicker({
       if (target && !rootRef.current?.contains(target)) setOpen(false);
     };
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing || event.keyCode === 229) return;
       if (event.key !== "Escape") return;
       event.preventDefault();
       setOpen(false);
@@ -1136,6 +1140,7 @@ function HomeView({
       if (target && !filterAnchorRef.current?.contains(target)) setFilterOpen(false);
     };
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing || event.keyCode === 229) return;
       if (event.key !== "Escape") return;
       event.preventDefault();
       setFilterOpen(false);
@@ -1817,6 +1822,7 @@ function PoolModal({
   const eachFee = hasFreeDelivery ? 0 : Math.ceil(fee / Math.max(pool.people, 1));
   const appNames = pool.apps.map((app) => appLabels[app].name).join(" · ");
   const membershipName = membershipApp ? appLabels[membershipApp].membership : "";
+  const isFull = !pool.isHost && pool.myStatus !== "approved" && pool.people >= pool.capacity;
 
   return (
     <div className="overlay centered" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
@@ -1879,7 +1885,7 @@ function PoolModal({
                 setJoining(false);
               }
             }}
-            disabled={pool.myStatus === "requested" || joining}
+            disabled={pool.myStatus === "requested" || joining || isFull}
           >
             {joining
               ? "처리 중…"
@@ -1889,9 +1895,11 @@ function PoolModal({
                 ? "채팅방 열기"
                 : pool.myStatus === "requested"
                   ? "방장 승인 대기 중"
-                  : ready
-                    ? "참여 신청하기"
-                    : "이 주문에 참여 신청"}
+                  : isFull
+                    ? "정원 마감"
+                    : ready
+                      ? "참여 신청하기"
+                      : "이 주문에 참여 신청"}
           </button>
         </div>
       </section>

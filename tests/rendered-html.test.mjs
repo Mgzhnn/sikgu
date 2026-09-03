@@ -574,3 +574,18 @@ test("feed refreshes after room actions never reject unhandled, and an expired s
   assert.match(roomPost, /response\.status === 401[\s\S]{0,80}redirectToSignIn\(\)/);
   assert.match(globalPost, /response\.status === 401[\s\S]{0,80}signIn\(\)/);
 });
+
+test("the pool dialog disables joining a full room and Escape is ignored mid-IME-composition", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const poolModal = page.slice(page.indexOf("function PoolModal"), page.indexOf("function RoomHubModal"));
+  const dialogHook = page.slice(page.indexOf("function useDialogLifecycle"), page.indexOf("const appLabels"));
+  const locationPicker = page.slice(page.indexOf("function LocationPicker"), page.indexOf("function RestaurantMark"));
+  const homeView = page.slice(page.indexOf("function HomeView"), page.indexOf("function RestaurantsView"));
+
+  assert.match(poolModal, /const isFull = !pool\.isHost && pool\.myStatus !== "approved" && pool\.people >= pool\.capacity/);
+  assert.match(poolModal, /disabled=\{pool\.myStatus === "requested" \|\| joining \|\| isFull\}/);
+  assert.match(poolModal, /isFull[\s\S]{0,40}"정원 마감"/);
+  for (const [name, source] of [["dialog hook", dialogHook], ["location picker", locationPicker], ["home filter", homeView]]) {
+    assert.match(source, /event\.isComposing \|\| event\.keyCode === 229/, `${name} must ignore Escape during composition`);
+  }
+});

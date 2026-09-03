@@ -751,3 +751,39 @@ test("a member the host removed or rejected cannot re-enter through an invite li
   assert.equal((await api.post(host, { action: "review_member", roomId, memberRef: await memberRef("김민수"), decision: "approve" })).status, 200, "and the host can explicitly approve them");
   assert.equal((await api.get(kicked, `?action=room&roomId=${roomId}`)).status, 200);
 });
+
+test("malformed request bodies are rejected with 400 instead of becoming server errors", async () => {
+  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const api = await createApi();
+  const host = identity("host@dgist.ac.kr", "홍길동");
+  const errors = [];
+  const originalError = console.error;
+  console.error = (...args) => errors.push(args);
+  try {
+    for (const body of ["null", "[]", '"create_room"', "5", "{bad", "{\"action\":\"create_room\"", ""]) {
+      const response = await api.call("POST", host, { body: body === "" ? "{}" : body });
+      if (body === "") continue;
+      assert.equal(response.status, 400, `body ${JSON.stringify(body)} must be a client error`);
+      assert.equal(typeof response.data.error, "string");
+      assert.equal(response.data.reference, undefined, "no server-error reference for a client mistake");
+    }
+    const created = await api.post(host, {
+      action: "create_room",
+      restaurantId: "sinjeon",
+      pickup: "E1",
+      apps: ["baemin"],
+      capacity: 4,
+      closesAt: closesIn(30),
+    });
+    const roomId = created.data.roomId;
+    const jsonPut = await api.call("PUT", host, {
+      query: `?action=update_order_info&roomId=${roomId}`,
+      body: { orderTotal: 1 },
+    });
+    assert.ok([400, 415].includes(jsonPut.status), `a JSON body on the multipart endpoint got ${jsonPut.status}`);
+    assert.equal(jsonPut.data.reference, undefined);
+    assert.equal(errors.length, 0, `nothing should be logged as a server error: ${JSON.stringify(errors.map(String))}`);
+  } finally {
+    console.error = originalError;
+  }
+});

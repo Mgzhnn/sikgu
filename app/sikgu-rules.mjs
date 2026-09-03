@@ -71,14 +71,16 @@ export function isPickupId(value) {
 // C0/C1 controls except tab, newline, carriage return; zero-width and bidi
 // format characters; and characters that render as nothing on their own
 // (Hangul fillers, soft hyphen, combining grapheme joiner, Mongolian vowel
-// separator, Arabic letter mark, tag characters), all of which can hide text
-// or reverse its reading direction.
+// separator, Arabic letter mark), all of which can hide text or reverse its
+// reading direction. Tag characters (U+E0000-E007F) are deliberately kept:
+// they spell subdivision flags such as the Scotland flag emoji.
 const disallowedTextCharacters =
-  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u00AD\u034F\u061C\u115F\u1160\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\u3164\uFEFF\uFFA0]|[\u{E0000}-\u{E007F}]/gu;
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u00AD\u034F\u061C\u115F\u1160\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\u3164\uFEFF\uFFA0]/gu;
 
 // Characters that survive the filter but still render as nothing when they
-// are all there is: braille blank, variation selectors, whitespace.
-const blankCharacters = /^[\s\u2800\uFE00-\uFE0F]*$/u;
+// are all there is: braille blank, variation selectors, tag characters,
+// whitespace.
+const blankCharacters = /^(?:[\s\u2800\uFE00-\uFE0F]|[\u{E0000}-\u{E007F}])*$/u;
 
 /**
  * Normalizes user-entered free text (room notes, chat messages, display

@@ -798,3 +798,10 @@ test("the composer is cleared when the message is sent and the draft comes back 
   // A corrupted pending-invite entry must not surface as an English parse error.
   assert.match(initialize, /let pendingInvite: \{ roomId\?: string; token\?: string; createdAt\?: number \} = \{\};[\s\S]{0,80}try \{[\s\S]{0,120}JSON\.parse\(pendingInviteRaw\)/);
 });
+
+test("a stored invite entry that parses to null is ignored like any other corrupt entry", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const initialize = page.slice(page.indexOf("const initialize = async"), page.indexOf("void initialize()"));
+  assert.match(initialize, /const parsed: unknown = JSON\.parse\(pendingInviteRaw\);\s*if \(parsed && typeof parsed === "object"\) pendingInvite = parsed as typeof pendingInvite;/);
+  assert.doesNotMatch(initialize, /pendingInvite = JSON\.parse\(pendingInviteRaw\) as typeof pendingInvite;/);
+});

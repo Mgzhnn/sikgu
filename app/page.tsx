@@ -2994,7 +2994,8 @@ export default function Home() {
         if (pendingInviteRaw && data.user) {
           let pendingInvite: { roomId?: string; token?: string; createdAt?: number } = {};
           try {
-            pendingInvite = JSON.parse(pendingInviteRaw) as typeof pendingInvite;
+            const parsed: unknown = JSON.parse(pendingInviteRaw);
+            if (parsed && typeof parsed === "object") pendingInvite = parsed as typeof pendingInvite;
           } catch {
             // A corrupted entry is simply not resumed.
           }

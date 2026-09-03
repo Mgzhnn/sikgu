@@ -253,7 +253,7 @@ test("persists rooms, approvals, invitations, and private chat in D1", async () 
   assert.match(api, /my_status !== "approved"/);
   assert.match(api, /방장만 참여자를 선택할 수 있습니다/);
   assert.match(api, /승인된 구성원만 채팅할 수 있습니다/);
-  assert.match(api, /\.trim\(\)\.slice\(0, 1000\)/);
+  assert.match(api, /cleanText\(payload\.body, 1000\)/);
   assert.match(api, /ORDER BY created_at DESC[\s\S]*LIMIT 200[\s\S]*ORDER BY created_at ASC/);
 });
 

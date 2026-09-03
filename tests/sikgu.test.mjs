@@ -909,3 +909,9 @@ test("an empty or malformed identity header is anonymous, and anonymous viewers 
   assert.deepEqual([asHost.isHost, asHost.pendingCount], [true, 1]);
 });
 
+test("the build plugin that packages hosting metadata is linted like the rest of the source", async () => {
+  const eslintConfig = await readFile(new URL("eslint.config.mjs", root), "utf8");
+  assert.doesNotMatch(eslintConfig, /"build\/\*\*"/, "build/ holds source here (the Sites Vite plugin), not output");
+  assert.match(eslintConfig, /"!build\/\*\*"/, "eslint-config-next ignores build/** itself, so it must be re-included");
+  assert.match(eslintConfig, /\.next\/\*\*/);
+});

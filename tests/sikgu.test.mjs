@@ -117,9 +117,9 @@ test("server derives room data from allowlists and bounds every request before p
   assert.match(createRoom, /parseDeliveryApps\(payload\.apps\)/);
   assert.match(createRoom, /!isRestaurantId\(restaurantId\) \|\| !isPickupId\(pickup\) \|\| !apps\.length/);
   assert.match(createRoom, /!roomCapacities\.includes\(capacity\)/);
-  assert.match(createRoom, /!Number\.isSafeInteger\(closesAt\)/);
-  assert.match(createRoom, /closesAt < now \+ 5 \* 60 \* 1000/);
-  assert.match(createRoom, /closesAt > now \+ 60 \* 60 \* 1000/);
+  assert.match(createRoom, /!roomDurations\.includes\(minutes\)/);
+  assert.match(createRoom, /const closesAt = now \+ minutes \* 60 \* 1000/);
+  assert.doesNotMatch(createRoom, /payload\.closesAt/);
   assert.match(createRoom, /membership && !apps\.includes\(membership\)/);
   assert.match(createRoom, /pickupFullNames\[pickup\]/);
   assert.match(createRoom, /restaurantMinimums\[restaurantId\]\[app\]/);
@@ -584,7 +584,7 @@ test("the mutation-lock migration preserves existing rooms", async () => {
 });
 
 test("the per-host open-room limit holds under concurrent create_room requests", async () => {
-  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const { createApi, identity } = await import("./helpers/api-harness.mjs");
   const api = await createApi();
   const host = identity("host@dgist.ac.kr", "홍길동");
   const create = () => api.post(host, {
@@ -593,7 +593,7 @@ test("the per-host open-room limit holds under concurrent create_room requests",
     pickup: "E1",
     apps: ["baemin"],
     capacity: 4,
-    closesAt: closesIn(30),
+    minutes: 30,
   });
 
   for (let index = 0; index < 4; index += 1) assert.equal((await create()).status, 201);
@@ -643,7 +643,7 @@ async function tinyPng(width = 4, height = 4) {
 }
 
 test("a receipt upload without an R2 binding fails cleanly and releases the room's mutation lock", async () => {
-  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const { createApi, identity } = await import("./helpers/api-harness.mjs");
   const api = await createApi({ uploads: null });
   const host = identity("host@dgist.ac.kr", "홍길동");
   const created = await api.post(host, {
@@ -652,7 +652,7 @@ test("a receipt upload without an R2 binding fails cleanly and releases the room
     pickup: "E1",
     apps: ["baemin"],
     capacity: 4,
-    closesAt: closesIn(30),
+    minutes: 30,
   });
   assert.equal(created.status, 201);
   const roomId = created.data.roomId;
@@ -677,7 +677,7 @@ test("a receipt upload without an R2 binding fails cleanly and releases the room
 });
 
 test("a host can still reject or remove a pending requester after the room's deadline has passed", async () => {
-  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const { createApi, identity } = await import("./helpers/api-harness.mjs");
   const api = await createApi();
   const host = identity("host@dgist.ac.kr", "홍길동");
   const early = identity("early@dgist.ac.kr", "김민수");
@@ -688,7 +688,7 @@ test("a host can still reject or remove a pending requester after the room's dea
     pickup: "E1",
     apps: ["baemin"],
     capacity: 4,
-    closesAt: closesIn(30),
+    minutes: 30,
   });
   const roomId = created.data.roomId;
   assert.equal((await api.post(early, { action: "request_join", roomId })).status, 200);
@@ -713,7 +713,7 @@ test("a host can still reject or remove a pending requester after the room's dea
 });
 
 test("a member the host removed or rejected cannot re-enter through an invite link, but may request again", async () => {
-  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const { createApi, identity } = await import("./helpers/api-harness.mjs");
   const api = await createApi();
   const host = identity("host@dgist.ac.kr", "홍길동");
   const kicked = identity("kicked@dgist.ac.kr", "김민수");
@@ -725,7 +725,7 @@ test("a member the host removed or rejected cannot re-enter through an invite li
     pickup: "E1",
     apps: ["baemin"],
     capacity: 5,
-    closesAt: closesIn(30),
+    minutes: 30,
   });
   const roomId = created.data.roomId;
   const invite = (await api.post(host, { action: "create_invite", roomId })).data.token;
@@ -753,7 +753,7 @@ test("a member the host removed or rejected cannot re-enter through an invite li
 });
 
 test("malformed request bodies are rejected with 400 instead of becoming server errors", async () => {
-  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const { createApi, identity } = await import("./helpers/api-harness.mjs");
   const api = await createApi();
   const host = identity("host@dgist.ac.kr", "홍길동");
   const errors = [];
@@ -773,7 +773,7 @@ test("malformed request bodies are rejected with 400 instead of becoming server 
       pickup: "E1",
       apps: ["baemin"],
       capacity: 4,
-      closesAt: closesIn(30),
+      minutes: 30,
     });
     const roomId = created.data.roomId;
     const jsonPut = await api.call("PUT", host, {
@@ -806,12 +806,12 @@ test("free-text fields are normalized: control and format characters stripped, c
   assert.equal(cleanText(["x"], 300), "");
   assert.equal(cleanText(12, 300), "");
 
-  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const { createApi, identity } = await import("./helpers/api-harness.mjs");
   const api = await createApi();
   const host = identity("host@dgist.ac.kr", "홍길동");
   const member = identity("member@dgist.ac.kr", "김민수");
   const room = (note) => api.post(host, {
-    action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 4, closesAt: closesIn(30), note,
+    action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 4, minutes: 30, note,
   });
   const emojiNote = "a".repeat(299) + emoji;
   const { roomId } = (await room(emojiNote)).data;
@@ -835,7 +835,7 @@ test("free-text fields are normalized: control and format characters stripped, c
 });
 
 test("a missing room is 404 for join requests and a malformed member reference is 400, not a misleading 409", async () => {
-  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const { createApi, identity } = await import("./helpers/api-harness.mjs");
   const api = await createApi();
   const host = identity("host@dgist.ac.kr", "홍길동");
   const member = identity("member@dgist.ac.kr", "김민수");
@@ -844,7 +844,7 @@ test("a missing room is 404 for join requests and a malformed member reference i
   assert.equal((await api.post(member, { action: "leave_room", roomId: ghost })).status, 404);
 
   const { roomId } = (await api.post(host, {
-    action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 4, closesAt: closesIn(30),
+    action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 4, minutes: 30,
   })).data;
   await api.post(member, { action: "request_join", roomId });
   const ref = (await api.get(host, `?action=room&roomId=${roomId}`)).data.members.find((m) => m.status === "requested").member_ref;
@@ -857,12 +857,12 @@ test("a missing room is 404 for join requests and a malformed member reference i
 });
 
 test("the invite cap and the chat rate limit hold under concurrent requests", async () => {
-  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const { createApi, identity } = await import("./helpers/api-harness.mjs");
   const api = await createApi();
   const host = identity("host@dgist.ac.kr", "홍길동");
   const member = identity("member@dgist.ac.kr", "김민수");
   const { roomId } = (await api.post(host, {
-    action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 8, closesAt: closesIn(30),
+    action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 8, minutes: 30,
   })).data;
 
   for (let index = 0; index < 4; index += 1) assert.equal((await api.post(host, { action: "create_invite", roomId })).status, 200);
@@ -879,13 +879,13 @@ test("the invite cap and the chat rate limit hold under concurrent requests", as
 });
 
 test("an empty or malformed identity header is anonymous, and anonymous viewers never look like a host or see pending counts", async () => {
-  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const { createApi, identity } = await import("./helpers/api-harness.mjs");
   const api = await createApi();
   const host = identity("  Host@DGIST.ac.kr ", "홍길동");
   const member = identity("member@dgist.ac.kr", "김민수");
   const nbsp = identity(String.fromCodePoint(0xa0), "Nobody");
   const notAnEmail = identity("just-a-name", "Nobody");
-  const room = { action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 4, closesAt: closesIn(30) };
+  const room = { action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 4, minutes: 30 };
 
   assert.equal((await api.post(nbsp, room)).status, 401, "a whitespace-only email header is not an identity");
   assert.equal((await api.post(notAnEmail, room)).status, 401, "an email header without @ is not an identity");
@@ -917,11 +917,11 @@ test("the build plugin that packages hosting metadata is linted like the rest of
 });
 
 test("the estimated arrival must be a real calendar time, not one that Date.parse silently rolls over", async () => {
-  const { createApi, identity, closesIn } = await import("./helpers/api-harness.mjs");
+  const { createApi, identity } = await import("./helpers/api-harness.mjs");
   const api = await createApi();
   const host = identity("host@dgist.ac.kr", "홍길동");
   const { roomId } = (await api.post(host, {
-    action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 4, closesAt: closesIn(30),
+    action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 4, minutes: 30,
   })).data;
   const put = (estimatedArrival) => api.call("PUT", host, {
     query: `?action=update_order_info&roomId=${roomId}`,
@@ -934,4 +934,26 @@ test("the estimated arrival must be a real calendar time, not one that Date.pars
   assert.equal((await put("")).status, 200, "clearing the time is allowed");
   assert.equal((await put("2026-09-03T18:30")).status, 200);
   assert.equal(api.sql("SELECT estimated_arrival FROM rooms WHERE id = ?", roomId)[0].estimated_arrival, "2026-09-03T18:30");
+});
+
+test("the room deadline comes from the shared duration rule on the server, never from the phone's clock", async () => {
+  const { createApi, identity } = await import("./helpers/api-harness.mjs");
+  const api = await createApi();
+  const host = identity("host@dgist.ac.kr", "홍길동");
+  const base = { action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 4 };
+
+  const before = Date.now();
+  const created = await api.post(host, { ...base, minutes: 45 });
+  assert.equal(created.status, 201);
+  const closesAt = api.sql("SELECT closes_at FROM rooms WHERE id = ?", created.data.roomId)[0].closes_at;
+  assert.ok(closesAt >= before + 45 * 60 * 1000 && closesAt <= Date.now() + 45 * 60 * 1000, "deadline is server time plus the preset");
+
+  assert.equal((await api.post(host, { ...base, minutes: "30" })).status, 201, "a numeric string is fine");
+  for (const bad of [{ minutes: 59 }, { minutes: 5 }, { minutes: 0 }, { minutes: "45분" }, {}]) {
+    const response = await api.post(host, { ...base, ...bad });
+    assert.equal(response.status, 400, `${JSON.stringify(bad)} must be rejected`);
+    assert.match(response.data.error, /20분, 30분, 45분/);
+  }
+  const skewed = await api.post(host, { ...base, closesAt: Date.now() + 59 * 60 * 1000 });
+  assert.equal(skewed.status, 400, "a client-computed deadline is no longer accepted");
 });

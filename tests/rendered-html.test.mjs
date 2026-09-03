@@ -630,3 +630,10 @@ test("the anonymous placeholder name survives re-masking on the client", () => {
   // Ordinary three-syllable names are still masked in the middle.
   assert.equal(maskDisplayName("사용재"), "사*재");
 });
+
+test("the create dialog sends the chosen preset, not a deadline computed from the device clock", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const handleCreate = page.slice(page.indexOf("const handleCreate = async"), page.indexOf("const retryBootstrap"));
+  assert.match(handleCreate, /minutes: values\.minutes/);
+  assert.doesNotMatch(handleCreate, /closesAt/);
+});

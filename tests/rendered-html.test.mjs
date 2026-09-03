@@ -732,3 +732,12 @@ test("JavaScript-driven scrolling respects the reduced-motion preference", async
   assert.match(page, /window\.scrollTo\(\{ top: 0, behavior: prefersReducedMotion\(\) \? "auto" : "smooth" \}\)/);
   assert.doesNotMatch(page, /behavior: "smooth"/);
 });
+
+test("the invite card states the validity the API actually returned", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const roomHub = page.slice(page.indexOf("function RoomHubModal"), page.indexOf("function CreateModal"));
+  assert.match(roomHub, /const \[inviteHours, setInviteHours\] = useState\(24\)/);
+  assert.match(roomHub, /setInviteHours\(typeof data\.expiresInHours === "number" \? data\.expiresInHours : 24\)/);
+  assert.match(roomHub, /\{inviteHours\}시간 동안 사용할 수 있어요\./);
+  assert.doesNotMatch(roomHub, /24시간 동안 사용할 수 있어요/);
+});

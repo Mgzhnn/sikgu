@@ -1120,3 +1120,31 @@ test("fields that should be strings or numbers never reach String()/Number() on 
     console.error = originalError;
   }
 });
+
+test("display names are normalized and bounded, and invisible-only text never counts as visible", async () => {
+  const { cleanText, maxDisplayNameCharacters } = await import("../app/sikgu-rules.mjs");
+  assert.equal(maxDisplayNameCharacters, 40);
+  const blanks = [0x3164, 0x115f, 0x1160, 0xffa0, 0x00ad, 0x2800, 0x034f, 0x061c, 0x180e, 0xe0001, 0xfe0f];
+  for (const code of blanks) {
+    assert.equal(cleanText(String.fromCodePoint(code).repeat(3), 300), "", `U+${code.toString(16)} only is blank`);
+  }
+  assert.equal(cleanText(`안녕${String.fromCodePoint(0x3164)}하세요`, 300), "안녕하세요", "Hangul filler is removed inside text");
+  assert.equal(cleanText(`\u{1F44D}${String.fromCodePoint(0xfe0f)}`, 300), `\u{1F44D}${String.fromCodePoint(0xfe0f)}`, "variation selectors on real characters survive");
+
+  const { createApi, identity } = await import("./helpers/api-harness.mjs");
+  const api = await createApi();
+  const rlo = String.fromCodePoint(0x202e);
+  const attacker = identity("attacker@dgist.ac.kr", `${rlo}김민수`);
+  const longName = identity("long@dgist.ac.kr", "가".repeat(1500));
+  const base = { action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 4, minutes: 30 };
+  assert.equal((await api.post(attacker, base)).status, 201);
+  assert.equal((await api.post(longName, base)).status, 201);
+  const hosts = (await api.get(undefined, "?action=bootstrap")).data.rooms.map((pool) => pool.host);
+  for (const host of hosts) {
+    assert.ok(!host.includes(rlo), "bidi overrides never reach the feed");
+    assert.ok(Array.from(host).length <= maxDisplayNameCharacters, `feed host name of ${Array.from(host).length} code points`);
+  }
+  for (const row of api.sql("SELECT host_name FROM rooms")) {
+    assert.ok(Array.from(row.host_name).length <= maxDisplayNameCharacters);
+  }
+});

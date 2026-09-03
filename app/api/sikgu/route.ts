@@ -12,6 +12,7 @@ import {
   isPickupId,
   isRestaurantId,
   maxChatMessageCharacters,
+  maxDisplayNameCharacters,
   maxRoomNoteCharacters,
   parseDeliveryApps,
   pickupFullNames,
@@ -196,7 +197,11 @@ function contentLength(request: Request) {
 }
 
 async function displayName(user: { email: string; fullName: string | null; displayName: string }) {
-  const candidate = user.fullName?.trim() || user.displayName?.trim() || "";
+  // The platform name is attacker-controlled (their own profile): strip the
+  // same control and format characters as any other text and bound it, since
+  // it is copied into every room, member, and message row the user touches.
+  const candidate = cleanText(user.fullName, maxDisplayNameCharacters)
+    || cleanText(user.displayName, maxDisplayNameCharacters);
   if (candidate && !candidate.includes("@") && candidate.toLowerCase() !== user.email.toLowerCase()) {
     return candidate;
   }

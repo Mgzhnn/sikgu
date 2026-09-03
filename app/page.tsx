@@ -2006,7 +2006,7 @@ function RoomHubModal({
         members?: RoomMember[];
         messages?: ChatMessage[];
       }>(response);
-      if (requestId !== loadRoomRequestRef.current) return false;
+      if (requestId !== loadRoomRequestRef.current) return null;
       if (!response.ok || !data.room) {
         if (response.status === 401 || response.status === 403) {
           setRoom(null);
@@ -2025,7 +2025,7 @@ function RoomHubModal({
       setLoading(false);
       return true;
     } catch {
-      if (requestId !== loadRoomRequestRef.current) return false;
+      if (requestId !== loadRoomRequestRef.current) return null;
       setError("네트워크 연결을 확인한 뒤 다시 시도해주세요.");
       setLoading(false);
       return false;
@@ -2038,14 +2038,24 @@ function RoomHubModal({
     let timer = 0;
     const schedule = () => {
       timer = window.setTimeout(async () => {
-        if (!document.hidden) failures = (await loadRoom(true)) ? 0 : failures + 1;
+        // null means a newer request superseded this one: neither a success
+        // nor a failure for backoff purposes.
+        if (!document.hidden) failures = (await loadRoom(true)) === false ? failures + 1 : 0;
         schedule();
       }, pollDelay(10000, failures));
     };
     schedule();
+    const handleVisibility = () => {
+      if (document.hidden) return;
+      failures = 0;
+      window.clearTimeout(timer);
+      void loadRoom(true).then(() => schedule());
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       window.clearTimeout(initialTimer);
       window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [loadRoom]);
 

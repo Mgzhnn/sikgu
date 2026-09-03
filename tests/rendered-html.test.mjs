@@ -748,3 +748,14 @@ test("the invite card states the validity the API actually returned", async () =
   assert.match(roomHub, /\{inviteHours\}시간 동안 사용할 수 있어요\./);
   assert.doesNotMatch(roomHub, /24시간 동안 사용할 수 있어요/);
 });
+
+test("the room poll treats a superseded response as neutral and resumes promptly when the tab is visible again", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const roomHub = page.slice(page.indexOf("function RoomHubModal"), page.indexOf("function CreateModal"));
+  const loadRoom = roomHub.slice(roomHub.indexOf("const loadRoom = useCallback"), roomHub.indexOf("useEffect(() => {"));
+
+  assert.match(loadRoom, /if \(requestId !== loadRoomRequestRef\.current\) return null;/);
+  assert.match(roomHub, /failures = \(await loadRoom\(true\)\) === false \? failures \+ 1 : 0;/);
+  assert.match(roomHub, /document\.addEventListener\("visibilitychange", handleVisibility\)/);
+  assert.match(roomHub, /document\.removeEventListener\("visibilitychange", handleVisibility\)/);
+});

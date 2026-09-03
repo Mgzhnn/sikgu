@@ -768,6 +768,7 @@ function campusMapPosition(point: PickupPoint) {
 
 const currentPickupStorageKey = "sikgu-current-pickup";
 const pendingJoinStorageKey = "sikgu-pending-join";
+const pendingInviteStorageKey = "sikgu-pending-invite";
 const initialPools: Pool[] = [];
 const defaultPoolFilters: PoolFilters = {
   availableOnly: false,
@@ -2837,20 +2838,51 @@ export default function Home() {
       if (!active) return;
 
       try {
+        const acceptInvite = async (roomId: string, token: string) => {
+          await postAction({ action: "accept_invite", roomId, token });
+          setRoomHubId(roomId);
+          notify("주문방 초대를 수락했어요.", "success");
+          await loadRooms().catch(() => undefined);
+        };
         const params = new URLSearchParams(window.location.search);
         const invite = params.get("invite");
         const invitedRoomId = params.get("room");
         if (invite && invitedRoomId) {
+          // The invite token is a bearer credential: take it out of the
+          // address bar (history, screenshots, the sign-in return_to) first.
+          window.history.replaceState({}, "", window.location.pathname);
           if (!data.user) {
+            try {
+              window.sessionStorage.setItem(pendingInviteStorageKey, JSON.stringify({
+                roomId: invitedRoomId,
+                token: invite,
+                createdAt: Date.now(),
+              }));
+            } catch {
+              // Without storage the user signs in and can open the link again.
+            }
             signIn();
             return;
           }
-          await postAction({ action: "accept_invite", roomId: invitedRoomId, token: invite });
-          window.history.replaceState({}, "", window.location.pathname);
-          await loadRooms();
-          setRoomHubId(invitedRoomId);
-          notify("주문방 초대를 수락했어요.", "success");
+          await acceptInvite(invitedRoomId, invite);
           return;
+        }
+
+        let pendingInviteRaw: string | null = null;
+        try {
+          pendingInviteRaw = window.sessionStorage.getItem(pendingInviteStorageKey);
+          if (pendingInviteRaw) window.sessionStorage.removeItem(pendingInviteStorageKey);
+        } catch {
+          // Storage unavailable: nothing to resume.
+        }
+        if (pendingInviteRaw && data.user) {
+          const pendingInvite = JSON.parse(pendingInviteRaw) as { roomId?: string; token?: string; createdAt?: number };
+          const isFresh = typeof pendingInvite.createdAt === "number"
+            && Date.now() - pendingInvite.createdAt < 10 * 60 * 1000;
+          if (isFresh && typeof pendingInvite.roomId === "string" && typeof pendingInvite.token === "string") {
+            await acceptInvite(pendingInvite.roomId, pendingInvite.token);
+            return;
+          }
         }
 
         let pendingJoinRaw: string | null = null;
@@ -2904,6 +2936,8 @@ export default function Home() {
               notify("참여 신청은 접수됐어요. 주문방 상태는 잠시 후 자동으로 갱신됩니다.", "info");
             }
           } catch (joinError) {
+            // A definitive answer (room full, closed, gone) must not be retried on every load.
+            window.sessionStorage.removeItem(pendingJoinStorageKey);
             notify(joinError instanceof Error ? joinError.message : "참여 신청을 보내지 못했어요.", "error");
           }
         }

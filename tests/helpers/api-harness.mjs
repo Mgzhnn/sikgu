@@ -107,6 +107,8 @@ export const origin = "https://sikgu.example";
 export async function createApi({ uploads = r2() } = {}) {
   const db = openDatabase();
   globalThis.__sikguEnv = { DB: d1(db), UPLOADS: uploads };
+  // Tasks scheduled with after() by earlier tests belong to their databases.
+  globalThis.__sikguAfter = [];
   const route = await import("../../app/api/sikgu/route.ts");
   async function call(method, identity, { query = "", body, form, sameOrigin = true } = {}) {
     globalThis.__sikguHeaders = identity || {};

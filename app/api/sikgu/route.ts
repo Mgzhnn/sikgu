@@ -228,7 +228,17 @@ function isResponse(value: AuthUser | Response): value is Response {
 
 function serverError(context: string, error: unknown) {
   const reference = crypto.randomUUID();
-  console.error(`[${reference}] ${context}`, error);
+  // One JSON line per failure so the platform log viewer can be searched by
+  // the reference the user sees. Errors here never contain identities: D1
+  // messages carry no bound values and nothing logs request bodies.
+  console.error(JSON.stringify({
+    level: "error",
+    reference,
+    context,
+    error: error instanceof Error
+      ? { name: error.name, message: error.message, stack: error.stack }
+      : { message: String(error) },
+  }));
   return json({ error: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", reference }, 500);
 }
 
@@ -515,6 +525,18 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const action = url.searchParams.get("action") || "bootstrap";
+
+    if (action === "health") {
+      // Liveness plus a one-row database round trip; no identity, no cache.
+      try {
+        await env.DB.prepare("SELECT 1").first();
+      } catch (error) {
+        console.error(JSON.stringify({ level: "error", context: "Health check database probe failed", error: String(error) }));
+        return json({ ok: false, database: "unavailable" }, 503, { "Retry-After": "30" });
+      }
+      return json({ ok: true, database: "ok" });
+    }
+
     const user = await optionalUser();
 
     if (action === "receipt") {

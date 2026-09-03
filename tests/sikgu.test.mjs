@@ -1014,3 +1014,34 @@ test("the React packages bundled into the worker are pinned to a release without
   }
   assert.equal(new Set(Object.values(versions)).size, 1, "react, react-dom and the RSC transport must share one version");
 });
+
+test("a health check answers without identity and server errors are logged as one structured line without personal data", async () => {
+  const { createApi, identity } = await import("./helpers/api-harness.mjs");
+  const api = await createApi();
+  const health = await api.get(undefined, "?action=health");
+  assert.equal(health.status, 200);
+  assert.deepEqual(health.data, { ok: true, database: "ok" });
+  assert.equal(health.headers.get("cache-control"), "private, no-store");
+
+  const lines = [];
+  const originalError = console.error;
+  console.error = (...args) => lines.push(args.map(String).join(" "));
+  try {
+    api.db.exec("DROP TABLE room_messages");
+    const host = identity("host@dgist.ac.kr", "홍길동");
+    const { roomId } = (await api.post(host, {
+      action: "create_room", restaurantId: "sinjeon", pickup: "E1", apps: ["baemin"], capacity: 4, minutes: 30,
+    })).data;
+    const failed = await api.post(host, { action: "send_message", roomId, body: "안녕" });
+    assert.equal(failed.status, 500);
+    assert.equal(lines.length, 1);
+    const entry = JSON.parse(lines[0]);
+    assert.equal(entry.level, "error");
+    assert.equal(entry.reference, failed.data.reference);
+    assert.equal(entry.context, "Failed to mutate SIKGU data");
+    assert.match(entry.error.message, /room_messages/);
+    assert.doesNotMatch(lines[0], /host@dgist/, "log lines never carry an identity");
+  } finally {
+    console.error = originalError;
+  }
+});

@@ -610,7 +610,9 @@ test("an invite token leaves the address bar before sign-in and a failed resume 
   assert.match(inviteBranch, /localStorage\.setItem\(pendingInviteStorageKey/);
   assert.match(initialize, /localStorage\.getItem\(pendingInviteStorageKey\)/);
   assert.match(initialize, /localStorage\.removeItem\(pendingInviteStorageKey\)/);
-  assert.match(initialize, /Date\.now\(\) - pendingInvite\.createdAt < 24 \* 60 \* 60 \* 1000/);
+  // One hour: long enough for a slow sign-in, short enough that an invite
+  // opened on a shared computer is not consumed by the next person to sign in.
+  assert.match(initialize, /Date\.now\(\) - pendingInvite\.createdAt < 60 \* 60 \* 1000/);
   const pendingJoin = initialize.slice(initialize.indexOf("if (pendingJoinRoomId && data.user)"), initialize.indexOf("} catch (interactionError)"));
   assert.match(pendingJoin, /catch \(joinError\) \{[\s\S]*?sessionStorage\.removeItem\(pendingJoinStorageKey\)/);
 });

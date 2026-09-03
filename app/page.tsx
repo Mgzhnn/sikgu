@@ -2961,8 +2961,9 @@ export default function Home() {
           if (!data.user) {
             try {
               // localStorage rather than sessionStorage: the platform sign-in
-              // can complete in another tab, and the invite itself is valid for
-              // 24 hours, so the resume window matches it.
+              // can complete in another tab. The entry is consumed by whoever
+              // signs in next on this browser, so it lives one hour, not the
+              // invite's 24, to limit exposure on a shared computer.
               window.localStorage.setItem(pendingInviteStorageKey, JSON.stringify({
                 roomId: invitedRoomId,
                 token: invite,
@@ -2988,7 +2989,7 @@ export default function Home() {
         if (pendingInviteRaw && data.user) {
           const pendingInvite = JSON.parse(pendingInviteRaw) as { roomId?: string; token?: string; createdAt?: number };
           const isFresh = typeof pendingInvite.createdAt === "number"
-            && Date.now() - pendingInvite.createdAt < 24 * 60 * 60 * 1000;
+            && Date.now() - pendingInvite.createdAt < 60 * 60 * 1000;
           if (isFresh && typeof pendingInvite.roomId === "string" && typeof pendingInvite.token === "string") {
             await acceptInvite(pendingInvite.roomId, pendingInvite.token);
             return;

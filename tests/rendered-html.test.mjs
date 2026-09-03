@@ -689,3 +689,17 @@ test("the pool dialog explains a room that closed or was deleted instead of vani
   assert.match(home, /<PoolModal[\s\S]{0,200}pool=\{latestSelectedPool \?\? selectedPool\}[\s\S]{0,200}unavailable=\{!latestSelectedPool\}/);
   assert.match(css, /\.pool-unavailable/);
 });
+
+test("progress, chat updates, and errors are exposed to screen readers with the right semantics", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const roomHub = page.slice(page.indexOf("function RoomHubModal"), page.indexOf("function CreateModal"));
+
+  assert.match(page, /className="progress" role="progressbar" aria-valuemin=\{0\} aria-valuemax=\{100\} aria-valuenow=\{percentage\} aria-label="최소 주문금액 달성률"/);
+  assert.doesNotMatch(roomHub, /className="chat-messages"\s+aria-live/);
+  assert.match(roomHub, /const \[newMessageNotice, setNewMessageNotice\] = useState\(""\)/);
+  assert.match(roomHub, /className="sr-only" role="status" aria-live="polite">\{newMessageNotice\}/);
+  assert.match(roomHub, /className="room-hub-inline-error" role="alert"/);
+  assert.match(page, /className="category-tabs" role="group" aria-label="음식 카테고리"/);
+  assert.match(page, /className="campus-map-canvas" role="group" aria-label="DGIST 픽업 지점 지도"/);
+  assert.doesNotMatch(page, /<div className="brand" aria-label/);
+});

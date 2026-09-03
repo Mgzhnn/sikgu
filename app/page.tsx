@@ -792,7 +792,7 @@ function timeLeft(timestamp: number, now: number) {
 
 function Brand() {
   return (
-    <div className="brand" aria-label="식구 홈">
+    <div className="brand">
       <span className="brand-mark">식</span>
       <span>
         <strong>SIKGU</strong>
@@ -892,7 +892,7 @@ function RestaurantMark({ restaurant, large = false }: { restaurant: Restaurant;
 function Progress({ current, target }: { current: number; target: number }) {
   const percentage = Math.min(100, Math.round((current / target) * 100));
   return (
-    <div className="progress" aria-label={`${percentage}% 달성`}>
+    <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percentage} aria-label="최소 주문금액 달성률">
       <span style={{ width: `${percentage}%` }} />
     </div>
   );
@@ -1306,7 +1306,7 @@ function HomeView({
         </div>
       </div>
 
-      <div className="category-tabs" aria-label="음식 카테고리">
+      <div className="category-tabs" role="group" aria-label="음식 카테고리">
         {categories.map((item) => (
           <button
             className={category === item ? "active" : ""}
@@ -1655,7 +1655,7 @@ function CampusMapModal({
         </header>
 
         <div className="campus-map-modal-body">
-          <div className="campus-map-canvas" aria-label="DGIST 픽업 지점 지도">
+          <div className="campus-map-canvas" role="group" aria-label="DGIST 픽업 지점 지도">
             <span className="campus-map-road road-main" aria-hidden="true" />
             <span className="campus-map-road road-branch" aria-hidden="true" />
             <span className="campus-map-zone zone-research" aria-hidden="true" />
@@ -1942,6 +1942,7 @@ function RoomHubModal({
   const [inviteStatus, setInviteStatus] = useState("");
   const [creatingInvite, setCreatingInvite] = useState(false);
   const [chatStatus, setChatStatus] = useState("");
+  const [newMessageNotice, setNewMessageNotice] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -1961,6 +1962,7 @@ function RoomHubModal({
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const chatListRef = useRef<HTMLDivElement | null>(null);
   const stickToBottomRef = useRef(true);
+  const announcedCountRef = useRef<number | null>(null);
   const loadRoomRequestRef = useRef(0);
   const restaurant = room
     ? restaurants.find((item) => item.id === room.restaurantId)
@@ -2030,6 +2032,15 @@ function RoomHubModal({
     // Scroll the message list itself: scrollIntoView walks every scrolling
     // ancestor, which on phones dragged the whole room sheet (member list and
     // order form included) to the bottom on open and on each polled message.
+    // Announce only messages that arrived after the first load, so a screen
+    // reader does not read the whole history when the room opens.
+    if (announcedCountRef.current === null) {
+      announcedCountRef.current = messages.length;
+    } else if (messages.length > announcedCountRef.current) {
+      const arrived = messages.length - announcedCountRef.current;
+      announcedCountRef.current = messages.length;
+      setNewMessageNotice(`새 메시지 ${arrived}개`);
+    }
     const list = chatListRef.current;
     if (!stickToBottomRef.current) return;
     if (list) {
@@ -2466,9 +2477,9 @@ function RoomHubModal({
                 <div><span className="lock-mark">⌁</span><strong>주문방 채팅</strong></div>
                 <small>초대·승인된 구성원 전용</small>
               </div>
+              <div className="sr-only" role="status" aria-live="polite">{newMessageNotice}</div>
               <div
                 className="chat-messages"
-                aria-live="polite"
                 ref={chatListRef}
                 onScroll={(event) => {
                   const list = event.currentTarget;
@@ -2516,7 +2527,7 @@ function RoomHubModal({
             </section>
           </div>
         ) : null}
-        {error && room && <div className="room-hub-inline-error" role="status">{error}</div>}
+        {error && room && <div className="room-hub-inline-error" role="alert">{error}</div>}
       </section>
     </div>
   );
@@ -2611,7 +2622,7 @@ function CreateModal({
             />
             {restaurantQuery && <button onClick={() => setRestaurantQuery("")} aria-label="가게 검색어 지우기">×</button>}
           </label>
-          <div className="restaurant-picker-categories" aria-label="가게 카테고리">
+          <div className="restaurant-picker-categories" role="group" aria-label="가게 카테고리">
             {restaurantCategories.map((item) => (
               <button
                 className={restaurantCategory === item ? "active" : ""}
@@ -2622,7 +2633,7 @@ function CreateModal({
               </button>
             ))}
           </div>
-          <div className="restaurant-picker-list" aria-label="현풍 테크노폴리스 가게 목록">
+          <div className="restaurant-picker-list" role="group" aria-label="현풍 테크노폴리스 가게 목록">
             {visibleRestaurants.map((item) => (
               <button
                 className={restaurantId === item.id ? "active" : ""}

@@ -105,5 +105,8 @@ export function cleanText(value, maxCharacters) {
     .replace(/\r\n?/g, "\n")
     .trim();
   if (!normalized || blankCharacters.test(normalized)) return "";
-  return Array.from(normalized).slice(0, maxCharacters).join("");
+  const truncated = Array.from(normalized).slice(0, maxCharacters).join("");
+  // A run of invisible characters can fill the whole budget and push the
+  // visible text out; what remains must pass the same blank test.
+  return blankCharacters.test(truncated) ? "" : truncated;
 }

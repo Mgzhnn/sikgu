@@ -1199,3 +1199,11 @@ test("cleanText runs in linear time on adversarial runs of variation selectors a
     assert.ok(result.length > 0, `${label} is not blank`);
   }
 });
+
+test("text that is blank after truncation is treated as blank", async () => {
+  const { cleanText } = await import("../app/sikgu-rules.mjs");
+  const zwj = String.fromCodePoint(0x200d);
+  assert.equal(cleanText(zwj.repeat(1000) + "a", 1000), "", "the visible letter falls outside the budget");
+  assert.equal(cleanText(String.fromCodePoint(0xe0067).repeat(300) + "b", 300), "");
+  assert.equal(cleanText(zwj.repeat(10) + "a", 1000), zwj.repeat(10) + "a", "within budget the text keeps its joiners");
+});

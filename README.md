@@ -48,7 +48,7 @@ show free delivery for everyone.
 | File storage | Cloudflare R2 (receipt images) |
 | Styling | Tailwind CSS 4 |
 | Identity | Sign in with ChatGPT (platform-injected identity headers) |
-| Tests | `node --test` — 93 tests covering rules, sanitization, migrations, and the real API run in-process against SQLite |
+| Tests | `node --test` — 95 tests covering rules, sanitization, migrations, and the real API run in-process against SQLite |
 
 ## Getting started
 

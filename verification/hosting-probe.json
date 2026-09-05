@@ -1,0 +1,19 @@
+{
+  "checkedAt": "2026-09-05T04:31:53.377205+00:00",
+  "url": "https://sikgu-dgist.ugrp44group.chatgpt.site/api/sikgu?action=bootstrap",
+  "results": [
+    {
+      "spoofedHeaders": false,
+      "status": 403,
+      "json": false,
+      "userNull": false
+    },
+    {
+      "spoofedHeaders": true,
+      "status": 403,
+      "json": false,
+      "userNull": false
+    }
+  ],
+  "conclusion": "A platform rejection is not evidence of identity-header stripping. App boundary remains unverified."
+}

@@ -1,0 +1,20 @@
+
+> site-creator-vinext-starter@0.1.0 test:browser
+> playwright test
+
+
+Running 9 tests using 1 worker
+
+(node:74134) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 browser-tests/sikgu.spec.ts:24:1 › R8: the rendered price summary keeps app requirements together (991ms)
+  ✓  2 browser-tests/sikgu.spec.ts:36:1 › invite secrets leave the URL before failed bootstrap and acceptance requires a gesture (728ms)
+  ✓  3 browser-tests/sikgu.spec.ts:49:1 › invite expiry copy uses recruitment time after reopening the room (764ms)
+  ✓  4 browser-tests/sikgu.spec.ts:58:1 › R4: the 201st and 202nd messages scroll and announce without replaying initial history (1.0s)
+  ✓  5 browser-tests/sikgu.spec.ts:78:30 › restaurant choices remain readable at 360px and enlarged text (701ms)
+  ✓  6 browser-tests/sikgu.spec.ts:78:30 › restaurant choices remain readable at 390px and enlarged text (718ms)
+  ✓  7 browser-tests/sikgu.spec.ts:99:1 › history pagination is reachable from the profile and room UI (607ms)
+  ✓  8 browser-tests/sikgu.spec.ts:120:1 › a superseded feed response cannot replace the current search (414ms)
+  ✓  9 browser-tests/sikgu.spec.ts:147:1 › a failed chat send preserves the Korean draft and focus (772ms)
+
+  9 passed (8.5s)

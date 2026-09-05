@@ -165,26 +165,21 @@ test("member review uses opaque references and never serializes member email add
 });
 
 test("approval and invite acceptance reserve capacity atomically", async () => {
-  const { api } = await sourceFiles;
-  const reviewAction = section(api, "if (action === \"review_member\")", "if (action === \"remove_member\")");
-  const acceptInvite = section(api, "if (action === \"accept_invite\")", "if (action === \"send_message\")");
-  const normalizedReview = compact(reviewAction);
-  const normalizedAccept = compact(acceptInvite);
-
-  assert.match(
-    normalizedReview,
-    /UPDATE room_members SET status = 'approved' WHERE room_id = \? AND review_token = \? AND status = 'requested' AND \( SELECT COUNT\(\*\) FROM room_members WHERE room_id = \? AND status = 'approved' \) < \?/,
-  );
-  assert.match(reviewAction, /if \(!result\.meta\.changes\)/);
-
-  assert.match(acceptInvite, /const \[reservedInvite, accepted\] = await env\.DB\.batch\(\[/);
-  assert.match(normalizedAccept, /UPDATE room_invites SET uses = uses \+ 1/);
-  assert.match(normalizedAccept, /expires_at > \? AND uses < max_uses/);
-  assert.match(normalizedAccept, /COUNT\(\*\) FROM room_members approved[\s\S]*< r\.capacity/);
-  assert.match(normalizedAccept, /NOT EXISTS \( SELECT 1 FROM room_members mine/);
-  assert.match(normalizedAccept, /SELECT \?, \?, \?, 'member', 'approved', \?, \? WHERE changes\(\) > 0/);
-  assert.match(acceptInvite, /!reservedInvite\.meta\.changes \|\| !accepted\.meta\.changes/);
-  assert.equal(occurrences(acceptInvite, "UPDATE room_invites"), 1);
+  const { createApi, identity } = await import("./helpers/api-harness.mjs");
+  const api = await createApi();
+  const host = identity("capacity-host@example.test");
+  const { roomId } = (await api.post(host, {action:"create_room",restaurantId:"sinjeon",pickup:"E3",apps:["baemin"],capacity:2,minutes:20})).data;
+  const invite = (await api.post(host, {action:"create_invite",roomId})).data.token;
+  const applicant = identity("applicant@example.test");
+  await api.post(applicant,{action:"request_join",roomId});
+  const memberRef = (await api.get(host,`?action=room&roomId=${roomId}`)).data.members.find(m=>m.status==="requested").member_ref;
+  const results = await Promise.all([
+    api.post(host,{action:"review_member",roomId,memberRef,decision:"approve"}),
+    api.post(identity("invitee@example.test"),{action:"accept_invite",roomId,token:invite}),
+  ]);
+  assert.equal(results.filter(r=>r.status===200).length,1);
+  assert.equal(api.sql("SELECT count(*) AS n FROM room_members WHERE room_id=? AND status='approved'",roomId)[0].n,2);
+  assert.ok(results.every(r=>[200,409].includes(r.status)));
 });
 
 test("approved users can reopen recent rooms and stale rooms are purged after receipt cleanup", async () => {
@@ -1079,17 +1074,13 @@ test("shared limits and restaurant minimums have one definition, dead template c
   assert.match(tsconfig, /"app\/\*\*\/\*\.mjs"/);
 });
 
-test("the README states the current test count", async () => {
+test("the README gives executable verification instructions without a frozen test count", async () => {
   const readme = await readFile(new URL("README.md", root), "utf8");
-  const files = (await readdir(new URL("tests/", root))).filter((name) => name.endsWith(".test.mjs"));
-  let total = 0;
-  for (const name of files) {
-    const source = await readFile(new URL(`tests/${name}`, root), "utf8");
-    total += (source.match(/^test\(/gm) || []).length;
-  }
-  const stated = /`node --test` — (\d+) tests/.exec(readme);
-  assert.ok(stated, "README must state the test count");
-  assert.equal(Number(stated[1]), total, `README says ${stated?.[1]} tests, the suite has ${total}`);
+  const pkg = JSON.parse(await readFile(new URL("package.json", root), "utf8"));
+  assert.ok(pkg.scripts.test.includes("node --test"));
+  assert.match(readme, /npm test/);
+  assert.match(readme, /npm run lint/);
+  assert.doesNotMatch(readme, /`node --test` — \d+ tests/);
 });
 
 test("fields that should be strings or numbers never reach String()/Number() on a hostile object", async () => {

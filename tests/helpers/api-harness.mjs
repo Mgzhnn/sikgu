@@ -11,13 +11,16 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { register } from "node:module";
 import { DatabaseSync } from "node:sqlite";
+import { AsyncLocalStorage } from "node:async_hooks";
+
+globalThis.__sikguRequestIdentity ||= new AsyncLocalStorage();
 
 const root = new URL("../../", import.meta.url);
 const hooks = `data:text/javascript,${encodeURIComponent(`
   import { existsSync } from "node:fs";
   const stubs = new Map([
     ["cloudflare:workers", "data:text/javascript,export const env = new Proxy({}, { get: (_, key) => globalThis.__sikguEnv?.[key] });"],
-    ["next/headers", "data:text/javascript,export async function headers() { return new Headers(globalThis.__sikguHeaders || {}); }"],
+    ["next/headers", "data:text/javascript,export async function headers() { return new Headers(globalThis.__sikguRequestIdentity.getStore() || globalThis.__sikguHeaders || {}); }"],
     ["next/server", "data:text/javascript,export function after(task) { (globalThis.__sikguAfter ||= []).push(task); }"],
     ["next/navigation", "data:text/javascript,export function redirect(path) { throw new Error('redirect:' + path); }"],
   ]);
@@ -132,7 +135,7 @@ export async function createApi({ uploads = r2() } = {}) {
       headers["content-length"] = String(payload.byteLength);
     }
     const request = new Request(`${origin}/api/sikgu${query}`, { method, headers, body: payload });
-    const response = await route[method](request);
+    const response = await globalThis.__sikguRequestIdentity.run(identity || {}, () => route[method](request));
     const type = response.headers.get("content-type") || "";
     const result = type.includes("json") ? await response.json() : await response.text();
     return { status: response.status, data: result, headers: response.headers };

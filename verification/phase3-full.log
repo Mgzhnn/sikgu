@@ -1,0 +1,723 @@
+
+> site-creator-vinext-starter@0.1.0 test
+> npm run build && npm run typecheck && node --test
+
+
+> site-creator-vinext-starter@0.1.0 build
+> vinext build
+
+
+  vinext build  (Vite 8.2.2)
+
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - JSON import "./.openai/hosting.json" without import attributes (vite.config.ts:3:27). Add `with { type: 'json' }`
+  - import "./build/sites-vite-plugin" without a file extension (vite.config.ts:4:23). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+[1/5] analyze client references...
+transforming...
+✓ 136 modules transformed.
+rendering chunks...
+✓ built in 684ms
+[2/5] analyze server references...
+transforming...
+✓ 54 modules transformed.
+rendering chunks...
+✓ built in 54ms
+[3/5] build rsc environment...
+transforming...
+✓ 142 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 297ms
+[4/5] build client environment...
+transforming...
+✓ 62 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 134ms
+[5/5] build ssr environment...
+transforming...
+✓ 60 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 142ms
+[0m
+  Route (app)
+  ┌ ? /         
+  └ λ /api/sikgu
+
+  λ API  ? Unknown
+
+  ? Some routes could not be classified. vinext currently uses static analysis
+    and cannot detect dynamic API usage (headers(), cookies(), etc.) at build time.
+    Automatic classification will be improved in a future release.
+
+  Build complete. Run `vinext start` to start the production server.
+
+
+> site-creator-vinext-starter@0.1.0 typecheck
+> tsc --noEmit
+
+TAP version 13
+# Subtest: invites are scrubbed synchronously, retained on bootstrap failure, and require explicit consumption
+ok 1 - invites are scrubbed synchronously, retained on bootstrap failure, and require explicit consumption
+  ---
+  duration_ms: 0.922291
+  type: 'test'
+  ...
+# Subtest: R4: identity-based updates distinguish initial history, old pages and arrivals at the window limit
+ok 2 - R4: identity-based updates distinguish initial history, old pages and arrivals at the window limit
+  ---
+  duration_ms: 0.529583
+  type: 'test'
+  ...
+# Subtest: R8: readiness and membership fees always belong to the same app
+ok 3 - R8: readiness and membership fees always belong to the same app
+  ---
+  duration_ms: 0.574708
+  type: 'test'
+  ...
+# (node:70940) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: R7: all retained rooms and filtered feed entries remain reachable with tied timestamps
+ok 4 - R7: all retained rooms and filtered feed entries remain reachable with tied timestamps
+  ---
+  duration_ms: 140.964833
+  type: 'test'
+  ...
+# Subtest: R4: older chat pages are ordered, bounded and private, including timestamp ties
+ok 5 - R4: older chat pages are ordered, bounded and private, including timestamp ties
+  ---
+  duration_ms: 23.988375
+  type: 'test'
+  ...
+# Subtest: R5: no timers or listeners survive cleanup during a successful read
+ok 6 - R5: no timers or listeners survive cleanup during a successful read
+  ---
+  duration_ms: 2.741791
+  type: 'test'
+  ...
+# Subtest: R5: no timers or listeners survive cleanup during a failed read
+ok 7 - R5: no timers or listeners survive cleanup during a failed read
+  ---
+  duration_ms: 2.200958
+  type: 'test'
+  ...
+# Subtest: polling backs off, resets on visibility, and serializes repeated wakes
+ok 8 - polling backs off, resets on visibility, and serializes repeated wakes
+  ---
+  duration_ms: 1.90275
+  type: 'test'
+  ...
+# Subtest: JPEG sanitization strips APP and comment metadata
+ok 9 - JPEG sanitization strips APP and comment metadata
+  ---
+  duration_ms: 1.096
+  type: 'test'
+  ...
+# Subtest: JPEG sanitization also strips metadata placed after scan data
+ok 10 - JPEG sanitization also strips metadata placed after scan data
+  ---
+  duration_ms: 0.247291
+  type: 'test'
+  ...
+# Subtest: JPEG sanitization rejects a scan without an EOI marker
+ok 11 - JPEG sanitization rejects a scan without an EOI marker
+  ---
+  duration_ms: 0.441916
+  type: 'test'
+  ...
+# Subtest: JPEG sanitization rejects truncated segments and scans
+ok 12 - JPEG sanitization rejects truncated segments and scans
+  ---
+  duration_ms: 0.128125
+  type: 'test'
+  ...
+# Subtest: PNG sanitization strips text and EXIF chunks while retaining safe transparency
+ok 13 - PNG sanitization strips text and EXIF chunks while retaining safe transparency
+  ---
+  duration_ms: 2.201459
+  type: 'test'
+  ...
+# Subtest: PNG pixel validation inflates the exact declared scanlines
+ok 14 - PNG pixel validation inflates the exact declared scanlines
+  ---
+  duration_ms: 0.592125
+  type: 'test'
+  ...
+# Subtest: PNG pixel validation rejects invalid deflate data and row filters
+ok 15 - PNG pixel validation rejects invalid deflate data and row filters
+  ---
+  duration_ms: 2.936792
+  type: 'test'
+  ...
+# Subtest: PNG sanitization rejects a chunk with a bad CRC
+ok 16 - PNG sanitization rejects a chunk with a bad CRC
+  ---
+  duration_ms: 0.193958
+  type: 'test'
+  ...
+# Subtest: PNG sanitization rejects nonconsecutive image data chunks
+ok 17 - PNG sanitization rejects nonconsecutive image data chunks
+  ---
+  duration_ms: 0.360542
+  type: 'test'
+  ...
+# Subtest: JPEG sanitization rejects dimensions above the configured bound
+ok 18 - JPEG sanitization rejects dimensions above the configured bound
+  ---
+  duration_ms: 0.442625
+  type: 'test'
+  ...
+# Subtest: PNG sanitization rejects excessive pixel counts
+ok 19 - PNG sanitization rejects excessive pixel counts
+  ---
+  duration_ms: 0.764791
+  type: 'test'
+  ...
+# Subtest: PNG pixel validation never inflates past the declared size, so a decompression bomb cannot exhaust memory
+ok 20 - PNG pixel validation never inflates past the declared size, so a decompression bomb cannot exhaust memory
+  ---
+  duration_ms: 226.317125
+  type: 'test'
+  ...
+# Subtest: PNG pixel validation rejects trailing bytes and concatenated zlib streams after the image data
+ok 21 - PNG pixel validation rejects trailing bytes and concatenated zlib streams after the image data
+  ---
+  duration_ms: 0.357209
+  type: 'test'
+  ...
+# Subtest: 16-bit PNGs are refused so the largest accepted image inflates to at most 23 MB
+ok 22 - 16-bit PNGs are refused so the largest accepted image inflates to at most 23 MB
+  ---
+  duration_ms: 0.24675
+  type: 'test'
+  ...
+# Subtest: builds the SIKGU product shell
+ok 23 - builds the SIKGU product shell
+  ---
+  duration_ms: 11.14625
+  type: 'test'
+  ...
+# Subtest: includes the expanded local restaurant directory and picker
+ok 24 - includes the expanded local restaurant directory and picker
+  ---
+  duration_ms: 2.570917
+  type: 'test'
+  ...
+# Subtest: offers the expanded DGIST pickup point grid
+ok 25 - offers the expanded DGIST pickup point grid
+  ---
+  duration_ms: 2.075792
+  type: 'test'
+  ...
+# Subtest: ships with no fabricated live orders
+ok 26 - ships with no fabricated live orders
+  ---
+  duration_ms: 2.376417
+  type: 'test'
+  ...
+# Subtest: supports selecting both delivery apps for one order pool
+ok 27 - supports selecting both delivery apps for one order pool
+  ---
+  duration_ms: 1.544541
+  type: 'test'
+  ...
+# Subtest: does not ship the inactive notification control
+ok 28 - does not ship the inactive notification control
+  ---
+  duration_ms: 0.950916
+  type: 'test'
+  ...
+# Subtest: removes unimplemented integrations and fabricated profile data
+ok 29 - removes unimplemented integrations and fabricated profile data
+  ---
+  duration_ms: 1.865959
+  type: 'test'
+  ...
+# Subtest: membership discounts apply only to their own app
+ok 30 - membership discounts apply only to their own app
+  ---
+  duration_ms: 0.803042
+  type: 'test'
+  ...
+# Subtest: removes the delivery-app-owned order tracking section
+ok 31 - removes the delivery-app-owned order tracking section
+  ---
+  duration_ms: 1.754459
+  type: 'test'
+  ...
+# Subtest: supports a persistent current pickup location selector
+ok 32 - supports a persistent current pickup location selector
+  ---
+  duration_ms: 1.380875
+  type: 'test'
+  ...
+# Subtest: opens an accessible order filter and composes useful room filters
+ok 33 - opens an accessible order filter and composes useful room filters
+  ---
+  duration_ms: 1.75375
+  type: 'test'
+  ...
+# Subtest: persists rooms, approvals, invitations, and private chat in D1
+ok 34 - persists rooms, approvals, invitations, and private chat in D1
+  ---
+  duration_ms: 3.017959
+  type: 'test'
+  ...
+# Subtest: removes the in-app menu and cart drawer
+ok 35 - removes the in-app menu and cart drawer
+  ---
+  duration_ms: 2.607375
+  type: 'test'
+  ...
+# Subtest: removes the inactive order-detail header button
+ok 36 - removes the inactive order-detail header button
+  ---
+  duration_ms: 1.77925
+  type: 'test'
+  ...
+# Subtest: opens an accessible campus order map with guarded join actions
+ok 37 - opens an accessible campus order map with guarded join actions
+  ---
+  duration_ms: 3.721875
+  type: 'test'
+  ...
+# Subtest: opens an accessible feedback dialog with static contact guidance
+ok 38 - opens an accessible feedback dialog with static contact guidance
+  ---
+  duration_ms: 0.83525
+  type: 'test'
+  ...
+# Subtest: lets hosts manage private order receipts and delete their rooms
+ok 39 - lets hosts manage private order receipts and delete their rooms
+  ---
+  duration_ms: 1.928667
+  type: 'test'
+  ...
+# Subtest: masks Korean and English display names consistently
+ok 40 - masks Korean and English display names consistently
+  ---
+  duration_ms: 1.567167
+  type: 'test'
+  ...
+# Subtest: the receipt picker lets phones choose an existing screenshot instead of forcing the camera
+ok 41 - the receipt picker lets phones choose an existing screenshot instead of forcing the camera
+  ---
+  duration_ms: 0.780125
+  type: 'test'
+  ...
+# Subtest: money inputs accept any whole won amount instead of only multiples of 100
+ok 42 - money inputs accept any whole won amount instead of only multiples of 100
+  ---
+  duration_ms: 1.52
+  type: 'test'
+  ...
+# Subtest: the chat composer keeps focus while a message is sending and never discards text typed meanwhile
+ok 43 - the chat composer keeps focus while a message is sending and never discards text typed meanwhile
+  ---
+  duration_ms: 0.9535
+  type: 'test'
+  ...
+# Subtest: the client never shows a JSON parser error when the platform answers with an HTML error page
+ok 44 - the client never shows a JSON parser error when the platform answers with an HTML error page
+  ---
+  duration_ms: 0.891417
+  type: 'test'
+  ...
+# Subtest: browser storage that throws (private mode, blocked site data) never breaks joining or loading
+ok 45 - browser storage that throws (private mode, blocked site data) never breaks joining or loading
+  ---
+  duration_ms: 0.8805
+  type: 'test'
+  ...
+# Subtest: new chat messages scroll only the message list, and only when the reader is at the bottom
+ok 46 - new chat messages scroll only the message list, and only when the reader is at the bottom
+  ---
+  duration_ms: 0.955667
+  type: 'test'
+  ...
+# Subtest: feed refreshes after room actions never reject unhandled, and an expired session in the room hub goes to sign-in
+ok 47 - feed refreshes after room actions never reject unhandled, and an expired session in the room hub goes to sign-in
+  ---
+  duration_ms: 0.914334
+  type: 'test'
+  ...
+# Subtest: the pool dialog disables joining a full room and Escape is ignored mid-IME-composition
+ok 48 - the pool dialog disables joining a full room and Escape is ignored mid-IME-composition
+  ---
+  duration_ms: 0.695458
+  type: 'test'
+  ...
+# Subtest: pending invitation validation rejects malformed tokens and future or expired entries
+ok 49 - pending invitation validation rejects malformed tokens and future or expired entries
+  ---
+  duration_ms: 0.8815
+  type: 'test'
+  ...
+# Subtest: every choice group in the create dialog has an accessible name and pressed state
+ok 50 - every choice group in the create dialog has an accessible name and pressed state
+  ---
+  duration_ms: 2.064375
+  type: 'test'
+  ...
+# Subtest: the anonymous placeholder name survives re-masking on the client
+ok 51 - the anonymous placeholder name survives re-masking on the client
+  ---
+  duration_ms: 0.070625
+  type: 'test'
+  ...
+# Subtest: the create dialog sends the chosen preset, not a deadline computed from the device clock
+ok 52 - the create dialog sends the chosen preset, not a deadline computed from the device clock
+  ---
+  duration_ms: 1.030084
+  type: 'test'
+  ...
+# Subtest: the room hub shows the deadline state and disables host actions that a closed room would refuse
+ok 53 - the room hub shows the deadline state and disables host actions that a closed room would refuse
+  ---
+  duration_ms: 1.297916
+  type: 'test'
+  ...
+# Subtest: countdowns follow the server clock and a tab returning from sleep refreshes immediately
+ok 54 - countdowns follow the server clock and a tab returning from sleep refreshes immediately
+  ---
+  duration_ms: 0.487917
+  type: 'test'
+  ...
+# Subtest: the pool dialog explains a room that closed or was deleted instead of vanishing
+ok 55 - the pool dialog explains a room that closed or was deleted instead of vanishing
+  ---
+  duration_ms: 0.681167
+  type: 'test'
+  ...
+# Subtest: progress, chat updates, and errors are exposed to screen readers with the right semantics
+ok 56 - progress, chat updates, and errors are exposed to screen readers with the right semantics
+  ---
+  duration_ms: 0.651375
+  type: 'test'
+  ...
+# Subtest: small controls get phone-sized hit areas and sheets do not scroll the page behind them
+ok 57 - small controls get phone-sized hit areas and sheets do not scroll the page behind them
+  ---
+  duration_ms: 4.128167
+  type: 'test'
+  ...
+# (node:70943) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: JavaScript-driven scrolling respects the reduced-motion preference
+ok 58 - JavaScript-driven scrolling respects the reduced-motion preference
+  ---
+  duration_ms: 1.251208
+  type: 'test'
+  ...
+# Subtest: invites expire no later than the room deadline
+ok 59 - invites expire no later than the room deadline
+  ---
+  duration_ms: 134.051167
+  type: 'test'
+  ...
+# Subtest: server failures show the log reference the runbook tells operators to search for
+ok 60 - server failures show the log reference the runbook tells operators to search for
+  ---
+  duration_ms: 1.842291
+  type: 'test'
+  ...
+# Subtest: the composer is cleared when the message is sent and the draft comes back only if sending fails
+ok 61 - the composer is cleared when the message is sent and the draft comes back only if sending fails
+  ---
+  duration_ms: 1.102208
+  type: 'test'
+  ...
+# Subtest: a stored invite entry that parses to null is ignored like any other corrupt entry
+ok 62 - a stored invite entry that parses to null is ignored like any other corrupt entry
+  ---
+  duration_ms: 2.033167
+  type: 'test'
+  ...
+# (node:70946) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: R1: removal committed before a send prevents the message write
+ok 63 - R1: removal committed before a send prevents the message write
+  ---
+  duration_ms: 104.019958
+  type: 'test'
+  ...
+# Subtest: R2: approval rechecks deleting at the write boundary
+ok 64 - R2: approval rechecks deleting at the write boundary
+  ---
+  duration_ms: 3.807625
+  type: 'test'
+  ...
+# Subtest: R2: approval rechecks expired at the write boundary
+ok 65 - R2: approval rechecks expired at the write boundary
+  ---
+  duration_ms: 3.878
+  type: 'test'
+  ...
+# Subtest: request_join cannot succeed after concurrent room deletion
+ok 66 - request_join cannot succeed after concurrent room deletion
+  ---
+  duration_ms: 5.424834
+  type: 'test'
+  ...
+# Subtest: create_invite cannot succeed after concurrent room deletion
+ok 67 - create_invite cannot succeed after concurrent room deletion
+  ---
+  duration_ms: 4.607791
+  type: 'test'
+  ...
+# Subtest: R3/R6: invite expiry follows recruitment and hosts can recover a link at the cap
+ok 68 - R3/R6: invite expiry follows recruitment and hosts can recover a link at the cap
+  ---
+  duration_ms: 8.679833
+  type: 'test'
+  ...
+# (node:70947) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: shared room rules reject unsupported values and drive both client and server
+ok 69 - shared room rules reject unsupported values and drive both client and server
+  ---
+  duration_ms: 18.388292
+  type: 'test'
+  ...
+# Subtest: server derives room data from allowlists and bounds every request before parsing
+ok 70 - server derives room data from allowlists and bounds every request before parsing
+  ---
+  duration_ms: 0.390375
+  type: 'test'
+  ...
+# Subtest: member review uses opaque references and never serializes member email addresses
+ok 71 - member review uses opaque references and never serializes member email addresses
+  ---
+  duration_ms: 0.732958
+  type: 'test'
+  ...
+# Subtest: approval and invite acceptance reserve capacity atomically
+ok 72 - approval and invite acceptance reserve capacity atomically
+  ---
+  duration_ms: 134.885875
+  type: 'test'
+  ...
+# Subtest: approved users can reopen recent rooms and stale rooms are purged after receipt cleanup
+ok 73 - approved users can reopen recent rooms and stale rooms are purged after receipt cleanup
+  ---
+  duration_ms: 0.4575
+  type: 'test'
+  ...
+# Subtest: mobile and desktop location pickers share behavior without overwriting stored state
+ok 74 - mobile and desktop location pickers share behavior without overwriting stored state
+  ---
+  duration_ms: 0.284667
+  type: 'test'
+  ...
+# Subtest: dialogs, Korean IME input, request ordering, and bootstrap states have explicit safeguards
+ok 75 - dialogs, Korean IME input, request ordering, and bootstrap states have explicit safeguards
+  ---
+  duration_ms: 0.66125
+  type: 'test'
+  ...
+# Subtest: all client mutations carry the custom same-origin request header
+ok 76 - all client mutations carry the custom same-origin request header
+  ---
+  duration_ms: 0.201542
+  type: 'test'
+  ...
+# Subtest: receipt updates and room deletion use fenced mutations with recoverable storage cleanup
+ok 77 - receipt updates and room deletion use fenced mutations with recoverable storage cleanup
+  ---
+  duration_ms: 1.0605
+  type: 'test'
+  ...
+# Subtest: production reads retry transient D1 failures and cleanup avoids repeated writes
+ok 78 - production reads retry transient D1 failures and cleanup avoids repeated writes
+  ---
+  duration_ms: 0.419042
+  type: 'test'
+  ...
+# Subtest: API and worker responses carry privacy and browser security headers
+ok 79 - API and worker responses carry privacy and browser security headers
+  ---
+  duration_ms: 0.126917
+  type: 'test'
+  ...
+# Subtest: the browser receives only a public user shape and clears revoked room state
+ok 80 - the browser receives only a public user shape and clears revoked room state
+  ---
+  duration_ms: 0.2245
+  type: 'test'
+  ...
+# Subtest: the review-token migration works whether the production column already exists or not
+ok 81 - the review-token migration works whether the production column already exists or not
+  ---
+  duration_ms: 10.0525
+  type: 'test'
+  ...
+# Subtest: the mutation-lock migration preserves existing rooms
+ok 82 - the mutation-lock migration preserves existing rooms
+  ---
+  duration_ms: 0.652291
+  type: 'test'
+  ...
+# Subtest: the per-host open-room limit holds under concurrent create_room requests
+ok 83 - the per-host open-room limit holds under concurrent create_room requests
+  ---
+  duration_ms: 7.668208
+  type: 'test'
+  ...
+# {"level":"error","reference":"3343f57c-8b92-40f2-8c95-e798b37d293b","context":"Failed to update private order information","error":{"name":"Error","message":"영수증 저장소가 연결되지 않았습니다.","stack":"Error: 영수증 저장소가 연결되지 않았습니다.\\n    at uploadBucket (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/app/api/sikgu/route.ts:86:22)\\n    at Module.PUT (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/app/api/sikgu/route.ts:863:50)\\n    at async Object.call (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/helpers/api-harness.mjs:138:22)\\n    at async TestContext.<anonymous> (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/sikgu.test.mjs:656:20)\\n    at async Test.run (node:internal/test_runner/test:1054:7)\\n    at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)"}}
+# Receipt deletion must succeed before room deletion Error: 영수증 저장소가 연결되지 않았습니다.
+#     at uploadBucket (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/app/api/sikgu/route.ts:86:22)
+#     at deleteReceiptObjectsForRoom (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/app/api/sikgu/route.ts:111:18)
+#     at Module.DELETE (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/app/api/sikgu/route.ts:1058:13)
+#     at async Object.call (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/helpers/api-harness.mjs:138:22)
+#     at async TestContext.<anonymous> (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/sikgu.test.mjs:668:6)
+#     at async Test.run (node:internal/test_runner/test:1054:7)
+#     at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+# Subtest: a receipt upload without an R2 binding fails cleanly and releases the room's mutation lock
+ok 84 - a receipt upload without an R2 binding fails cleanly and releases the room's mutation lock
+  ---
+  duration_ms: 9.684667
+  type: 'test'
+  ...
+# Subtest: a host can still reject or remove a pending requester after the room's deadline has passed
+ok 85 - a host can still reject or remove a pending requester after the room's deadline has passed
+  ---
+  duration_ms: 3.171208
+  type: 'test'
+  ...
+# Subtest: a member the host removed or rejected cannot re-enter through an invite link, but may request again
+ok 86 - a member the host removed or rejected cannot re-enter through an invite link, but may request again
+  ---
+  duration_ms: 6.218625
+  type: 'test'
+  ...
+# Subtest: malformed request bodies are rejected with 400 instead of becoming server errors
+ok 87 - malformed request bodies are rejected with 400 instead of becoming server errors
+  ---
+  duration_ms: 3.406209
+  type: 'test'
+  ...
+# Subtest: free-text fields are normalized: control and format characters stripped, code-point bounded, never blank
+ok 88 - free-text fields are normalized: control and format characters stripped, code-point bounded, never blank
+  ---
+  duration_ms: 7.908875
+  type: 'test'
+  ...
+# Subtest: a missing room is 404 for join requests and a malformed member reference is 400, not a misleading 409
+ok 89 - a missing room is 404 for join requests and a malformed member reference is 400, not a misleading 409
+  ---
+  duration_ms: 2.725334
+  type: 'test'
+  ...
+# Subtest: the invite cap and the chat rate limit hold under concurrent requests
+ok 90 - the invite cap and the chat rate limit hold under concurrent requests
+  ---
+  duration_ms: 4.466959
+  type: 'test'
+  ...
+# Subtest: an empty or malformed identity header is anonymous, and anonymous viewers never look like a host or see pending counts
+ok 91 - an empty or malformed identity header is anonymous, and anonymous viewers never look like a host or see pending counts
+  ---
+  duration_ms: 2.888708
+  type: 'test'
+  ...
+# Subtest: the build plugin that packages hosting metadata is linted like the rest of the source
+ok 92 - the build plugin that packages hosting metadata is linted like the rest of the source
+  ---
+  duration_ms: 0.278
+  type: 'test'
+  ...
+# Subtest: the estimated arrival must be a real calendar time, not one that Date.parse silently rolls over
+ok 93 - the estimated arrival must be a real calendar time, not one that Date.parse silently rolls over
+  ---
+  duration_ms: 4.362625
+  type: 'test'
+  ...
+# Subtest: the room deadline comes from the shared duration rule on the server, never from the phone's clock
+ok 94 - the room deadline comes from the shared duration rule on the server, never from the phone's clock
+  ---
+  duration_ms: 3.255209
+  type: 'test'
+  ...
+# Subtest: the retention sweep keeps its progress per room, so one storage failure cannot defer every expired room
+ok 95 - the retention sweep keeps its progress per room, so one storage failure cannot defer every expired room
+  ---
+  duration_ms: 2.76875
+  type: 'test'
+  ...
+# Subtest: the React packages bundled into the worker are pinned to a release without the Server Functions advisory
+ok 96 - the React packages bundled into the worker are pinned to a release without the Server Functions advisory
+  ---
+  duration_ms: 0.433583
+  type: 'test'
+  ...
+# Subtest: a health check answers without identity and server errors are logged as one structured line without personal data
+ok 97 - a health check answers without identity and server errors are logged as one structured line without personal data
+  ---
+  duration_ms: 2.165708
+  type: 'test'
+  ...
+# Subtest: the feed carries the server clock so phones with a skewed clock count down correctly
+ok 98 - the feed carries the server clock so phones with a skewed clock count down correctly
+  ---
+  duration_ms: 1.8155
+  type: 'test'
+  ...
+# Subtest: shared limits and restaurant minimums have one definition, dead template code is gone, and .mjs modules are type-checked
+ok 99 - shared limits and restaurant minimums have one definition, dead template code is gone, and .mjs modules are type-checked
+  ---
+  duration_ms: 0.754041
+  type: 'test'
+  ...
+# Subtest: the README gives executable verification instructions without a frozen test count
+ok 100 - the README gives executable verification instructions without a frozen test count
+  ---
+  duration_ms: 0.433167
+  type: 'test'
+  ...
+# Subtest: fields that should be strings or numbers never reach String()/Number() on a hostile object
+ok 101 - fields that should be strings or numbers never reach String()/Number() on a hostile object
+  ---
+  duration_ms: 2.560791
+  type: 'test'
+  ...
+# Subtest: display names are normalized and bounded, and invisible-only text never counts as visible
+ok 102 - display names are normalized and bounded, and invisible-only text never counts as visible
+  ---
+  duration_ms: 2.154375
+  type: 'test'
+  ...
+# Subtest: subdivision flag emoji survive text normalization while tag-only text stays blank
+ok 103 - subdivision flag emoji survive text normalization while tag-only text stays blank
+  ---
+  duration_ms: 0.225542
+  type: 'test'
+  ...
+# Subtest: blank detection covers combining marks, every format character, and variation selectors, while joiners and marks in real text survive
+ok 104 - blank detection covers combining marks, every format character, and variation selectors, while joiners and marks in real text survive
+  ---
+  duration_ms: 0.458542
+  type: 'test'
+  ...
+# Subtest: cleanText runs in linear time on adversarial runs of variation selectors and marks
+ok 105 - cleanText runs in linear time on adversarial runs of variation selectors and marks
+  ---
+  duration_ms: 1.096208
+  type: 'test'
+  ...
+# Subtest: text that is blank after truncation is treated as blank
+ok 106 - text that is blank after truncation is treated as blank
+  ---
+  duration_ms: 0.786792
+  type: 'test'
+  ...
+1..106
+# tests 106
+# suites 0
+# pass 106
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 381.269292

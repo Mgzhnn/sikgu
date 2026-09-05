@@ -1,0 +1,109 @@
+
+Running 7 tests using 1 worker
+
+(node:71195) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 browser-tests/sikgu.spec.ts:24:1 › R8: the rendered price summary keeps app requirements together (3.0s)
+  ✓  2 browser-tests/sikgu.spec.ts:36:1 › invite secrets leave the URL before failed bootstrap and acceptance requires a gesture (1.4s)
+  ✓  3 browser-tests/sikgu.spec.ts:49:1 › invite expiry copy uses recruitment time after reopening the room (841ms)
+  ✓  4 browser-tests/sikgu.spec.ts:58:1 › R4: the 201st and 202nd messages scroll and announce without replaying initial history (1.1s)
+  ✘  5 browser-tests/sikgu.spec.ts:78:30 › restaurant choices remain readable at 360px and enlarged text (4.8s)
+(node:71243) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  6 browser-tests/sikgu.spec.ts:78:30 › restaurant choices remain readable at 390px and enlarged text (6.1s)
+(node:71289) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  7 browser-tests/sikgu.spec.ts:98:1 › history pagination is reachable from the profile and room UI (30.2s)
+
+
+  1) browser-tests/sikgu.spec.ts:78:30 › restaurant choices remain readable at 360px and enlarged text 
+
+    Error: expect(received).toBeLessThan(expected)
+
+    Expected: < 3
+    Received:   42
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      86 |   await page.screenshot({path:`verification/mobile-${width}.png`,fullPage:true});
+      87 |   await page.evaluate(()=>{document.documentElement.style.fontSize='200%';});
+    > 88 |   await expect.poll(()=>dialog.evaluate(el=>el.scrollWidth-el.clientWidth)).toBeLessThan(3);
+         |                                                                             ^
+      89 |   await page.screenshot({path:`verification/mobile-${width}-text-200.png`,fullPage:true});
+      90 |   const search=page.locator('.restaurant-picker-search input');
+      91 |   await search.focus();await search.fill('신전');
+        at /Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/browser-tests/sikgu.spec.ts:88:77
+
+    Error Context: test-results/sikgu-restaurant-choices-r-f7d3f--at-360px-and-enlarged-text/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/sikgu-restaurant-choices-r-f7d3f--at-360px-and-enlarged-text/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/sikgu-restaurant-choices-r-f7d3f--at-360px-and-enlarged-text/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) browser-tests/sikgu.spec.ts:78:30 › restaurant choices remain readable at 390px and enlarged text 
+
+    Error: expect(received).toBeLessThan(expected)
+
+    Expected: < 3
+    Received:   12
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      86 |   await page.screenshot({path:`verification/mobile-${width}.png`,fullPage:true});
+      87 |   await page.evaluate(()=>{document.documentElement.style.fontSize='200%';});
+    > 88 |   await expect.poll(()=>dialog.evaluate(el=>el.scrollWidth-el.clientWidth)).toBeLessThan(3);
+         |                                                                             ^
+      89 |   await page.screenshot({path:`verification/mobile-${width}-text-200.png`,fullPage:true});
+      90 |   const search=page.locator('.restaurant-picker-search input');
+      91 |   await search.focus();await search.fill('신전');
+        at /Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/browser-tests/sikgu.spec.ts:88:77
+
+    Error Context: test-results/sikgu-restaurant-choices-r-768fd--at-390px-and-enlarged-text/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/sikgu-restaurant-choices-r-768fd--at-390px-and-enlarged-text/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/sikgu-restaurant-choices-r-768fd--at-390px-and-enlarged-text/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) browser-tests/sikgu.spec.ts:98:1 › history pagination is reachable from the profile and room UI 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: '이전 주문방 더 보기', exact: true })
+
+
+      108 |   await page.goto('/');
+      109 |   await page.getByRole('navigation',{name:'모바일 주 메뉴'}).getByRole('button').last().click();
+    > 110 |   await page.getByRole('button',{name:'이전 주문방 더 보기',exact:true}).click();
+          |                                                                  ^
+      111 |   await expect(page.locator('.my-room-list > button')).toHaveCount(2);
+      112 |   await page.locator('.my-room-list > button').first().click();
+      113 |   await page.getByRole('button',{name:'이전 메시지 더 보기'}).click();
+        at /Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/browser-tests/sikgu.spec.ts:110:66
+
+    Error Context: test-results/sikgu-history-pagination-i-5b2d1-rom-the-profile-and-room-UI/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/sikgu-history-pagination-i-5b2d1-rom-the-profile-and-room-UI/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/sikgu-history-pagination-i-5b2d1-rom-the-profile-and-room-UI/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3 failed
+    browser-tests/sikgu.spec.ts:78:30 › restaurant choices remain readable at 360px and enlarged text 
+    browser-tests/sikgu.spec.ts:78:30 › restaurant choices remain readable at 390px and enlarged text 
+    browser-tests/sikgu.spec.ts:98:1 › history pagination is reachable from the profile and room UI 
+  4 passed (52.0s)

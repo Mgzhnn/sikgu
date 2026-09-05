@@ -54,3 +54,64 @@ test('invite expiry copy uses recruitment time after reopening the room',async({
   await expect(page.locator('.invite-success')).toContainText('모집 마감까지');
   await expect(page.locator('.invite-success')).not.toContainText('24시간');
 });
+
+test('R4: the 201st and 202nd messages scroll and announce without replaying initial history',async({page})=>{
+  const api=await mockApi(page,{messages:200});await page.goto('/');
+  await page.locator('.pool-card').first().click();await page.getByRole('button',{name:/참여자 관리/}).click();
+  await expect(page.locator('.chat-messages article')).toHaveCount(200);
+  const live=page.locator('.chat-panel [role="status"]').first();
+  await expect(live).toBeEmpty();
+  const composer=page.getByRole('textbox',{name:'채팅 메시지'});
+  await composer.fill('조합 중');
+  await composer.dispatchEvent('keydown',{key:'Enter',code:'Enter',isComposing:true,keyCode:229});
+  expect(api.sent()).toBe(0);
+  for(const body of ['새 메시지 하나','새 메시지 둘']){
+    await composer.fill(body);await composer.press('Enter');
+    await expect(page.locator('.chat-messages article').last()).toContainText(body);
+    await expect(live).toHaveText('새 메시지 1개');
+    await expect.poll(()=>page.locator('.chat-messages').evaluate(el=>el.scrollHeight-el.scrollTop-el.clientHeight)).toBeLessThan(3);
+    await expect(composer).toBeFocused();
+  }
+  expect(api.sent()).toBe(2);
+});
+
+for(const width of [360,390])test(`restaurant choices remain readable at ${width}px and enlarged text`,async({page})=>{
+  await page.setViewportSize({width,height:844});await mockApi(page);await page.goto('/');
+  await expect(page.locator('.pool-card').first()).toBeVisible();
+  await page.locator('.mobile-create-button').click();
+  const dialog=page.getByRole('dialog',{name:'새 주문방 만들기'});
+  await expect(dialog).toBeVisible();
+  await expect.poll(()=>page.locator('.restaurant-picker-copy strong').first().evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(14);
+  await expect.poll(()=>page.locator('.restaurant-picker-copy small').first().evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(12);
+  await page.screenshot({path:`verification/mobile-${width}.png`,fullPage:true});
+  await page.evaluate(()=>{document.documentElement.style.fontSize='200%';});
+  await expect.poll(()=>dialog.evaluate(el=>el.scrollWidth-el.clientWidth)).toBeLessThan(3);
+  await page.screenshot({path:`verification/mobile-${width}-text-200.png`,fullPage:true});
+  const search=page.locator('.restaurant-picker-search input');
+  await search.focus();await search.fill('신전');
+  await search.dispatchEvent('keydown',{key:'Escape',code:'Escape',isComposing:true,keyCode:229});
+  await expect(dialog).toBeVisible();
+  await search.press('Escape');await expect(dialog).toBeHidden();
+  await expect(page.locator('.mobile-create-button')).toBeFocused();
+});
+
+test('history pagination is reachable from the profile and room UI',async({page})=>{
+  await mockApi(page,{messages:200});
+  // Override just this test's API with deterministic continuation pages.
+  await page.unroute('**/api/sikgu**');
+  const older={...room,id:'room_older',restaurantId:'mom'};
+  await page.route('**/api/sikgu**',async route=>{
+    const url=new URL(route.request().url());
+    if(url.searchParams.get('action')==='room')return route.fulfill({json:{room,members:[],messages:url.searchParams.has('messagesCursor')?[{id:'old-message',body:'더 오래된 메시지',created_at:1,mine:0,sender_name:'테*트'}]:[{id:'latest-message',body:'최근 메시지',created_at:100,mine:0,sender_name:'테*트'}],nextMessagesCursor:url.searchParams.has('messagesCursor')?null:'older-chat'}});
+    return route.fulfill({json:{user:{displayName:'테*트'},serverNow:Date.now(),rooms:[room],myRooms:url.searchParams.has('myRoomsCursor')?[older]:[room],nextMyRoomsCursor:url.searchParams.has('myRoomsCursor')?null:'older-rooms'}});
+  });
+  await page.goto('/');
+  await expect(page.locator('.pool-card').first()).toBeVisible();
+  await page.getByRole('navigation',{name:'모바일 주 메뉴'}).getByRole('button').last().click();
+  await page.getByRole('button',{name:'이전 주문방 더 보기',exact:true}).click();
+  await expect(page.locator('.my-room-list > button')).toHaveCount(2);
+  await page.locator('.my-room-list > button').first().click();
+  await page.getByRole('button',{name:'이전 메시지 더 보기'}).click();
+  await expect(page.getByText('더 오래된 메시지',{exact:true})).toBeVisible();
+  await expect(page.getByText('최근 메시지',{exact:true})).toBeVisible();
+});

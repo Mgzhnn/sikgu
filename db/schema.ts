@@ -26,6 +26,7 @@ export const rooms = sqliteTable("rooms", {
 }, (table) => [
   index("rooms_status_closes_idx").on(table.status, table.closesAt),
   index("rooms_host_idx").on(table.hostEmail),
+  index("rooms_status_created_idx").on(table.status, table.createdAt, table.id),
 ]);
 
 export const roomMembers = sqliteTable("room_members", {
@@ -75,5 +76,6 @@ export const roomMessages = sqliteTable("room_messages", {
   body: text("body").notNull(),
   createdAt: integer("created_at").notNull(),
 }, (table) => [
-  index("room_messages_room_created_idx").on(table.roomId, table.createdAt),
+  index("room_messages_room_created_idx").on(table.roomId, table.createdAt, table.id),
+  index("room_messages_sender_created_idx").on(table.roomId, table.senderEmail, table.createdAt),
 ]);

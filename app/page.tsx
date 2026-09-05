@@ -10,6 +10,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { mergeMessages, newMessageCount } from "./message-history.mjs";
+import { startPolling } from "./polling.mjs";
 import { capturePendingInvite, clearPendingInvite } from "./invite-continuation.mjs";
 import { getAppEstimates } from "./order-estimates.mjs";
 import { maskDisplayName } from "./name-mask.mjs";
@@ -221,7 +223,11 @@ const prefersReducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** Poll spacing: the base delay, doubled per consecutive failure, capped at five minutes. */
-const pollDelay = (base: number, failures: number) => Math.min(base * 2 ** failures, 5 * 60 * 1000);
+function browserPoll(run: (signal: AbortSignal) => Promise<unknown>, base: number) {
+  return startPolling({run,base,hidden:()=>document.hidden,
+    subscribe:(wake)=>{document.addEventListener("visibilitychange",wake);return()=>document.removeEventListener("visibilitychange",wake);},
+    setTimer:(task,delay)=>window.setTimeout(task,delay),clearTimer:(id)=>window.clearTimeout(id)});
+}
 
 const dialogFocusableSelector = [
   "a[href]",
@@ -1981,7 +1987,11 @@ function RoomHubModal({
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const chatListRef = useRef<HTMLDivElement | null>(null);
   const stickToBottomRef = useRef(true);
-  const announcedCountRef = useRef<number | null>(null);
+  const knownMessageIdsRef = useRef<Set<string> | null>(null);
+  const [noticeVersion,setNoticeVersion] = useState(0);
+  const [olderMessagesCursor,setOlderMessagesCursor] = useState<string | null>(null);
+  const [loadingOlder,setLoadingOlder] = useState(false);
+  const historyLoadedRef = useRef(false);
   const loadRoomRequestRef = useRef(0);
   const restaurant = room
     ? restaurants.find((item) => item.id === room.restaurantId)
@@ -1992,19 +2002,20 @@ function RoomHubModal({
 
   useDialogLifecycle(roomDialogRef, onClose);
 
-  const loadRoom = useCallback(async (quiet = false) => {
+  const loadRoom = useCallback(async (quiet = false, signal?: AbortSignal) => {
     const requestId = ++loadRoomRequestRef.current;
     if (!quiet) setLoading(true);
     try {
       const response = await fetch(`/api/sikgu?action=room&roomId=${encodeURIComponent(roomId)}`, {
-        cache: "no-store",
+        cache: "no-store", signal,
       });
       const data = await readJson<{
         room?: Pool;
         members?: RoomMember[];
         messages?: ChatMessage[];
+        nextMessagesCursor?: string | null;
       }>(response);
-      if (requestId !== loadRoomRequestRef.current) return null;
+      if (signal?.aborted || requestId !== loadRoomRequestRef.current) return null;
       if (!response.ok || !data.room) {
         if (response.status === 401 || response.status === 403) {
           setRoom(null);
@@ -2018,12 +2029,18 @@ function RoomHubModal({
       }
       setRoom(data.room);
       setMembers(data.members || []);
-      setMessages(data.messages || []);
+      const incoming = data.messages || [];
+      const arrived = newMessageCount(knownMessageIdsRef.current,incoming);
+      if(arrived) { setNewMessageNotice(`새 메시지 ${arrived}개`); setNoticeVersion(v=>v+1); }
+      knownMessageIdsRef.current ||= new Set();
+      incoming.forEach(message=>knownMessageIdsRef.current!.add(message.id));
+      setMessages(previous=>mergeMessages(previous,incoming));
+      if(!historyLoadedRef.current) setOlderMessagesCursor(data.nextMessagesCursor ?? null);
       setError("");
       setLoading(false);
       return true;
     } catch {
-      if (requestId !== loadRoomRequestRef.current) return null;
+      if (signal?.aborted || requestId !== loadRoomRequestRef.current) return null;
       setError("네트워크 연결을 확인한 뒤 다시 시도해주세요.");
       setLoading(false);
       return false;
@@ -2031,59 +2048,38 @@ function RoomHubModal({
   }, [roomId]);
 
   useEffect(() => {
-    const initialTimer = window.setTimeout(() => void loadRoom(), 0);
-    let failures = 0;
-    let timer = 0;
-    let cancelled = false;
-    // schedule() always replaces the pending timer, so however many reloads
-    // overlap (rapid tab switches) exactly one chain survives, and nothing is
-    // scheduled after the effect has been cleaned up.
-    const schedule = () => {
-      window.clearTimeout(timer);
-      if (cancelled) return;
-      timer = window.setTimeout(async () => {
-        // null means a newer request superseded this one: neither a success
-        // nor a failure for backoff purposes.
-        if (!document.hidden) failures = (await loadRoom(true)) === false ? failures + 1 : 0;
-        schedule();
-      }, pollDelay(10000, failures));
-    };
-    schedule();
-    const handleVisibility = () => {
-      if (document.hidden) return;
-      failures = 0;
-      void loadRoom(true).finally(schedule);
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(initialTimer);
-      window.clearTimeout(timer);
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
+    const controller = new AbortController();
+    const requests=loadRoomRequestRef;
+    const initialTimer=window.setTimeout(()=>void loadRoom(false, controller.signal),0);
+    const stop = browserPoll(signal => loadRoom(true,signal),10000);
+    return () => { window.clearTimeout(initialTimer); controller.abort(); requests.current++; stop(); };
   }, [loadRoom]);
 
+  const newestMessageId = messages.at(-1)?.id;
   useEffect(() => {
-    // Scroll the message list itself: scrollIntoView walks every scrolling
-    // ancestor, which on phones dragged the whole room sheet (member list and
-    // order form included) to the bottom on open and on each polled message.
-    // Announce only messages that arrived after the first load, so a screen
-    // reader does not read the whole history when the room opens.
-    if (announcedCountRef.current === null) {
-      announcedCountRef.current = messages.length;
-    } else if (messages.length > announcedCountRef.current) {
-      const arrived = messages.length - announcedCountRef.current;
-      announcedCountRef.current = messages.length;
-      setNewMessageNotice(`새 메시지 ${arrived}개`);
-    }
     const list = chatListRef.current;
     if (!stickToBottomRef.current) return;
-    if (list) {
-      list.scrollTop = list.scrollHeight;
-      return;
-    }
-    messagesEndRef.current?.scrollIntoView({ block: "nearest" });
-  }, [messages.length]);
+    if (list) { list.scrollTop = list.scrollHeight; return; }
+    messagesEndRef.current?.scrollIntoView({block:"nearest"});
+  }, [newestMessageId]);
+
+  const loadOlderMessages = async () => {
+    if(!olderMessagesCursor || loadingOlder)return;
+    setLoadingOlder(true);
+    const list=chatListRef.current, previousHeight=list?.scrollHeight || 0;
+    try {
+      const response=await fetch(`/api/sikgu?action=room&roomId=${encodeURIComponent(roomId)}&messagesCursor=${encodeURIComponent(olderMessagesCursor)}`,{cache:"no-store"});
+      const data=await readJson<{messages?:ChatMessage[];nextMessagesCursor?:string|null}>(response);
+      if(!response.ok){if([401,403,410].includes(response.status)){setRoom(null);setMessages([]);}throw new Error(data.error || "이전 메시지를 불러오지 못했어요.");}
+      const incoming=data.messages || [];
+      incoming.forEach(message=>knownMessageIdsRef.current?.add(message.id));
+      historyLoadedRef.current=true;
+      setMessages(previous=>mergeMessages(previous,incoming));
+      setOlderMessagesCursor(data.nextMessagesCursor ?? null);
+      window.requestAnimationFrame(()=>{if(list)list.scrollTop+=list.scrollHeight-previousHeight;});
+    } catch(error){setError(error instanceof Error?error.message:"이전 메시지를 불러오지 못했어요.");}
+    finally{setLoadingOlder(false);}
+  };
 
   const post = async (payload: Record<string, unknown>) => {
     const response = await fetch("/api/sikgu", {
@@ -2519,7 +2515,7 @@ function RoomHubModal({
                 <div><span className="lock-mark">⌁</span><strong>주문방 채팅</strong></div>
                 <small>초대·승인된 구성원 전용</small>
               </div>
-              <div className="sr-only" role="status" aria-live="polite">{newMessageNotice}</div>
+              <div className="sr-only" role="status" aria-live="polite"><span key={noticeVersion}>{newMessageNotice}</span></div>
               <div
                 className="chat-messages"
                 ref={chatListRef}
@@ -2528,6 +2524,7 @@ function RoomHubModal({
                   stickToBottomRef.current = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
                 }}
               >
+                {olderMessagesCursor && <button className="history-more" disabled={loadingOlder} onClick={() => void loadOlderMessages()}>{loadingOlder ? "불러오는 중…" : "이전 메시지 더 보기"}</button>}
                 {!messages.length && (
                   <div className="chat-empty">
                     <span>식</span>
@@ -2839,6 +2836,11 @@ export default function Home() {
   const [acceptingInvite, setAcceptingInvite] = useState(false);
   const [pools, setPools] = useState<Pool[]>(initialPools);
   const [myRooms, setMyRooms] = useState<Pool[]>([]);
+  const [nextRoomsCursor,setNextRoomsCursor]=useState<string | null>(null);
+  const [nextMyRoomsCursor,setNextMyRoomsCursor]=useState<string | null>(null);
+  const [loadingMore,setLoadingMore]=useState<string | null>(null);
+  const loadedFeedHistoryRef=useRef(false), loadedMyHistoryRef=useRef(false);
+  const lastFeedQueryRef=useRef("");
   const [user, setUser] = useState<AuthUser | null>(null);
   const [bootstrapState, setBootstrapState] = useState<"loading" | "ready" | "error">("loading");
   const [bootstrapError, setBootstrapError] = useState("");
@@ -2901,17 +2903,32 @@ export default function Home() {
     return data;
   }, [signIn]);
 
-  const loadRooms = useCallback(async () => {
+  const feedQuery = useMemo(() => {
+    const query=new URLSearchParams({action:"bootstrap",sort:filters.sortBy});
+    if(category!=="전체")query.set("categoryIds",restaurants.filter(r=>r.cuisine===category).map(r=>r.id).join(","));
+    const term=search.trim().toLowerCase();
+    if(term){
+      query.set("searchRestaurants",restaurants.filter(r=>r.name.toLowerCase().includes(term)).map(r=>r.id).join(","));
+      query.set("searchPickups",pickupPoints.filter(p=>p.full.toLowerCase().includes(term)).map(p=>p.id).join(","));
+    }
+    if(filters.currentPickupOnly)query.set("pickup",currentPickup);
+    if(filters.availableOnly)query.set("available","1");
+    return query.toString();
+  },[category,search,filters,currentPickup]);
+
+  const loadRooms = useCallback(async (signal?: AbortSignal) => {
     const requestId = ++loadRoomsRequestRef.current;
-    const response = await fetch("/api/sikgu?action=bootstrap", { cache: "no-store" });
+    const response = await fetch(`/api/sikgu?${feedQuery}`, { cache: "no-store", signal });
     const data = await readJson<{
       user: AuthUser | null;
       rooms: Pool[];
       myRooms?: Pool[];
       serverNow?: number;
+      nextRoomsCursor?: string | null;
+      nextMyRoomsCursor?: string | null;
     }>(response);
     if (!response.ok) throw new Error(data.error || "주문방을 불러오지 못했어요.");
-    if (requestId === loadRoomsRequestRef.current) {
+    if (!signal?.aborted && requestId === loadRoomsRequestRef.current) {
       if (typeof data.serverNow === "number") {
         clockOffsetRef.current = data.serverNow - Date.now();
         setNow(data.serverNow);
@@ -2923,13 +2940,42 @@ export default function Home() {
       );
       setUser(data.user);
       if (data.user && incomingInviteRef.current) setPendingInvite(incomingInviteRef.current);
-      setPools((data.rooms || []).filter(isValidRoom));
-      setMyRooms((data.myRooms || []).filter(isValidRoom));
+      if(lastFeedQueryRef.current!==feedQuery){loadedFeedHistoryRef.current=false;lastFeedQueryRef.current=feedQuery;}
+      const fresh=(data.rooms || []).filter(isValidRoom), mine=(data.myRooms || []).filter(isValidRoom);
+      setPools(previous=>loadedFeedHistoryRef.current ? [...new Map([...previous.filter(r=>r.closesAt>serverNow()),...fresh].map(r=>[r.id,r])).values()] : fresh);
+      setMyRooms(previous=>loadedMyHistoryRef.current ? [...new Map([...previous.filter(r=>r.closesAt>serverNow()-30*86400000),...mine].map(r=>[r.id,r])).values()] : mine);
+      if(!loadedFeedHistoryRef.current)setNextRoomsCursor(data.nextRoomsCursor ?? null);
+      if(!loadedMyHistoryRef.current)setNextMyRoomsCursor(data.nextMyRoomsCursor ?? null);
       setBootstrapError("");
       setBootstrapState("ready");
     }
     return data;
-  }, []);
+  }, [feedQuery,serverNow]);
+
+  const loadMoreRooms = async (kind: "feed" | "mine") => {
+    const cursor=kind==="feed"?nextRoomsCursor:nextMyRoomsCursor;
+    if(!cursor || loadingMore)return;
+    const requestId=loadRoomsRequestRef.current;
+    setLoadingMore(kind);
+    try {
+      const query=new URLSearchParams(feedQuery);
+      query.set(kind==="feed"?"roomsCursor":"myRoomsCursor",cursor);
+      const response=await fetch(`/api/sikgu?${query}`,{cache:"no-store"});
+      const data=await readJson<{rooms?:Pool[];myRooms?:Pool[];nextRoomsCursor?:string|null;nextMyRoomsCursor?:string|null}>(response);
+      if(!response.ok)throw new Error(data.error || "이전 주문방을 불러오지 못했어요.");
+      if(requestId!==loadRoomsRequestRef.current)return;
+      if(kind==="feed"){
+        loadedFeedHistoryRef.current=true;
+        setPools(previous=>[...new Map([...previous,...(data.rooms || [])].map(r=>[r.id,r])).values()]);
+        setNextRoomsCursor(data.nextRoomsCursor ?? null);
+      }else{
+        loadedMyHistoryRef.current=true;
+        setMyRooms(previous=>[...new Map([...previous,...(data.myRooms || [])].map(r=>[r.id,r])).values()]);
+        setNextMyRoomsCursor(data.nextMyRoomsCursor ?? null);
+      }
+    }catch(error){notify(error instanceof Error?error.message:"더 불러오지 못했어요.","error");}
+    finally{setLoadingMore(null);}
+  };
 
   // Background refreshes after room actions: a failed bootstrap must not
   // surface as an unhandled rejection; the next poll retries anyway.
@@ -2942,13 +2988,15 @@ export default function Home() {
 
   useEffect(() => {
     let active = true;
+    const controller=new AbortController();
+    const requests=loadRoomsRequestRef;
     const initialize = async () => {
       let storage: Storage | null = null;
       try { storage = window.localStorage; } catch { /* Keep the link in memory. */ }
       incomingInviteRef.current ||= capturePendingInvite(window.location, window.history, storage, Date.now());
       let data: Awaited<ReturnType<typeof loadRooms>>;
       try {
-        data = await loadRooms();
+        data = await loadRooms(controller.signal);
       } catch (loadError) {
         if (!active) return;
         setBootstrapState("error");
@@ -3031,35 +3079,12 @@ export default function Home() {
       }
     };
     void initialize();
-    let failures = 0;
-    let timer = 0;
-    const schedule = () => {
-      timer = window.setTimeout(async () => {
-        if (!document.hidden) {
-          try {
-            await loadRooms();
-            failures = 0;
-          } catch {
-            failures += 1;
-          }
-        }
-        schedule();
-      }, pollDelay(30000, failures));
-    };
-    schedule();
-    // A tab that slept through its timers shows stale countdowns until the
-    // next tick; refresh the clock and the feed as soon as it is visible again.
-    const handleVisibility = () => {
-      if (document.hidden) return;
-      setNow(serverNow());
-      failures = 0;
-      void loadRooms().catch(() => undefined);
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
+    const stop = browserPoll(async signal => { setNow(serverNow()); await loadRooms(signal); },30000);
     return () => {
       active = false;
-      window.clearTimeout(timer);
-      document.removeEventListener("visibilitychange", handleVisibility);
+      controller.abort();
+      requests.current++;
+      stop();
     };
   }, [loadRooms, notify, postAction, signIn, serverNow]);
 
@@ -3283,6 +3308,7 @@ export default function Home() {
             onRestaurants={() => navigate("restaurants")}
           />
         )}
+        {view === "home" && nextRoomsCursor && <button className="history-more" disabled={Boolean(loadingMore)} onClick={() => void loadMoreRooms("feed")}>{loadingMore === "feed" ? "불러오는 중…" : "주문방 더 보기"}</button>}
         {view === "restaurants" && <RestaurantsView onCreate={openCreate} />}
         {view === "profile" && (
           <ProfileView
@@ -3295,6 +3321,7 @@ export default function Home() {
             onAuth={() => window.location.assign(user ? "/signout-with-chatgpt?return_to=/" : "/signin-with-chatgpt?return_to=/")}
           />
         )}
+        {view === "profile" && nextMyRoomsCursor && <button className="history-more" disabled={Boolean(loadingMore)} onClick={() => void loadMoreRooms("mine")}>{loadingMore === "mine" ? "불러오는 중…" : "이전 주문방 더 보기"}</button>}
       </main>
 
       <RightRail

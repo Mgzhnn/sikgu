@@ -1,0 +1,14 @@
+
+> site-creator-vinext-starter@0.1.0 test:browser
+> playwright test --grep readable|history pagination
+
+
+Running 3 tests using 1 worker
+
+(node:72335) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 browser-tests/sikgu.spec.ts:78:30 › restaurant choices remain readable at 360px and enlarged text (1.3s)
+  ✓  2 browser-tests/sikgu.spec.ts:78:30 › restaurant choices remain readable at 390px and enlarged text (769ms)
+  ✓  3 browser-tests/sikgu.spec.ts:98:1 › history pagination is reachable from the profile and room UI (540ms)
+
+  3 passed (4.0s)

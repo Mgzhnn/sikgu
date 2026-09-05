@@ -67,6 +67,9 @@ const recentRoomWindowMs = 30 * 24 * 60 * 60 * 1000;
 const receiptUploadCooldownMs = 30 * 1000;
 const mutationLockTimeoutMs = 2 * 60 * 1000;
 const receiptTypes = new Set(["image/png"]);
+// Evaluate time inside SQLite, so an RPC waiting in the database queue cannot
+// authorize a write using the timestamp of an earlier JavaScript read.
+const databaseNow = "CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)";
 
 const json = (data: unknown, status = 200, headers: Record<string, string> = {}) => Response.json(data, {
   status,
@@ -1188,16 +1191,23 @@ export async function POST(request: Request) {
       if (await approvedCount(id) >= room.capacity) {
         return json({ error: "주문방 정원이 모두 찼습니다." }, 409);
       }
-      await env.DB.prepare(`
+      const joined = await env.DB.prepare(`
         INSERT INTO room_members (
           room_id, user_email, display_name, role, status, review_token, created_at
         )
-        VALUES (?, ?, ?, 'member', 'requested', ?, ?)
+        SELECT ?, ?, ?, 'member', 'requested', ?, ?
+        WHERE EXISTS (
+          SELECT 1 FROM rooms r WHERE r.id = ? AND r.status = 'open'
+            AND r.closes_at > ${databaseNow}
+            AND (SELECT COUNT(*) FROM room_members m
+              WHERE m.room_id = r.id AND m.status = 'approved') < r.capacity
+        )
         ON CONFLICT(room_id, user_email) DO UPDATE SET
           display_name = excluded.display_name,
           review_token = COALESCE(room_members.review_token, excluded.review_token),
           status = CASE WHEN room_members.status = 'approved' THEN 'approved' ELSE 'requested' END
-      `).bind(id, auth.email, auth.displayName, token(), Date.now()).run();
+      `).bind(id, auth.email, auth.displayName, token(), Date.now(), id).run();
+      if (!joined.meta.changes) return json({ error: "주문방이 마감되었거나 정원이 모두 찼습니다." }, 409);
       const membership = await roomForUser(id, auth.email);
       return json({ status: membership?.my_status || "requested" });
     }
@@ -1224,11 +1234,14 @@ export async function POST(request: Request) {
           env.DB.prepare(`
           UPDATE room_members SET status = 'approved'
           WHERE room_id = ? AND review_token = ? AND status = 'requested'
+            AND EXISTS (SELECT 1 FROM rooms r
+              WHERE r.id = room_members.room_id AND r.host_email = ?
+                AND r.status = 'open' AND r.closes_at > ${databaseNow})
             AND (
               SELECT COUNT(*) FROM room_members
               WHERE room_id = ? AND status = 'approved'
             ) < ?
-        `).bind(id, memberRef, id, room.capacity),
+        `).bind(id, memberRef, auth.email, id, room.capacity),
           // An explicit approval lifts any earlier removal or rejection.
           env.DB.prepare(`
             DELETE FROM room_blocks
@@ -1317,9 +1330,16 @@ export async function POST(request: Request) {
           )
           SELECT ?, ?, ?, ?, 0, ?, ?
           WHERE (SELECT COUNT(*) FROM room_invites WHERE room_id = ? AND expires_at > ?) < 5
-        `).bind(inviteToken, id, auth.email, remaining, now + 24 * 60 * 60 * 1000, now, id, now),
+            AND EXISTS (SELECT 1 FROM rooms r WHERE r.id = ? AND r.host_email = ?
+              AND r.status = 'open' AND r.closes_at > ${databaseNow}
+              AND (SELECT COUNT(*) FROM room_members m WHERE m.room_id = r.id AND m.status = 'approved') < r.capacity)
+        `).bind(inviteToken, id, auth.email, remaining, now + 24 * 60 * 60 * 1000, now, id, now, id, auth.email),
       ]);
       if (!inserted.meta.changes) {
+        const current = await roomForUser(id, auth.email);
+        if (!current || Number(current.closes_at) <= Date.now()) {
+          return json({ error: "주문방이 마감되었거나 삭제됐어요." }, 409);
+        }
         return json({ error: "사용 중인 초대 링크가 너무 많습니다. 기존 링크를 이용해주세요." }, 429, {
           "Retry-After": "300",
         });
@@ -1364,12 +1384,12 @@ export async function POST(request: Request) {
           UPDATE room_invites
           SET uses = uses + 1
           WHERE token = ? AND room_id = ?
-            AND expires_at > ? AND uses < max_uses
+            AND expires_at > ${databaseNow} AND uses < max_uses
             AND EXISTS (
               SELECT 1
               FROM rooms r
               WHERE r.id = room_invites.room_id
-                AND r.status = 'open' AND r.closes_at > ?
+                AND r.status = 'open' AND r.closes_at > ${databaseNow}
                 AND (
                   SELECT COUNT(*) FROM room_members approved
                   WHERE approved.room_id = r.id AND approved.status = 'approved'
@@ -1384,7 +1404,7 @@ export async function POST(request: Request) {
               SELECT 1 FROM room_blocks blocked
               WHERE blocked.room_id = room_invites.room_id AND blocked.user_email = ?
             )
-        `).bind(inviteToken, id, now, now, auth.email, auth.email),
+        `).bind(inviteToken, id, auth.email, auth.email),
         env.DB.prepare(`
           INSERT INTO room_members (
             room_id, user_email, display_name, role, status, review_token, created_at
@@ -1421,7 +1441,11 @@ export async function POST(request: Request) {
       const inserted = await env.DB.prepare(`
         INSERT INTO room_messages (id, room_id, sender_email, sender_name, body, created_at)
         SELECT ?, ?, ?, ?, ?, ?
-        WHERE (
+        WHERE EXISTS (
+          SELECT 1 FROM room_members m JOIN rooms r ON r.id = m.room_id
+          WHERE m.room_id = ? AND m.user_email = ? AND m.status = 'approved'
+            AND r.status = 'open' AND r.closes_at > ${databaseNow} - ?
+        ) AND (
           SELECT COUNT(*) FROM room_messages
           WHERE room_id = ? AND sender_email = ? AND created_at > ?
         ) < 30
@@ -1431,10 +1455,15 @@ export async function POST(request: Request) {
         ), 0) <= ?
       `).bind(
         `msg_${crypto.randomUUID()}`, id, auth.email, auth.displayName, body, now,
+        id, auth.email, recentRoomWindowMs,
         id, auth.email, now - 60_000,
         id, auth.email, now - 750,
       ).run();
       if (!inserted.meta.changes) {
+        const current = await roomForUser(id, auth.email);
+        if (!current || current.my_status !== 'approved' || Number(current.closes_at) <= Date.now() - recentRoomWindowMs) {
+          return json({ error: "이 주문방에 메시지를 보낼 수 없습니다." }, 403);
+        }
         return json({ error: "메시지를 너무 빠르게 보내고 있어요. 잠시 후 다시 시도해주세요." }, 429, {
           "Retry-After": "1",
         });

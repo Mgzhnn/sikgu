@@ -86,6 +86,7 @@ for(const width of [360,390])test(`restaurant choices remain readable at ${width
   await page.screenshot({path:`verification/mobile-${width}.png`,fullPage:true});
   await page.evaluate(()=>{document.documentElement.style.fontSize='200%';});
   await expect.poll(()=>dialog.evaluate(el=>el.scrollWidth-el.clientWidth)).toBeLessThan(3);
+  expect(await page.locator('.restaurant-picker-search input').evaluate(el=>el.getBoundingClientRect().bottom <= el.parentElement!.getBoundingClientRect().bottom)).toBe(true);
   await page.screenshot({path:`verification/mobile-${width}-text-200.png`,fullPage:true});
   const search=page.locator('.restaurant-picker-search input');
   await search.focus();await search.fill('신전');
@@ -99,19 +100,59 @@ test('history pagination is reachable from the profile and room UI',async({page}
   await mockApi(page,{messages:200});
   // Override just this test's API with deterministic continuation pages.
   await page.unroute('**/api/sikgu**');
-  const older={...room,id:'room_older',restaurantId:'mom'};
+  const retained=Array.from({length:51},(_,i)=>({...room,id:`room_history_${i}`}));
   await page.route('**/api/sikgu**',async route=>{
     const url=new URL(route.request().url());
     if(url.searchParams.get('action')==='room')return route.fulfill({json:{room,members:[],messages:url.searchParams.has('messagesCursor')?[{id:'old-message',body:'더 오래된 메시지',created_at:1,mine:0,sender_name:'테*트'}]:[{id:'latest-message',body:'최근 메시지',created_at:100,mine:0,sender_name:'테*트'}],nextMessagesCursor:url.searchParams.has('messagesCursor')?null:'older-chat'}});
-    return route.fulfill({json:{user:{displayName:'테*트'},serverNow:Date.now(),rooms:[room],myRooms:url.searchParams.has('myRoomsCursor')?[older]:[room],nextMyRoomsCursor:url.searchParams.has('myRoomsCursor')?null:'older-rooms'}});
+    return route.fulfill({json:{user:{displayName:'테*트'},serverNow:Date.now(),rooms:[room],myRooms:url.searchParams.has('myRoomsCursor')?retained.slice(50):retained.slice(0,50),nextMyRoomsCursor:url.searchParams.has('myRoomsCursor')?null:'older-rooms'}});
   });
   await page.goto('/');
   await expect(page.locator('.pool-card').first()).toBeVisible();
   await page.getByRole('navigation',{name:'모바일 주 메뉴'}).getByRole('button').last().click();
   await page.getByRole('button',{name:'이전 주문방 더 보기',exact:true}).click();
-  await expect(page.locator('.my-room-list > button')).toHaveCount(2);
+  await expect(page.locator('.my-room-list > button')).toHaveCount(51);
   await page.locator('.my-room-list > button').first().click();
   await page.getByRole('button',{name:'이전 메시지 더 보기'}).click();
   await expect(page.getByText('더 오래된 메시지',{exact:true})).toBeVisible();
   await expect(page.getByText('최근 메시지',{exact:true})).toBeVisible();
+});
+
+test('a superseded feed response cannot replace the current search',async({page})=>{
+  await mockApi(page);await page.goto('/');
+  await expect(page.locator('.pool-card').first()).toBeVisible();
+  let releaseOld!:()=>void, started!:()=>void, finished!:()=>void;
+  const oldStarted=new Promise<void>(r=>{started=r});
+  const oldFinished=new Promise<void>(r=>{finished=r});
+  await page.route('**/api/sikgu**',async route=>{
+    const url=new URL(route.request().url());
+    const selected=url.searchParams.get('searchRestaurants');
+    if(selected==='sinjeon'){
+      started();await new Promise<void>(r=>{releaseOld=r});
+      try {await route.fulfill({json:{rooms:[room],myRooms:[room],user:{displayName:'테*트'},serverNow:Date.now()}});} catch { /* Aborted stale requests cannot update the view. */ }
+      finally {finished();}
+    } else if(selected==='mom'){
+      await route.fulfill({json:{rooms:[{...room,id:'latest-room',restaurantId:'mom'}],myRooms:[room],user:{displayName:'테*트'},serverNow:Date.now()}});
+    } else await route.fallback();
+  });
+  const search=page.getByRole('textbox',{name:'주문방 검색'});
+  await search.fill('신전');await oldStarted;
+  await search.fill('맘스터치');
+  await expect(page.locator('.pool-card')).toHaveCount(1);
+  await expect(page.locator('.pool-card').first()).toContainText('맘스터치');
+  releaseOld();await oldFinished;
+  await page.evaluate(()=>new Promise<void>(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r()))));
+  await expect(page.locator('.pool-card').first()).toContainText('맘스터치');
+});
+
+test('a failed chat send preserves the Korean draft and focus',async({page})=>{
+  await mockApi(page);await page.goto('/');
+  await page.locator('.pool-card').first().click();await page.getByRole('button',{name:/참여자 관리/}).click();
+  await page.route('**/api/sikgu**',async route=>{
+    if(route.request().method()==='POST' && route.request().postDataJSON().action==='send_message')return route.fulfill({status:503,json:{error:'잠시 후 다시 시도해주세요.'}});
+    await route.fallback();
+  });
+  const composer=page.getByRole('textbox',{name:'채팅 메시지'});
+  await composer.fill('한글 초안은 보존되어야 해요');await composer.press('Enter');
+  await expect(page.getByText('잠시 후 다시 시도해주세요.',{exact:true})).toBeVisible();
+  await expect(composer).toHaveValue('한글 초안은 보존되어야 해요');await expect(composer).toBeFocused();
 });

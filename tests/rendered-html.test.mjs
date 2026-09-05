@@ -1,3 +1,4 @@
+import {readClientSource} from "./helpers/client-source.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -6,7 +7,7 @@ import { maskDisplayName } from "../app/name-mask.mjs";
 test("builds the SIKGU product shell", async () => {
   const [layout, page, worker] = await Promise.all([
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
     readFile(new URL("../dist/server/index.js", import.meta.url), "utf8"),
   ]);
 
@@ -20,7 +21,7 @@ test("builds the SIKGU product shell", async () => {
 
 test("includes the expanded local restaurant directory and picker", async () => {
   const [page, css] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
@@ -47,7 +48,7 @@ test("includes the expanded local restaurant directory and picker", async () => 
 
 test("offers the expanded DGIST pickup point grid", async () => {
   const [page, css] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
@@ -77,7 +78,7 @@ test("offers the expanded DGIST pickup point grid", async () => {
 });
 
 test("ships with no fabricated live orders", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readClientSource();
 
   assert.match(page, /const initialPools: Pool\[\] = \[\];/);
   assert.doesNotMatch(page, /id: "p[1-4]"/);
@@ -88,7 +89,7 @@ test("ships with no fabricated live orders", async () => {
 
 test("supports selecting both delivery apps for one order pool", async () => {
   const [page, css] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
@@ -103,7 +104,7 @@ test("supports selecting both delivery apps for one order pool", async () => {
 
 test("does not ship the inactive notification control", async () => {
   const [page, css] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
@@ -114,7 +115,7 @@ test("does not ship the inactive notification control", async () => {
 
 test("removes unimplemented integrations and fabricated profile data", async () => {
   const [page, css] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
@@ -151,7 +152,7 @@ test("membership discounts apply only to their own app", async () => {
 
 test("removes the delivery-app-owned order tracking section", async () => {
   const [page, css] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
@@ -164,7 +165,7 @@ test("removes the delivery-app-owned order tracking section", async () => {
 
 test("supports a persistent current pickup location selector", async () => {
   const [page, css] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
@@ -178,7 +179,7 @@ test("supports a persistent current pickup location selector", async () => {
 
 test("opens an accessible order filter and composes useful room filters", async () => {
   const [page, css] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
@@ -224,7 +225,7 @@ test("persists rooms, approvals, invitations, and private chat in D1", async () 
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/sikgu/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
   ]);
 
   assert.match(hosting, /"d1":\s*"DB"/);
@@ -252,7 +253,7 @@ test("persists rooms, approvals, invitations, and private chat in D1", async () 
 
 test("removes the in-app menu and cart drawer", async () => {
   const [page, css] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
@@ -266,7 +267,7 @@ test("removes the in-app menu and cart drawer", async () => {
 
 test("removes the inactive order-detail header button", async () => {
   const [page, css] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
@@ -277,7 +278,7 @@ test("removes the inactive order-detail header button", async () => {
 
 test("opens an accessible campus order map with guarded join actions", async () => {
   const [page, css, api] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../app/api/sikgu/route.ts", import.meta.url), "utf8"),
   ]);
@@ -323,7 +324,7 @@ test("opens an accessible campus order map with guarded join actions", async () 
 
 test("opens an accessible feedback dialog with static contact guidance", async () => {
   const [page, css] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   const feedbackModal = page.slice(
@@ -368,7 +369,7 @@ test("lets hosts manage private order receipts and delete their rooms", async ()
     readFile(new URL("../drizzle/0003_mutation_locks.sql", import.meta.url), "utf8"),
     readFile(new URL("../app/api/sikgu/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/receipt-image.mjs", import.meta.url), "utf8"),
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../worker/index.ts", import.meta.url), "utf8"),
   ]);
@@ -434,7 +435,7 @@ test("lets hosts manage private order receipts and delete their rooms", async ()
 
 test("masks Korean and English display names consistently", async () => {
   const [page, api] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
     readFile(new URL("../app/api/sikgu/route.ts", import.meta.url), "utf8"),
   ]);
 
@@ -460,7 +461,7 @@ test("masks Korean and English display names consistently", async () => {
 });
 
 test("the receipt picker lets phones choose an existing screenshot instead of forcing the camera", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readClientSource();
   const receiptInput = page.slice(
     page.indexOf('className="receipt-upload"'),
     page.indexOf("receipt-privacy"),
@@ -471,7 +472,7 @@ test("the receipt picker lets phones choose an existing screenshot instead of fo
 });
 
 test("money inputs accept any whole won amount instead of only multiples of 100", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readClientSource();
   const orderForm = page.slice(
     page.indexOf('className="order-info-form"'),
     page.indexOf('className="receipt-upload"'),
@@ -483,7 +484,7 @@ test("money inputs accept any whole won amount instead of only multiples of 100"
 });
 
 test("the chat composer keeps focus while a message is sending and never discards text typed meanwhile", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readClientSource();
   const composer = page.slice(page.indexOf('className="chat-composer"'), page.indexOf("</section>", page.indexOf('className="chat-composer"')));
   const sendMessage = page.slice(page.indexOf("const sendMessage = async"), page.indexOf("const openOrderEditor"));
 
@@ -499,7 +500,7 @@ test("the chat composer keeps focus while a message is sending and never discard
 });
 
 test("the client never shows a JSON parser error when the platform answers with an HTML error page", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readClientSource();
   const occurrences = (fragment) => page.split(fragment).length - 1;
   const readJson = page.slice(page.indexOf("const fallbackErrorByStatus"), page.indexOf("const dialogFocusableSelector"));
 
@@ -512,7 +513,7 @@ test("the client never shows a JSON parser error when the platform answers with 
 });
 
 test("browser storage that throws (private mode, blocked site data) never breaks joining or loading", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readClientSource();
   const insideTry = (literal) => {
     const at = page.indexOf(literal);
     assert.notEqual(at, -1, `missing ${literal}`);
@@ -536,7 +537,7 @@ test("browser storage that throws (private mode, blocked site data) never breaks
 
 test("new chat messages scroll only the message list, and only when the reader is at the bottom", async () => {
   const [page, css] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   const scrollEffect = page.slice(page.indexOf("const list = chatListRef.current"), page.indexOf("const post = async"));
@@ -558,7 +559,7 @@ test("new chat messages scroll only the message list, and only when the reader i
 });
 
 test("feed refreshes after room actions never reject unhandled, and an expired session in the room hub goes to sign-in", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readClientSource();
   const occurrences = (fragment) => page.split(fragment).length - 1;
   const roomPost = page.slice(page.indexOf("const post = async"), page.indexOf("const review = async"));
   const globalPost = page.slice(page.indexOf("const postAction = useCallback"), page.indexOf("const loadRooms = useCallback"));
@@ -572,7 +573,7 @@ test("feed refreshes after room actions never reject unhandled, and an expired s
 });
 
 test("the pool dialog disables joining a full room and Escape is ignored mid-IME-composition", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readClientSource();
   const poolModal = page.slice(page.indexOf("function PoolModal"), page.indexOf("function RoomHubModal"));
   const dialogHook = page.slice(page.indexOf("function useDialogLifecycle"), page.indexOf("const appLabels"));
   const locationPicker = page.slice(page.indexOf("function LocationPicker"), page.indexOf("function RestaurantMark"));
@@ -596,7 +597,7 @@ test("pending invitation validation rejects malformed tokens and future or expir
 });
 
 test("every choice group in the create dialog has an accessible name and pressed state", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readClientSource();
   const createModal = page.slice(page.indexOf("function CreateModal"), page.indexOf("export default function Home"));
 
   assert.match(createModal, /<label id="create-pickup-label">픽업 장소<\/label>/);
@@ -619,14 +620,14 @@ test("the anonymous placeholder name survives re-masking on the client", () => {
 });
 
 test("the create dialog sends the chosen preset, not a deadline computed from the device clock", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readClientSource();
   const handleCreate = page.slice(page.indexOf("const handleCreate = async"), page.indexOf("const retryBootstrap"));
   assert.match(handleCreate, /minutes: values\.minutes/);
   assert.doesNotMatch(handleCreate, /closesAt/);
 });
 
 test("the room hub shows the deadline state and disables host actions that a closed room would refuse", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readClientSource();
   const roomHub = page.slice(page.indexOf("function RoomHubModal"), page.indexOf("function CreateModal"));
 
   assert.match(roomHub, /now: number;/);
@@ -638,7 +639,7 @@ test("the room hub shows the deadline state and disables host actions that a clo
 });
 
 test("countdowns follow the server clock and a tab returning from sleep refreshes immediately", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readClientSource();
   const home = page.slice(page.indexOf("export default function Home"));
 
   assert.match(home, /const clockOffsetRef = useRef\(0\)/);
@@ -654,7 +655,7 @@ test("countdowns follow the server clock and a tab returning from sleep refreshe
 
 test("the pool dialog explains a room that closed or was deleted instead of vanishing", async () => {
   const [page, css] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   const poolModal = page.slice(page.indexOf("function PoolModal"), page.indexOf("function RoomHubModal"));
@@ -668,7 +669,7 @@ test("the pool dialog explains a room that closed or was deleted instead of vani
 });
 
 test("progress, chat updates, and errors are exposed to screen readers with the right semantics", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readClientSource();
   const roomHub = page.slice(page.indexOf("function RoomHubModal"), page.indexOf("function CreateModal"));
 
   assert.match(page, /className="progress" role="progressbar" aria-valuemin=\{0\} aria-valuemax=\{100\} aria-valuenow=\{percentage\} aria-label="최소 주문금액 달성률"/);
@@ -683,7 +684,7 @@ test("progress, chat updates, and errors are exposed to screen readers with the 
 
 test("small controls get phone-sized hit areas and sheets do not scroll the page behind them", async () => {
   const [page, css] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   const dialogHook = page.slice(page.indexOf("function useDialogLifecycle"), page.indexOf("const appLabels"));
@@ -704,7 +705,7 @@ test("small controls get phone-sized hit areas and sheets do not scroll the page
 });
 
 test("JavaScript-driven scrolling respects the reduced-motion preference", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readClientSource();
   assert.match(page, /const prefersReducedMotion = \(\) =>[\s\S]{0,120}matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches/);
   assert.match(page, /window\.scrollTo\(\{ top: 0, behavior: prefersReducedMotion\(\) \? "auto" : "smooth" \}\)/);
   assert.doesNotMatch(page, /behavior: "smooth"/);
@@ -724,7 +725,7 @@ test("invites expire no later than the room deadline", async () => {
 
 test("server failures show the log reference the runbook tells operators to search for", async () => {
   const [page, runbook] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readClientSource(),
     readFile(new URL("../RUNBOOK.md", import.meta.url), "utf8"),
   ]);
   const readJson = page.slice(page.indexOf("async function readJson"), page.indexOf("const dialogFocusableSelector"));
@@ -736,7 +737,7 @@ test("server failures show the log reference the runbook tells operators to sear
 // Lifecycle behavior is executed with deterministic timers in tests/polling.test.mjs.
 
 test("the composer is cleared when the message is sent and the draft comes back only if sending fails", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readClientSource();
   const sendMessage = page.slice(page.indexOf("const sendMessage = async"), page.indexOf("const openOrderEditor"));
 
   assert.match(sendMessage, /const draft = message;/);

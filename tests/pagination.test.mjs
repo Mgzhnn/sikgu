@@ -49,3 +49,12 @@ test('R4: older chat pages are ordered, bounded and private, including timestamp
   assert.equal((await api.get(host,`?action=room&roomId=${roomId}`)).status,410);
   api.db.close();
 });
+
+
+test('room history and per-member rate windows use their bounded-read indexes',async()=>{
+  const {api,roomId}=await fixture();
+  const plan=sql=>api.sql('EXPLAIN QUERY PLAN '+sql,roomId).map(r=>r.detail).join(' ');
+  assert.match(plan('SELECT id FROM room_messages WHERE room_id=? ORDER BY created_at DESC,id DESC LIMIT 201'),/room_messages_room_created_idx/);
+  assert.match(plan("SELECT COUNT(*) FROM room_messages WHERE room_id=? AND sender_email='pages@example.test' AND created_at>0"),/room_messages_sender_created_idx/);
+  api.db.close();
+});

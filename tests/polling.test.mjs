@@ -23,3 +23,16 @@ test('polling backs off, resets on visibility, and serializes repeated wakes',as
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(timers.size,1);assert.equal([...timers.values()][0].ms,10);cleanup();
 });
+
+
+test('remount owns its timer and an old response cannot restart the previous scheduler',async()=>{
+  let next=0,resolveOld;const timers=new Map(),listeners=new Set();
+  const options={base:10,hidden:()=>false,subscribe:fn=>{listeners.add(fn);return()=>listeners.delete(fn)},setTimer:(fn,ms)=>{timers.set(++next,{fn,ms});return next},clearTimer:id=>timers.delete(id)};
+  const oldStop=startPolling({...options,run:()=>new Promise(r=>{resolveOld=r})});
+  const [id,task]=timers.entries().next().value;timers.delete(id);task.fn();oldStop();
+  const newStop=startPolling({...options,run:async()=>true});
+  const newTimer=[...timers.keys()][0];resolveOld(true);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual([...timers.keys()],[newTimer]);assert.equal(listeners.size,1);
+  newStop();assert.equal(timers.size,0);assert.equal(listeners.size,0);
+});

@@ -1,0 +1,49 @@
+{
+  "bundles": [
+    {
+      "file": "modules-client.json",
+      "modules": 66,
+      "affectedModules": [],
+      "imports": [
+        "assets/framework-C-kvl5Nm.js",
+        "assets/index-DOQ4mq1q.js",
+        "assets/layout-segment-context-C9Uwkqrl.js",
+        "assets/page-BLDpasp4.js",
+        "assets/rolldown-runtime-hePW80VL.js"
+      ]
+    },
+    {
+      "file": "modules-rsc.json",
+      "modules": 136,
+      "affectedModules": [],
+      "imports": [
+        "cloudflare:workers",
+        "index.js",
+        "node:async_hooks",
+        "node:fs",
+        "node:path",
+        "node:zlib",
+        "virtual:vite-rsc/assets-manifest"
+      ]
+    },
+    {
+      "file": "modules-ssr.json",
+      "modules": 58,
+      "affectedModules": [],
+      "imports": [
+        "assets/error-boundary-CrL44Ynz.js",
+        "assets/layout-segment-context-g_xbg_h0.js",
+        "assets/page-BkDpfTxo.js",
+        "index.js",
+        "node:async_hooks",
+        "virtual:vite-rsc/assets-manifest"
+      ]
+    }
+  ],
+  "coreUtilsCalls": {
+    "transformSync": 1,
+    "transform": 1
+  },
+  "vinextImageSizeUse": "vinext/dist/index.js:1297: build/dev static image import metadata reads local imagePath via fs.readFileSync; not the receipt API",
+  "limitations": "Module inventories cover emitted chunks and explicit imports. This is not a safety proof for future builds or arbitrary developer tool commands."
+}

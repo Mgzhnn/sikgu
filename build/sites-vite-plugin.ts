@@ -1,4 +1,4 @@
-import { access, cp, mkdir, rm } from "node:fs/promises";
+import { access, cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Plugin } from "vite";
 
@@ -23,6 +23,20 @@ export function sites(): Plugin {
     apply: "build",
     configResolved(config) {
       root = config.root;
+    },
+    async generateBundle(_options, bundle) {
+      // Exact module provenance for each emitted chunk, including explicit
+      // external imports. This is stronger dependency evidence than grepping
+      // minified function names, which can change or disappear.
+      const chunks = Object.values(bundle).filter(item => item.type === "chunk").map(chunk => ({
+        file: chunk.fileName,
+        imports: chunk.imports,
+        dynamicImports: chunk.dynamicImports,
+        modules: Object.keys(chunk.modules).map(id => id.replaceAll(root, "<project>").replaceAll("\u0000", "")).sort(),
+      }));
+      const evidence = resolve(root, "verification");
+      await mkdir(evidence, {recursive:true});
+      await writeFile(resolve(evidence, `modules-${this.environment.name}.json`), JSON.stringify(chunks,null,2)+"\n");
     },
     async closeBundle() {
       const outputDirectory = resolve(root, "dist", ".openai");

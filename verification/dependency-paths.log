@@ -1,0 +1,19 @@
+site-creator-vinext-starter@0.1.0 /Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs
+├─┬ drizzle-kit@0.31.10
+│ ├─┬ @esbuild-kit/esm-loader@2.6.5
+│ │ └─┬ @esbuild-kit/core-utils@3.3.2
+│ │   └── esbuild@0.18.20
+│ ├── esbuild@0.25.12
+│ └─┬ tsx@4.22.1
+│   └── esbuild@0.28.2 deduped
+├─┬ vinext@0.0.50
+│ ├─┬ @vercel/og@0.8.6
+│ │ └─┬ satori@0.16.0
+│ │   └─┬ @shuding/opentype.js@1.4.0-beta.0
+│ │     └── fflate@0.7.5
+│ └── image-size@2.0.2
+├─┬ vite@8.2.2
+│ └── esbuild@0.28.2
+└─┬ wrangler@4.129.0
+  └── esbuild@0.28.1
+

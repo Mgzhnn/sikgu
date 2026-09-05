@@ -1,7 +1,7 @@
 # SIKGU runbook
 
 Operational notes for the people who deploy and watch SIKGU. Product and
-architecture are described in `README.md`; audit history is in `AUDIT.md`.
+architecture are described in `README.md`; the current repair record is `REPAIRS.md`, and the earlier audit history is in `AUDIT.md`.
 
 ## What runs where
 
@@ -19,24 +19,17 @@ architecture are described in `README.md`; audit history is in `AUDIT.md`.
 `GET /api/sikgu?action=health` needs no sign-in and returns
 `{"ok":true,"database":"ok"}` after a one-row D1 round trip, or HTTP 503 with
 `{"ok":false,"database":"unavailable"}` when D1 does not answer. Probe it
-after every deploy and from any uptime monitor.
+after every deploy and from any uptime monitor. This is a connectivity/liveness probe (`SELECT 1`), not a schema, R2, authentication or end-to-end readiness check. A missing migration or broken receipt bucket can coexist with a green health response.
 
 ## Deploy
 
-1. `npm ci`, then `npm test` and `npm run lint` must both exit 0. The test
-   suite builds the production bundle first, so a green run means the bundle
-   builds.
-2. Push the branch the platform deploys from. The build step copies
-   `.openai/hosting.json` and the `drizzle/` migrations into `dist/.openai/`
-   (see `build/sites-vite-plugin.ts`); the platform applies any migration
-   not yet applied to the production D1 database, in file order.
-3. After the deploy, open `/api/sikgu?action=health`, then sign in and
-   create, join, approve, chat in, and delete one test room.
-4. Releases that change the API contract (the 2026-09-03 audit branch moved
-   room creation from a client `closesAt` to `minutes`) make a browser tab
-   that still holds the previous bundle fail its next room creation with a
-   400 until the page is reloaded. Expect a few such reports right after the
-   deploy; a reload fixes them.
+1. Run `npm ci`, `npm test`, `npm run lint`, and `npm run test:browser` (install Playwright Chromium first). Inspect a fresh `npm audit --json`; use the per-advisory reasoning in `REPAIRS.md` rather than assuming all development packages are harmless.
+2. Verify the hosting identity gate below before exposing a new release. Keep production data untouched during local verification.
+3. Prepare and push the verified source, build/package its Sites artifact, save a version and deploy that explicit version through Sites. A GitHub push does not itself verify or perform this release workflow. The build packages `.openai/hosting.json` and generated migrations in `dist/.openai/`; verify the expected migration is in the artifact and applied by the platform.
+4. Check migration/schema readiness through the platform's database tools (expected tables, columns and indexes), then probe health. In an authorized test room verify create, join, approve, chat, upload/read a receipt as a member, and delete. Verify the deleted receipt object is gone from R2.
+5. Old tabs should reload after a contract change. This repair returns absolute `expiresAt` for invitation creation instead of `expiresInHours`; stale clients must not continue advertising 24 hours. New pagination fields are additive and optional cursor parameters preserve first-page behavior. Do not claim compatibility of stale cached UI just because the API still responds.
+
+The current repair was verified as source; no production deployment or migration was performed by this work.
 
 ## Migrations
 
@@ -54,9 +47,7 @@ after every deploy and from any uptime monitor.
 
 ## Rollback
 
-- Redeploy the previous known-good commit. Every migration so far is
-  additive (0004 adds `room_blocks`), so older code runs against the newer
-  schema.
+- Redeploy the previous known-good commit. Migration 0004 adds `room_blocks`; 0005 adds history/rate-window indexes and replaces the message-order index with one that adds an ID tie-breaker. It does not rewrite rows or remove columns, so earlier code can use the newer schema. Check the migration result before a rollback; do not undo the index migration by editing history.
 - If a bad migration was applied, write a new forward migration that undoes
   it; do not edit or delete the applied file.
 
@@ -82,22 +73,29 @@ after every deploy and from any uptime monitor.
 - Retention: rooms are kept 30 days after their deadline so members can
   reopen the chat and receipt. A sweep runs at most once an hour per Worker
   isolate, triggered by the first feed load after the hour, and deletes up to
-  50 expired rooms per run, one at a time, receipt objects before the row.
+  50 expired rooms per run, one at a time, receipt objects before the row. This is best-effort physical deletion, not a 30-day deletion SLA. API read authorization still ends at the 30-day cutoff. No traffic means no sweep; isolates do not share a global schedule.
 - Mutation lock: receipt updates and room deletion take a per-room lock
   (`rooms.mutation_token`) that goes stale after 2 minutes. A room stuck in
   status `deleting` after a failed deletion is hidden from everyone and is
   reclaimed by the host's next delete attempt or by the sweep.
 - Rate limits: 5 open rooms per host, 5 active invite links per room, 30
   chat messages per minute and 750 ms between messages per member, one
-  receipt replacement per 30 seconds. All are enforced inside SQL statements.
+  receipt replacement per 30 seconds. All are enforced inside SQL statements. Expired/exhausted links are pruned on creation. At the five-link cap the host receives an existing usable token; the limit is not a five-minute recovery promise.
 
-## Hand checks before a release
+## Cleanup monitoring and orphan recovery
 
-- Forged identity: `curl -s https://<public-host>/api/sikgu?action=bootstrap
-  -H 'oai-authenticated-user-email: probe@example.com'` must return
-  `"user":null`.
-- Mutations work through the proxy: create a room in the browser (this
-  exercises the same-origin check against the public origin).
-- Receipt upload from a phone: choose an existing screenshot from the photo
-  library, then view it as a member.
-- Delete a room that has a receipt and confirm the object is gone from R2.
+Each attempted sweep emits a structured `retention_sweep` event containing selected, claimed, deleted and failed counts, pending room count, oldest overdue age and duration. No emails, names, tokens or message content are included. A backlog-query outage emits `backlog: "unavailable"`. Pending counts include all deletion tombstones, even a recently active deletion, so a single nonzero reading is not necessarily an outage.
+
+Investigate repeated failures, increasing pending counts, or no successful sweep while expired data remains. Look for R2/D1 errors and stale mutation tokens; the next eligible sweep or a host deletion retry recovers tombstones. A request-triggered batch of 50 is not enough evidence that a large backlog has drained. The new metrics test injects a storage failure for one of three expired rooms: two are deleted and one remains observable and hidden.
+
+No recurring Worker trigger is configured, and the available Sites manifest/tools did not establish a supported scheduling capability for this project. Do not add a fictitious cron or describe scheduled deletion as deployed. Before introducing a platform-supported scheduler, reuse the same fenced, bounded cleanup logic and test overlapping executions.
+
+A receipt key whose room row has already vanished cannot be found by the room sweep. For orphan recovery, use authorized platform storage/database tools to inventory `receipts/<roomId>/` keys and compare them with room rows. Record only aggregate counts in routine logs. Recheck missing rows after a grace period exceeding the mutation timeout and upload window; review the concrete candidate list before deleting objects. No bucket-wide orphan sweep or destructive cleanup was run during this repair.
+
+## Identity and device release gates
+
+- Anonymous spoof-header test: request the public bootstrap endpoint with synthetic `oai-authenticated-user-*` headers and verify an actual app response has `user: null`. Verify a legitimate signed-in request separately. Never send a real user's identity or publish session cookies/tokens in evidence.
+- A 403/HTML response from the edge is **inconclusive**, not a pass. Both plain and spoofed requests received that result on 2026-09-05; see `verification/hosting-probe.json`.
+- Check any reachable Worker, preview, custom-domain and alternate origins. They must either reject direct access or enforce the same trusted-proxy boundary. Sites returned no current preview URL and did not expose Worker routing/header-stripping configuration, so these checks remain unverified. Keep this as a release gate; local header stubs do not prove it.
+- The browser suite uses Chromium with synthetic local API responses. Verify physical iOS Safari IME, keyboard/scroll behavior and receipt selection from the photo library before claiming iOS support was tested.
+- Bootstrap history cursors use `(created_at, id)`; chat uses the same tie-breaker. Keep filters/sort fixed while paging. Feed amount sorting can change while totals change; it is a live view, not a transactionally frozen snapshot. Refresh if ordering changes during browsing.

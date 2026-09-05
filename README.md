@@ -1,111 +1,84 @@
 # SIKGU 식구 — 혼자 넘기 어려운 최소 주문금액, 같이.
 
-Group food-delivery ordering for the DGIST campus. SIKGU (식구, "family / people
-you share meals with") lets students near Hyeonpung Technopolis pool their
-delivery orders from **Baemin** and **Coupang Eats**, so nobody has to clear a
-15,000–20,000원 minimum order alone or pay the full delivery fee for one meal.
+Group food-delivery coordination for the DGIST campus. Students choose a nearby restaurant and pickup point, gather an order, and coordinate privately before the host orders through Baemin or Coupang Eats.
 
 ![SIKGU — DGIST 공동주문](public/og.png)
 
 ## How it works
 
-1. **Open a room** — pick one of 21 local restaurants, a campus pickup point
-   (the E1 front gate, the E2–E6 lockers, the 201–204 pickup spot, or Bisl
-   Village), a deadline (20 / 30 / 45 minutes, computed on the server), and a
-   capacity (2–8 people).
-2. **Gather food family** — others request to join; the host approves members
-   and keeps the room's collected order total up to date until it clears the
-   restaurant's minimum. Capacity is reserved atomically, so a room can never
-   overfill. A member the host removed or rejected can ask again, but cannot
-   re-enter through an invite link they already hold.
-3. **Order together** — the host places one order through Baemin or Coupang
-   Eats, shares the estimated arrival, and uploads a receipt photo for
-   transparent cost-splitting. Members coordinate in a private room chat.
+1. **Open a room:** choose one of 21 restaurants, one of 8 campus pickup points, a server-timed 20 / 30 / 45 minute recruitment period, and capacity of 2–8 people.
+2. **Gather members:** request approval or accept a host's invitation. Approval, capacity and recruitment deadlines are checked inside the database write. Removed members cannot reuse an invitation to bypass the host's decision.
+3. **Compare ordering apps:** each app shows its own minimum, remaining amount and estimated delivery fee. Membership benefits apply to that app only. For example, Sinjeon with ₩15,000 collected meets Baemin's stored minimum, while Coupang still needs ₩3,000, even with Coupang membership. Confirm current prices and benefits in the delivery app before ordering.
+4. **Coordinate privately:** the host updates the collected total, order total and expected arrival, and shares a receipt. Approved members use the room chat. Retained rooms and older messages have “load more” controls.
 
-Membership perks (배민클럽 / 쿠팡와우) are surfaced so rooms hosted by members
-show free delivery for everyone.
+This app coordinates orders; it does not place delivery orders, collect payments or calculate individual settlements.
 
-## Features
+## Invitations, history and privacy
 
-- Live feed of open rooms with filters (availability, deadline, pickup point)
-  and a campus map view of where rooms are gathering
-- Host-approved joins, invite links, member removal, and room deletion with
-  full cleanup (members, chat, receipts)
-- Private per-room chat with Korean IME-safe input handling
-- Receipt uploads that are re-encoded client-side and sanitized server-side
-  (PNG-only, metadata/EXIF stripped, CRC-checked, size- and pixel-bounded)
-- Restaurant directory for the Hyeonpung/Technopolis area with per-app minimum
-  order and delivery-fee comparison and Kakao Map links
-- Privacy by default: display names are masked everywhere, emails are never
-  serialized to other users, and member actions use opaque references
+- Invitation expiry is bounded by the room's recruitment deadline. A full room, removal or deletion can make a link unusable sooner. Hosts can recover an existing usable link when the five-link limit is reached, including after a refresh.
+- Invite credentials leave the URL before the initial API request. A pending invitation requires confirmation showing the current account and room, including after sign-in or a failed initial load.
+- Public browsing supports server-side filters and pages of up to 100 rooms. My Rooms uses 50-room pages; chat uses 200-message pages. Equal timestamps use an ID tie-breaker. Polling pauses in hidden tabs, backs off after errors and stops when its component unmounts.
+- Names are masked and email addresses are not serialized to other users. Private chat and receipts require current approved membership on every read. Chat writes recheck membership at the SQL boundary.
+- Receipts are re-encoded in the browser and validated/sanitized on the server: PNG only, metadata stripped, CRC checked, with size and pixel limits.
+- Access to retained rooms ends 30 days after recruitment closes. Physical deletion is **best-effort**, driven by feed traffic; it can happen later. See [RUNBOOK.md](RUNBOOK.md) for cleanup limits and monitoring.
 
-## Tech stack
+## Development and verification
 
-| Layer | Choice |
-| --- | --- |
-| Framework | [vinext](https://github.com/cloudflare/vinext) (Next.js on Cloudflare Workers) + React 19 |
-| Database | Cloudflare D1 (SQLite) via Drizzle ORM |
-| File storage | Cloudflare R2 (receipt images) |
-| Styling | Tailwind CSS 4 |
-| Identity | Sign in with ChatGPT (platform-injected identity headers) |
-| Tests | `node --test` — behavioral and regression tests covering rules, sanitization, migrations, and the real API run in-process against SQLite |
-
-## Getting started
-
-Requires Node.js ≥ 22.13.
+Requires Node.js ≥22.13. Use the versions pinned by `package-lock.json`.
 
 ```bash
 npm ci
-npm run dev        # local dev server with simulated D1/R2 bindings
-npm test           # build + typecheck + full test suite
-npm run lint       # ESLint
-npm run db:generate  # regenerate Drizzle migrations after schema changes
+npm run dev -- --host 127.0.0.1
+npm test                    # production build, TypeScript, Node/SQLite tests
+npm run lint
+npx playwright install chromium
+npm run test:browser        # real UI, local synthetic API responses
+npm audit --json            # review residual entries; not currently a zero-audit gate
+npm run db:generate -- --name descriptive_change
 ```
 
-`vite.config.ts` simulates the D1 and R2 bindings declared in
-`.openai/hosting.json`, so local development needs no Cloudflare account.
+Local Vite development provides simulated D1 and R2 bindings without a Cloudflare account. The authentication proxy is not simulated by these bindings. Behavioral API tests use request-local synthetic identities and the real SQL against SQLite; browser tests intercept only the local API. Neither proves the production identity boundary or live D1 concurrency.
 
-## Project structure
+The latest repair results, before/after reproductions, package audit and deployment limitations are in [REPAIRS.md](REPAIRS.md) and [verification/](verification/). Browser coverage includes the 201st/202nd chat messages, retained history, failed sends, stale search responses, invitation confirmation, Korean IME, focus restoration, and 360px/390px layouts with enlarged text. Physical iOS testing remains outstanding.
 
-```
+## Architecture
+
+| Layer | Implementation |
+| --- | --- |
+| UI | React 19, vinext (Next.js on Cloudflare Workers), CSS/Tailwind 4 |
+| Database | D1 / SQLite, Drizzle schema and generated migrations |
+| Files | R2 private receipt objects |
+| Identity | Platform-injected Sign in with ChatGPT headers |
+| Verification | Node/SQLite tests, deterministic scheduler tests, Playwright Chromium |
+
+```text
 app/
-  page.tsx            # the whole client UI (feed, rooms, chat, directory)
-  api/sikgu/route.ts  # the whole API (rooms, members, chat, receipts, health)
-  chatgpt-auth.ts     # Sign in with ChatGPT identity header parsing
-  name-mask.mjs       # display-name masking (shared client/server)
-  receipt-image.mjs   # receipt image validation + sanitization
-  sikgu-rules.mjs     # shared room rules (restaurants, pickups, limits, text)
-build/                # Vite plugin that packages hosting metadata + migrations
-db/                   # Drizzle schema + client
-drizzle/              # SQL migrations (generated; never hand-edited)
-worker/               # Cloudflare Worker entry
-tests/                # node --test suites; tests/helpers/ runs the real API in-process
-AUDIT.md              # audit findings, fixes, and verification record
-RUNBOOK.md            # deploy, migrate, roll back, read logs, health check
+  page.tsx                 # feed, directory, creation and page coordination
+  room-hub.tsx             # private room, membership, chat and receipt UI
+  room-ui.tsx              # dialog lifecycle, API reads, uploads and polling adapter
+  catalog.ts, types.ts      # preserved restaurant/pickup data and shared UI types
+  polling.mjs              # cancellable scheduler shared by feed and room
+  message-history.mjs      # message identity and history merging
+  invite-continuation.mjs   # URL scrubbing and pending invitation validation
+  order-estimates.mjs      # per-app minimum and delivery calculations
+  api/sikgu/
+    route.ts               # request validation, room/member/chat/receipt actions
+    invites.ts             # host-only invite creation and recovery
+    pagination.ts          # bounded cursor validation and ordering
+    responses.ts           # private responses, tokens, SQL clock expression
+  chatgpt-auth.ts           # trusted proxy identity parsing
+  sikgu-rules.mjs           # shared constraints and restaurant minimums
+  receipt-image.mjs         # receipt sanitization
+build/                     # Sites packaging and build-module evidence
+worker/                    # Worker entry and browser security headers
+db/, drizzle/              # schema and generated migration history
+tests/, browser-tests/     # behavioral and supplementary structural checks
 ```
 
-## Security notes
+## Hosting and operations
 
-Writes require a custom same-origin request header, mutations on a room are
-fenced with single-use tokens (stale locks are recoverable), capacity,
-approvals, and every per-user limit are enforced inside single atomic SQL
-statements, request bodies are size-bounded before parsing, free text is
-normalized (control and bidi characters removed), and API responses carry
-privacy and browser security headers. `GET /api/sikgu?action=health` reports
-liveness and database reachability without identity. Authentication relies on identity headers injected by the
-hosting platform's proxy; the worker must not be reachable except through it.
+`.openai/hosting.json` declares `DB` and `UPLOADS`; the Sites platform provides authentication routes and bindings. This repair changes source and adds migration `0005_history_indexes.sql`. It has not been deployed or applied to production. A GitHub push alone is not evidence of a Sites release.
 
-## Audit and operations
+**Before a release:** verify that the platform strips forged identity headers and that no direct Worker/alternate origin bypasses it, apply and check migrations, and verify receipt storage. The anonymous production probe in this repair received a non-JSON 403, which is inconclusive about the app's identity boundary. The health endpoint checks database connectivity only.
 
-A full correctness, security, and robustness audit was completed on
-2026-09-03 (53 commits): every finding, its fix commit, four rounds of
-independent adversarial verification, and the hand checks to run before a
-release are recorded in [AUDIT.md](AUDIT.md). Deploy, migration, rollback,
-log, and health-check procedures are in [RUNBOOK.md](RUNBOOK.md).
-
-## Deployment
-
-The app is built for OpenAI workspace Sites hosting: `.openai/hosting.json`
-declares the `DB` (D1) and `UPLOADS` (R2) bindings, and the platform owns the
-`/signin-with-chatgpt`, `/signout-with-chatgpt`, and `/callback` routes along
-with identity-header injection.
+[RUNBOOK.md](RUNBOOK.md) covers release, rollback and cleanup. [REPAIRS.md](REPAIRS.md) is the current repair record; [AUDIT.md](AUDIT.md) preserves the earlier audit as history rather than certifying the present deployment.

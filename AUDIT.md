@@ -1,3 +1,5 @@
+> Historical audit. For the subsequent ranked repairs and current verification limits, see [REPAIRS.md](REPAIRS.md). The results below describe their original audit state.
+
 # SIKGU audit
 
 Audit date: 2026-09-03. Repository at commit `10fa317` on `main` (working tree clean at start).

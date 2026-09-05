@@ -1,0 +1,10 @@
+
+Running 3 tests using 1 worker
+
+(node:68462) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 browser-tests/sikgu.spec.ts:24:1 › R8: the rendered price summary keeps app requirements together (886ms)
+  ✓  2 browser-tests/sikgu.spec.ts:36:1 › invite secrets leave the URL before failed bootstrap and acceptance requires a gesture (707ms)
+  ✓  3 browser-tests/sikgu.spec.ts:49:1 › invite expiry copy uses recruitment time after reopening the room (764ms)
+
+  3 passed (7.7s)

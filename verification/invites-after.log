@@ -1,0 +1,48 @@
+TAP version 13
+# (node:67446) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: R1: removal committed before a send prevents the message write
+ok 1 - R1: removal committed before a send prevents the message write
+  ---
+  duration_ms: 219.078291
+  type: 'test'
+  ...
+# Subtest: R2: approval rechecks deleting at the write boundary
+ok 2 - R2: approval rechecks deleting at the write boundary
+  ---
+  duration_ms: 5.876542
+  type: 'test'
+  ...
+# Subtest: R2: approval rechecks expired at the write boundary
+ok 3 - R2: approval rechecks expired at the write boundary
+  ---
+  duration_ms: 8.7815
+  type: 'test'
+  ...
+# Subtest: request_join cannot succeed after concurrent room deletion
+ok 4 - request_join cannot succeed after concurrent room deletion
+  ---
+  duration_ms: 3.909125
+  type: 'test'
+  ...
+# Subtest: create_invite cannot succeed after concurrent room deletion
+ok 5 - create_invite cannot succeed after concurrent room deletion
+  ---
+  duration_ms: 8.866666
+  type: 'test'
+  ...
+# Subtest: R3/R6: invite expiry follows recruitment and hosts can recover a link at the cap
+ok 6 - R3/R6: invite expiry follows recruitment and hosts can recover a link at the cap
+  ---
+  duration_ms: 12.1925
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 419.841208

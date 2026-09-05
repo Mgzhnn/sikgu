@@ -1323,7 +1323,7 @@ export async function POST(request: Request) {
       // The active-invite cap lives inside the INSERT so parallel requests
       // cannot all pass a separate COUNT check.
       const [, inserted] = await env.DB.batch([
-        env.DB.prepare("DELETE FROM room_invites WHERE room_id = ? AND expires_at <= ?").bind(id, now),
+        env.DB.prepare("DELETE FROM room_invites WHERE room_id = ? AND (expires_at <= ? OR uses >= max_uses)").bind(id, now),
         env.DB.prepare(`
           INSERT INTO room_invites (
             token, room_id, created_by_email, max_uses, uses, expires_at, created_at
@@ -1333,18 +1333,29 @@ export async function POST(request: Request) {
             AND EXISTS (SELECT 1 FROM rooms r WHERE r.id = ? AND r.host_email = ?
               AND r.status = 'open' AND r.closes_at > ${databaseNow}
               AND (SELECT COUNT(*) FROM room_members m WHERE m.room_id = r.id AND m.status = 'approved') < r.capacity)
-        `).bind(inviteToken, id, auth.email, remaining, now + 24 * 60 * 60 * 1000, now, id, now, id, auth.email),
+        `).bind(inviteToken, id, auth.email, remaining, room.closes_at, now, id, now, id, auth.email),
       ]);
       if (!inserted.meta.changes) {
         const current = await roomForUser(id, auth.email);
         if (!current || Number(current.closes_at) <= Date.now()) {
           return json({ error: "주문방이 마감되었거나 삭제됐어요." }, 409);
         }
-        return json({ error: "사용 중인 초대 링크가 너무 많습니다. 기존 링크를 이용해주세요." }, 429, {
-          "Retry-After": "300",
-        });
+        // At the bounded cap, recover a usable link instead of stranding a
+        // host who closed the sheet or lost clipboard access. Only the host
+        // reaches this path; tokens never enter the public room response.
+        const existing = await env.DB.prepare(`
+          SELECT i.token, MIN(i.expires_at, r.closes_at) AS expiresAt
+          FROM room_invites i JOIN rooms r ON r.id = i.room_id
+          WHERE i.room_id = ? AND r.host_email = ? AND r.status = 'open'
+            AND r.closes_at > ${databaseNow} AND i.expires_at > ${databaseNow}
+            AND i.uses < i.max_uses
+            AND (SELECT COUNT(*) FROM room_members m WHERE m.room_id = r.id AND m.status = 'approved') < r.capacity
+          ORDER BY i.created_at DESC, i.token DESC LIMIT 1
+        `).bind(id, auth.email).first<{token: string; expiresAt: number}>();
+        if (existing) return json({ ...existing, reused: true });
+        return json({ error: "사용 가능한 초대 링크가 없거나 정원이 모두 찼습니다." }, 409);
       }
-      return json({ token: inviteToken, expiresInHours: 24 });
+      return json({ token: inviteToken, expiresAt: room.closes_at, reused: false });
     }
 
     if (action === "accept_invite") {

@@ -3732,3 +3732,9 @@ button:disabled { cursor: not-allowed; opacity: 0.56; }
 .create-modal,
 .campus-map-modal,
 .feedback-modal { overscroll-behavior: contain; }
+
+/* Keep app-specific minimum and fee conditions visually together. */
+.app-estimates { display:grid; gap:12px; padding:16px; background:var(--mint-soft); border-radius:16px; }
+.app-estimate { display:grid; gap:6px; min-width:0; }
+.app-estimate strong, .app-estimate span { font-size:14px; }
+.app-estimate small, .app-estimates p { font-size:12px; line-height:1.5; margin:0; }

@@ -10,6 +10,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { capturePendingInvite, clearPendingInvite } from "./invite-continuation.mjs";
+import { getAppEstimates } from "./order-estimates.mjs";
 import { maskDisplayName } from "./name-mask.mjs";
 import {
   maxChatMessageCharacters,
@@ -799,7 +801,6 @@ function campusMapPosition(point: PickupPoint) {
 
 const currentPickupStorageKey = "sikgu-current-pickup";
 const pendingJoinStorageKey = "sikgu-pending-join";
-const pendingInviteStorageKey = "sikgu-pending-invite";
 const initialPools: Pool[] = [];
 const defaultPoolFilters: PoolFilters = {
   availableOnly: false,
@@ -1848,15 +1849,7 @@ function PoolModal({
   const restaurant = restaurants.find((item) => item.id === pool.restaurantId)!;
   const gap = Math.max(0, pool.target - pool.total);
   const ready = gap === 0;
-  const fee = Math.min(...pool.apps.map((app) => restaurant.deliveryFee[app]));
-  const membershipApp = pool.membership === "baemin" || pool.membership === "coupang"
-    ? pool.membership
-    : null;
-  const membershipApplied = membershipApp !== null && pool.apps.includes(membershipApp);
-  const hasFreeDelivery = fee === 0 || membershipApplied;
-  const eachFee = hasFreeDelivery ? 0 : Math.ceil(fee / Math.max(pool.people, 1));
-  const appNames = pool.apps.map((app) => appLabels[app].name).join(" · ");
-  const membershipName = membershipApp ? appLabels[membershipApp].membership : "";
+  const estimates = getAppEstimates(pool, restaurant);
   const isFull = !pool.isHost && pool.myStatus !== "approved" && pool.people >= pool.capacity;
 
   return (
@@ -1890,19 +1883,16 @@ function PoolModal({
           </div>
         </div>
 
-        <div className="route-recommendation">
-          <span className="spark">✦</span>
-          <div>
-            <small>선택 가능 주문 앱</small>
-            <strong>{appNames}{membershipApplied && ` · ${membershipName}`}</strong>
-            <p>
-              {membershipApplied
-                ? `${membershipName} 적용 시 예상 배달비는 무료예요. 결제 전 배달앱에서 확인해 주세요.`
-                : fee === 0
-                  ? "선택한 앱의 예상 배달비는 무료예요."
-                  : `배달비를 나누면 1인당 약 ${money(eachFee)}이에요.`}
-            </p>
-          </div>
+        <div className="app-estimates" aria-label="앱별 주문 조건">
+          {estimates.map((estimate) => (
+            <div key={estimate.app} className="app-estimate">
+              <strong>{appLabels[estimate.app].name}</strong>
+              <span>{estimate.ready ? "최소 주문금액 달성" : `${money(estimate.remaining)} 더 필요해요`}</span>
+              <small>최소 {money(estimate.minimum)} · 예상 배달비 {estimate.fee === 0 ? "무료" : `${money(estimate.eachFee)} / 1인`}
+                {estimate.membershipApplied ? ` (${appLabels[estimate.app].membership} 적용 시)` : ""}</small>
+            </div>
+          ))}
+          <p>앱별 조건을 확인한 뒤 주문해 주세요. 실제 금액과 멤버십 혜택은 결제 전 배달앱에서 확인해 주세요.</p>
         </div>
 
         <div className="host-note">
@@ -1912,7 +1902,7 @@ function PoolModal({
         <div className="modal-footer">
           <div>
             <span>예상 배달비</span>
-            <strong>{hasFreeDelivery ? "무료" : money(eachFee)}{!hasFreeDelivery && <small> / 1인</small>}</strong>
+            <strong>{estimates.length > 1 ? "앱별 조건 확인" : estimates[0]?.fee === 0 ? "무료" : `${money(estimates[0]?.eachFee || 0)} / 1인`}</strong>
           </div>
           <button
             className={pool.myStatus === "requested" ? "secondary-button" : "primary-button"}
@@ -1967,7 +1957,7 @@ function RoomHubModal({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [message, setMessage] = useState("");
   const [inviteLink, setInviteLink] = useState("");
-  const [inviteHours, setInviteHours] = useState(24);
+  const [inviteExpiresAt, setInviteExpiresAt] = useState<number | null>(null);
   const [inviteStatus, setInviteStatus] = useState("");
   const [creatingInvite, setCreatingInvite] = useState(false);
   const [chatStatus, setChatStatus] = useState("");
@@ -2101,7 +2091,7 @@ function RoomHubModal({
       headers: { "content-type": "application/json", "x-sikgu-request": "1" },
       body: JSON.stringify({ ...payload, roomId }),
     });
-    const data = await readJson<{ token?: string; expiresInHours?: number }>(response);
+    const data = await readJson<{ token?: string; expiresAt?: number }>(response);
     if (response.status === 401) {
       redirectToSignIn();
       throw new Error("로그인이 필요합니다.");
@@ -2148,7 +2138,7 @@ function RoomHubModal({
       const data = await post({ action: "create_invite" });
       const link = `${window.location.origin}/?room=${encodeURIComponent(roomId)}&invite=${encodeURIComponent(data.token || "")}`;
       setInviteLink(link);
-      setInviteHours(typeof data.expiresInHours === "number" ? data.expiresInHours : 24);
+      setInviteExpiresAt(data.expiresAt ?? room?.closesAt ?? null);
       try {
         await navigator.clipboard.writeText(link);
         setInviteStatus("초대 링크를 복사했어요.");
@@ -2360,7 +2350,7 @@ function RoomHubModal({
                   <span>✓</span>
                   <div>
                     <strong>{inviteStatus || "초대 링크를 만들었어요."}</strong>
-                    <small>{inviteHours}시간 동안 사용할 수 있어요.</small>
+                    <small>{inviteExpiresAt && inviteExpiresAt > now ? `${timeLeft(inviteExpiresAt, now)} · 모집 마감까지 사용할 수 있어요.` : "모집이 마감됐어요."} 정원이 차면 더 일찍 마감돼요.</small>
                     <label>
                       <span className="sr-only">초대 링크</span>
                       <input value={inviteLink} readOnly onFocus={(event) => event.currentTarget.select()} />
@@ -2831,8 +2821,22 @@ function CreateModal({
   );
 }
 
+function InviteConfirmation({name,roomName,onAccept,onClose,busy}: {name:string;roomName:string;onAccept:()=>void;onClose:()=>void;busy:boolean}) {
+  const ref=useRef<HTMLElement | null>(null);
+  useDialogLifecycle(ref,onClose);
+  return <div className="overlay centered"><section className="pool-modal" role="dialog" aria-modal="true" aria-label="주문방 초대 확인" ref={ref}>
+    <h2>주문방 초대 확인</h2><p>{roomName}</p><p>{name} 계정으로 참여할까요?</p>
+    <p>공용 기기라면 로그인한 계정을 먼저 확인해 주세요.</p>
+    <button className="primary-button" disabled={busy} onClick={onAccept}>{busy ? "참여 중…" : "초대 수락"}</button>
+    <button className="secondary-button" disabled={busy} onClick={onClose}>취소</button>
+  </section></div>;
+}
+
 export default function Home() {
   const [view, setView] = useState<View>("home");
+  const [pendingInvite, setPendingInvite] = useState<ReturnType<typeof capturePendingInvite>>(null);
+  const incomingInviteRef = useRef<ReturnType<typeof capturePendingInvite>>(null);
+  const [acceptingInvite, setAcceptingInvite] = useState(false);
   const [pools, setPools] = useState<Pool[]>(initialPools);
   const [myRooms, setMyRooms] = useState<Pool[]>([]);
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -2918,6 +2922,7 @@ export default function Home() {
         && room.apps.length > 0
       );
       setUser(data.user);
+      if (data.user && incomingInviteRef.current) setPendingInvite(incomingInviteRef.current);
       setPools((data.rooms || []).filter(isValidRoom));
       setMyRooms((data.myRooms || []).filter(isValidRoom));
       setBootstrapError("");
@@ -2938,6 +2943,9 @@ export default function Home() {
   useEffect(() => {
     let active = true;
     const initialize = async () => {
+      let storage: Storage | null = null;
+      try { storage = window.localStorage; } catch { /* Keep the link in memory. */ }
+      incomingInviteRef.current ||= capturePendingInvite(window.location, window.history, storage, Date.now());
       let data: Awaited<ReturnType<typeof loadRooms>>;
       try {
         data = await loadRooms();
@@ -2950,61 +2958,11 @@ export default function Home() {
       if (!active) return;
 
       try {
-        const acceptInvite = async (roomId: string, token: string) => {
-          await postAction({ action: "accept_invite", roomId, token });
-          setRoomHubId(roomId);
-          notify("주문방 초대를 수락했어요.", "success");
-          await loadRooms().catch(() => undefined);
-        };
-        const params = new URLSearchParams(window.location.search);
-        const invite = params.get("invite");
-        const invitedRoomId = params.get("room");
-        if (invite && invitedRoomId) {
-          // The invite token is a bearer credential: take it out of the
-          // address bar (history, screenshots, the sign-in return_to) first.
-          window.history.replaceState({}, "", window.location.pathname);
-          if (!data.user) {
-            try {
-              // localStorage rather than sessionStorage: the platform sign-in
-              // can complete in another tab. The entry is consumed by whoever
-              // signs in next on this browser, so it lives one hour, not the
-              // invite's 24, to limit exposure on a shared computer.
-              window.localStorage.setItem(pendingInviteStorageKey, JSON.stringify({
-                roomId: invitedRoomId,
-                token: invite,
-                createdAt: Date.now(),
-              }));
-            } catch {
-              // Without storage the user signs in and can open the link again.
-            }
-            signIn();
-            return;
-          }
-          await acceptInvite(invitedRoomId, invite);
+        const invitation = incomingInviteRef.current;
+        if (invitation) {
+          if (!data.user) { signIn(); return; }
+          setPendingInvite(invitation);
           return;
-        }
-
-        let pendingInviteRaw: string | null = null;
-        try {
-          pendingInviteRaw = window.localStorage.getItem(pendingInviteStorageKey);
-          if (pendingInviteRaw && data.user) window.localStorage.removeItem(pendingInviteStorageKey);
-        } catch {
-          // Storage unavailable: nothing to resume.
-        }
-        if (pendingInviteRaw && data.user) {
-          let pendingInvite: { roomId?: string; token?: string; createdAt?: number } = {};
-          try {
-            const parsed: unknown = JSON.parse(pendingInviteRaw);
-            if (parsed && typeof parsed === "object") pendingInvite = parsed as typeof pendingInvite;
-          } catch {
-            // A corrupted entry is simply not resumed.
-          }
-          const isFresh = typeof pendingInvite.createdAt === "number"
-            && Date.now() - pendingInvite.createdAt < 60 * 60 * 1000;
-          if (isFresh && typeof pendingInvite.roomId === "string" && typeof pendingInvite.token === "string") {
-            await acceptInvite(pendingInvite.roomId, pendingInvite.token);
-            return;
-          }
         }
 
         let pendingJoinRaw: string | null = null;
@@ -3231,6 +3189,23 @@ export default function Home() {
     }
   };
 
+  const dismissInvite = () => {
+    try { clearPendingInvite(window.localStorage); } catch { /* Storage unavailable. */ }
+    incomingInviteRef.current = null;
+    setPendingInvite(null);
+  };
+  const acceptPendingInvite = async () => {
+    if (!pendingInvite || acceptingInvite) return;
+    setAcceptingInvite(true);
+    try {
+      await postAction({action:"accept_invite",roomId:pendingInvite.roomId,token:pendingInvite.token});
+      setRoomHubId(pendingInvite.roomId);
+      dismissInvite();
+      void refreshRooms();
+    } catch (error) { notify(error instanceof Error ? error.message : "초대를 수락하지 못했어요.","error"); }
+    finally { setAcceptingInvite(false); }
+  };
+
   const retryBootstrap = () => {
     setBootstrapState("loading");
     setBootstrapError("");
@@ -3392,6 +3367,7 @@ export default function Home() {
           }}
         />
       )}
+      {pendingInvite && user && <InviteConfirmation name={user.displayName} roomName={restaurants.find(r=>r.id===pools.find(p=>p.id===pendingInvite.roomId)?.restaurantId)?.name || "초대받은 주문방"} onAccept={() => void acceptPendingInvite()} onClose={dismissInvite} busy={acceptingInvite} />}
       {showFeedback && <FeedbackModal onClose={closeFeedback} />}
 
       {toast && (

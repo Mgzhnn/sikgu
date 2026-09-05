@@ -139,21 +139,14 @@ test("removes unimplemented integrations and fabricated profile data", async () 
   assert.doesNotMatch(css, /\.participant-list/);
 });
 
-test("shows membership-backed delivery as free", async () => {
-  const [page, api] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/api/sikgu/route.ts", import.meta.url), "utf8"),
-  ]);
-
-  assert.match(page, /type MembershipApp = DeliveryApp \| ""/);
-  assert.match(page, /membership: "배민클럽"/);
-  assert.match(page, /membership: "쿠팡 와우"/);
-  assert.match(page, /const membershipApplied = membershipApp !== null && pool\.apps\.includes\(membershipApp\)/);
-  assert.match(page, /await onCreate\(\{\s*restaurantId,\s*pickup,\s*apps,\s*minutes,\s*capacity,\s*membership,?\s*\}\)/);
-  assert.match(page, /\{hasFreeDelivery \? "무료" : money\(eachFee\)\}/);
-  assert.match(page, /\{!hasFreeDelivery && <small> \/ 1인<\/small>\}/);
-  assert.match(api, /if \(membership && !apps\.includes\(membership\)\)/);
-  assert.match(api, /선택한 주문 앱과 무료배달 멤버십이 일치하지 않습니다/);
+test("membership discounts apply only to their own app", async () => {
+  const { getAppEstimates } = await import("../app/order-estimates.mjs");
+  const rows = getAppEstimates({apps:["baemin","coupang"],membership:"coupang",total:15000,people:2}, {minimum:{baemin:15000,coupang:18000},deliveryFee:{baemin:3000,coupang:2500}});
+  assert.equal(rows[0].ready,true);
+  assert.equal(rows[0].fee,3000);
+  assert.equal(rows[1].ready,false);
+  assert.equal(rows[1].remaining,3000);
+  assert.equal(rows[1].fee,0);
 });
 
 test("removes the delivery-app-owned order tracking section", async () => {
@@ -593,27 +586,13 @@ test("the pool dialog disables joining a full room and Escape is ignored mid-IME
   }
 });
 
-test("an invite token leaves the address bar before sign-in and a failed resume is not retried forever", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  const initialize = page.slice(page.indexOf("const initialize = async"), page.indexOf("void initialize()"));
-  const inviteBranch = initialize.slice(initialize.indexOf("if (invite && invitedRoomId)"), initialize.indexOf("const pendingJoinRaw") > 0 ? initialize.indexOf("const pendingJoinRaw") : initialize.indexOf("let pendingJoinRaw"));
-
-  assert.match(page, /const pendingInviteStorageKey = "sikgu-pending-invite"/);
-  assert.ok(
-    inviteBranch.indexOf("window.history.replaceState") !== -1
-      && inviteBranch.indexOf("window.history.replaceState") < inviteBranch.indexOf("if (!data.user)"),
-    "the token must be removed from the URL before the sign-in redirect captures it",
-  );
-  // localStorage, not sessionStorage: the platform sign-in may finish in a
-  // different tab, and signing in can take longer than a few minutes.
-  assert.match(inviteBranch, /localStorage\.setItem\(pendingInviteStorageKey/);
-  assert.match(initialize, /localStorage\.getItem\(pendingInviteStorageKey\)/);
-  assert.match(initialize, /localStorage\.removeItem\(pendingInviteStorageKey\)/);
-  // One hour: long enough for a slow sign-in, short enough that an invite
-  // opened on a shared computer is not consumed by the next person to sign in.
-  assert.match(initialize, /Date\.now\(\) - pendingInvite\.createdAt < 60 \* 60 \* 1000/);
-  const pendingJoin = initialize.slice(initialize.indexOf("if (pendingJoinRoomId && data.user)"), initialize.indexOf("} catch (interactionError)"));
-  assert.match(pendingJoin, /catch \(joinError\) \{[\s\S]*?sessionStorage\.removeItem\(pendingJoinStorageKey\)/);
+test("pending invitation validation rejects malformed tokens and future or expired entries", async () => {
+  const {validPendingInvite}=await import("../app/invite-continuation.mjs");
+  const entry={roomId:"room_test",token:"a".repeat(48),createdAt:1000};
+  assert.deepEqual(validPendingInvite(entry,2000),entry);
+  assert.equal(validPendingInvite({...entry,createdAt:3000},2000),null);
+  assert.equal(validPendingInvite({...entry,createdAt:-4000000},2000),null);
+  assert.equal(validPendingInvite({...entry,token:"invalid"},2000),null);
 });
 
 test("every choice group in the create dialog has an accessible name and pressed state", async () => {
@@ -741,13 +720,14 @@ test("JavaScript-driven scrolling respects the reduced-motion preference", async
   assert.doesNotMatch(page, /behavior: "smooth"/);
 });
 
-test("the invite card states the validity the API actually returned", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  const roomHub = page.slice(page.indexOf("function RoomHubModal"), page.indexOf("function CreateModal"));
-  assert.match(roomHub, /const \[inviteHours, setInviteHours\] = useState\(24\)/);
-  assert.match(roomHub, /setInviteHours\(typeof data\.expiresInHours === "number" \? data\.expiresInHours : 24\)/);
-  assert.match(roomHub, /\{inviteHours\}시간 동안 사용할 수 있어요\./);
-  assert.doesNotMatch(roomHub, /24시간 동안 사용할 수 있어요/);
+test("invites expire no later than the room deadline", async () => {
+  const {createApi,identity} = await import("./helpers/api-harness.mjs");
+  const api = await createApi();
+  const host=identity("expiry@example.test");
+  const {roomId}=(await api.post(host,{action:"create_room",restaurantId:"sinjeon",pickup:"E3",apps:["baemin"],capacity:4,minutes:20})).data;
+  const invite=(await api.post(host,{action:"create_invite",roomId})).data;
+  assert.equal(invite.expiresAt,api.sql("SELECT closes_at FROM rooms WHERE id=?",roomId)[0].closes_at);
+  assert.ok(!("expiresInHours" in invite));
 });
 
 test("the room poll treats a superseded response as neutral and resumes promptly when the tab is visible again", async () => {
@@ -786,7 +766,6 @@ test("the room poll keeps a single timer chain and stops completely on unmount",
 test("the composer is cleared when the message is sent and the draft comes back only if sending fails", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const sendMessage = page.slice(page.indexOf("const sendMessage = async"), page.indexOf("const openOrderEditor"));
-  const initialize = page.slice(page.indexOf("const initialize = async"), page.indexOf("void initialize()"));
 
   assert.match(sendMessage, /const draft = message;/);
   // Cleared synchronously on send (before any later typing or IME composition
@@ -795,13 +774,12 @@ test("the composer is cleared when the message is sent and the draft comes back 
   assert.ok(sendMessage.indexOf('setMessage("")') < sendMessage.indexOf("await post({ action: \"send_message\""));
   assert.match(sendMessage, /catch \(messageError\) \{[\s\S]*?setMessage\(\(current\) => \(current \? `\$\{draft\} \$\{current\}` : draft\)\)/);
   assert.doesNotMatch(sendMessage, /startsWith\(draft\)/);
-  // A corrupted pending-invite entry must not surface as an English parse error.
-  assert.match(initialize, /let pendingInvite: \{ roomId\?: string; token\?: string; createdAt\?: number \} = \{\};[\s\S]{0,80}try \{[\s\S]{0,120}JSON\.parse\(pendingInviteRaw\)/);
+
 });
 
 test("a stored invite entry that parses to null is ignored like any other corrupt entry", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  const initialize = page.slice(page.indexOf("const initialize = async"), page.indexOf("void initialize()"));
-  assert.match(initialize, /const parsed: unknown = JSON\.parse\(pendingInviteRaw\);\s*if \(parsed && typeof parsed === "object"\) pendingInvite = parsed as typeof pendingInvite;/);
-  assert.doesNotMatch(initialize, /pendingInvite = JSON\.parse\(pendingInviteRaw\) as typeof pendingInvite;/);
+  const {capturePendingInvite}=await import("../app/invite-continuation.mjs");
+  for (const raw of ['null','{','[]','1']) {
+    assert.equal(capturePendingInvite({search:"",pathname:"/",hash:""},{},{getItem:()=>raw,removeItem(){}},2000),null);
+  }
 });

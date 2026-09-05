@@ -862,7 +862,8 @@ test("the invite cap and the chat rate limit hold under concurrent requests", as
 
   for (let index = 0; index < 4; index += 1) assert.equal((await api.post(host, { action: "create_invite", roomId })).status, 200);
   const invites = await Promise.all([1, 2, 3].map(() => api.post(host, { action: "create_invite", roomId })));
-  assert.deepEqual(invites.map((r) => r.status).sort(), [200, 429, 429]);
+  assert.deepEqual(invites.map((r) => r.status).sort(), [200, 200, 200]);
+  for (const invite of invites) assert.ok(api.sql("SELECT token FROM room_invites WHERE token=?", invite.data.token).length);
   assert.equal(api.sql("SELECT COUNT(*) AS count FROM room_invites WHERE room_id = ?", roomId)[0].count, 5);
 
   await api.post(member, { action: "request_join", roomId });

@@ -1,3 +1,5 @@
+import {createRoomInvite} from "./invites";
+import {json, token, databaseNow} from "./responses";
 import { decodeCursor, encodeCursor, cursorWhere, InvalidCursorError } from "./pagination";
 import { env } from "cloudflare:workers";
 import { after } from "next/server";
@@ -68,19 +70,6 @@ const recentRoomWindowMs = 30 * 24 * 60 * 60 * 1000;
 const receiptUploadCooldownMs = 30 * 1000;
 const mutationLockTimeoutMs = 2 * 60 * 1000;
 const receiptTypes = new Set(["image/png"]);
-// Evaluate time inside SQLite, so an RPC waiting in the database queue cannot
-// authorize a write using the timestamp of an earlier JavaScript read.
-const databaseNow = "CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)";
-
-const json = (data: unknown, status = 200, headers: Record<string, string> = {}) => Response.json(data, {
-  status,
-  headers: {
-    "Cache-Control": "private, no-store",
-    "X-Content-Type-Options": "nosniff",
-    ...headers,
-  },
-});
-
 function uploadBucket() {
   const bucket = (env as unknown as { UPLOADS?: UploadBucket }).UPLOADS;
   if (!bucket) throw new Error("영수증 저장소가 연결되지 않았습니다.");
@@ -270,11 +259,6 @@ function roomId() {
   return `room_${crypto.randomUUID()}`;
 }
 
-function token() {
-  const bytes = crypto.getRandomValues(new Uint8Array(24));
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
 /**
  * Accepts a datetime-local value (YYYY-MM-DDTHH:mm) only if every component
  * round-trips: Date.parse alone normalizes "2024-02-30" to March 1 and accepts
@@ -417,6 +401,8 @@ async function purgeExpiredRooms(now: number) {
   if (now - lastRetentionSweep < 60 * 60 * 1000) return;
   if (retentionSweepInFlight) return retentionSweepInFlight;
   retentionSweepInFlight = (async () => {
+    const metrics = {event:"retention_sweep", selected:0, claimed:0, deleted:0, failed:0};
+    const started = Date.now();
     try {
       const legacyNames = await withD1ReadRetry(() => env.DB.prepare(`
         SELECT CASE WHEN
@@ -461,6 +447,7 @@ async function purgeExpiredRooms(now: number) {
         staleBefore,
       ).all<{ id: string }>());
 
+      metrics.selected = candidates.results.length;
       if (candidates.results.length) {
         const candidateIds = candidates.results.map((room) => room.id);
         const placeholders = candidateIds.map(() => "?").join(", ");
@@ -502,6 +489,7 @@ async function purgeExpiredRooms(now: number) {
           WHERE status = 'deleting' AND mutation_token = ?
           ORDER BY closes_at ASC
         `).bind(sweepToken).all<{ id: string; receipt_key: string | null }>());
+        metrics.claimed = claimed.results.length;
         if (!claimed.results.length) return;
 
         // One room at a time, committing each deletion as soon as its objects
@@ -516,6 +504,7 @@ async function purgeExpiredRooms(now: number) {
               await bucket.delete(receiptKeys.slice(offset, offset + 1000));
             }
           } catch (error) {
+            metrics.failed++;
             console.error("Deferred stale receipt cleanup", error);
             // Keep this room hidden. A later sweep can safely reclaim the stale
             // deletion token without resurrecting a partially cleaned room.
@@ -523,11 +512,13 @@ async function purgeExpiredRooms(now: number) {
           }
           try {
             // All private room tables use ON DELETE CASCADE in the production schema.
-            await env.DB.prepare(`
+            const deleted = await env.DB.prepare(`
               DELETE FROM rooms
               WHERE id = ? AND status = 'deleting' AND mutation_token = ?
             `).bind(room.id, sweepToken).run();
+            metrics.deleted += deleted.meta.changes;
           } catch (error) {
+            metrics.failed++;
             console.error("Deferred stale room cleanup", error);
             // Leave the tombstone claimed; ambiguous D1 outcomes are retried later.
           }
@@ -536,6 +527,17 @@ async function purgeExpiredRooms(now: number) {
     } finally {
       // Back off even after a storage outage so new visitors do not start a cleanup storm.
       lastRetentionSweep = Date.now();
+      try {
+        const backlog = await env.DB.prepare(`
+          SELECT COUNT(*) AS pending, MIN(closes_at) AS oldest_deadline
+          FROM rooms WHERE (status = 'open' AND closes_at < ?) OR status = 'deleting'
+        `).bind(now - recentRoomWindowMs).first<{pending:number;oldest_deadline:number|null}>();
+        console.info(JSON.stringify({...metrics, durationMs:Date.now()-started,
+          pending:backlog?.pending ?? 0,
+          oldestOverdueMs:backlog?.oldest_deadline == null ? 0 : Math.max(0,now-recentRoomWindowMs-backlog.oldest_deadline)}));
+      } catch {
+        console.error(JSON.stringify({...metrics, durationMs:Date.now()-started, backlog:"unavailable"}));
+      }
     }
   })();
   try {
@@ -1345,51 +1347,7 @@ export async function POST(request: Request) {
     }
 
     if (action === "create_invite") {
-      if (room.host_email !== auth.email) return json({ error: "방장만 초대 링크를 만들 수 있습니다." }, 403);
-      const now = Date.now();
-      if (room.status !== "open" || room.closes_at <= now) {
-        return json({ error: "마감된 주문방에서는 초대 링크를 만들 수 없습니다." }, 409);
-      }
-      const approved = await approvedCount(id);
-      if (approved >= room.capacity) return json({ error: "주문방 정원이 모두 찼습니다." }, 409);
-      const inviteToken = token();
-      const remaining = room.capacity - approved;
-      // The active-invite cap lives inside the INSERT so parallel requests
-      // cannot all pass a separate COUNT check.
-      const [, inserted] = await env.DB.batch([
-        env.DB.prepare("DELETE FROM room_invites WHERE room_id = ? AND (expires_at <= ? OR uses >= max_uses)").bind(id, now),
-        env.DB.prepare(`
-          INSERT INTO room_invites (
-            token, room_id, created_by_email, max_uses, uses, expires_at, created_at
-          )
-          SELECT ?, ?, ?, ?, 0, ?, ?
-          WHERE (SELECT COUNT(*) FROM room_invites WHERE room_id = ? AND expires_at > ?) < 5
-            AND EXISTS (SELECT 1 FROM rooms r WHERE r.id = ? AND r.host_email = ?
-              AND r.status = 'open' AND r.closes_at > ${databaseNow}
-              AND (SELECT COUNT(*) FROM room_members m WHERE m.room_id = r.id AND m.status = 'approved') < r.capacity)
-        `).bind(inviteToken, id, auth.email, remaining, room.closes_at, now, id, now, id, auth.email),
-      ]);
-      if (!inserted.meta.changes) {
-        const current = await roomForUser(id, auth.email);
-        if (!current || Number(current.closes_at) <= Date.now()) {
-          return json({ error: "주문방이 마감되었거나 삭제됐어요." }, 409);
-        }
-        // At the bounded cap, recover a usable link instead of stranding a
-        // host who closed the sheet or lost clipboard access. Only the host
-        // reaches this path; tokens never enter the public room response.
-        const existing = await env.DB.prepare(`
-          SELECT i.token, MIN(i.expires_at, r.closes_at) AS expiresAt
-          FROM room_invites i JOIN rooms r ON r.id = i.room_id
-          WHERE i.room_id = ? AND r.host_email = ? AND r.status = 'open'
-            AND r.closes_at > ${databaseNow} AND i.expires_at > ${databaseNow}
-            AND i.uses < i.max_uses
-            AND (SELECT COUNT(*) FROM room_members m WHERE m.room_id = r.id AND m.status = 'approved') < r.capacity
-          ORDER BY i.created_at DESC, i.token DESC LIMIT 1
-        `).bind(id, auth.email).first<{token: string; expiresAt: number}>();
-        if (existing) return json({ ...existing, reused: true });
-        return json({ error: "사용 가능한 초대 링크가 없거나 정원이 모두 찼습니다." }, 409);
-      }
-      return json({ token: inviteToken, expiresAt: room.closes_at, reused: false });
+      return await createRoomInvite({db:env.DB, id, hostEmail:auth.email, room, approvedCount});
     }
 
     if (action === "accept_invite") {

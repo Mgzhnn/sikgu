@@ -1,3 +1,4 @@
+import {readClientSource} from "./helpers/client-source.mjs";
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
@@ -17,7 +18,7 @@ const root = new URL("../", import.meta.url);
 
 const sourceFiles = Promise.all([
   readFile(new URL("app/api/sikgu/route.ts", root), "utf8"),
-  readFile(new URL("app/page.tsx", root), "utf8"),
+  readClientSource(),
   readFile(new URL("db/schema.ts", root), "utf8"),
   readFile(new URL("worker/index.ts", root), "utf8"),
   readFile(new URL("app/receipt-image.mjs", root), "utf8"),
@@ -978,14 +979,24 @@ test("the retention sweep keeps its progress per room, so one storage failure ca
   for (const id of ids) api.db.prepare("UPDATE rooms SET closes_at = ?, receipt_key = ? WHERE id = ?").run(expired, `receipts/${id}/old.png`, id);
 
   const originalError = console.error;
+  const originalInfo = console.info;
+  const metrics = [];
+  console.info = line => metrics.push(JSON.parse(line));
   console.error = () => undefined;
   try {
     assert.equal((await api.get(undefined, "?action=bootstrap")).status, 200);
     await api.runAfterTasks();
   } finally {
     console.error = originalError;
+    console.info = originalInfo;
   }
 
+  assert.equal(metrics.length, 1);
+  assert.equal(metrics[0].deleted, 2);
+  assert.equal(metrics[0].failed, 1);
+  assert.equal(metrics[0].pending, 1);
+  assert.ok(metrics[0].oldestOverdueMs >= 86400000);
+  assert.doesNotMatch(JSON.stringify(metrics), /@|receipts\/|room_/);
   const remaining = api.sql("SELECT id, status FROM rooms ORDER BY created_at");
   assert.deepEqual(remaining.map((row) => row.id), [ids[1]], "the two rooms whose storage worked are gone");
   assert.equal(remaining[0].status, "deleting", "the failed room stays claimed for a later sweep");

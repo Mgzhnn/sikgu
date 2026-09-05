@@ -1,0 +1,18 @@
+
+> site-creator-vinext-starter@0.1.0 test:browser
+> playwright test
+
+
+Running 7 tests using 1 worker
+
+(node:73487) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 browser-tests/sikgu.spec.ts:24:1 › R8: the rendered price summary keeps app requirements together (923ms)
+  ✓  2 browser-tests/sikgu.spec.ts:36:1 › invite secrets leave the URL before failed bootstrap and acceptance requires a gesture (755ms)
+  ✓  3 browser-tests/sikgu.spec.ts:49:1 › invite expiry copy uses recruitment time after reopening the room (732ms)
+  ✓  4 browser-tests/sikgu.spec.ts:58:1 › R4: the 201st and 202nd messages scroll and announce without replaying initial history (932ms)
+  ✓  5 browser-tests/sikgu.spec.ts:78:30 › restaurant choices remain readable at 360px and enlarged text (721ms)
+  ✓  6 browser-tests/sikgu.spec.ts:78:30 › restaurant choices remain readable at 390px and enlarged text (682ms)
+  ✓  7 browser-tests/sikgu.spec.ts:99:1 › history pagination is reachable from the profile and room UI (561ms)
+
+  7 passed (8.3s)

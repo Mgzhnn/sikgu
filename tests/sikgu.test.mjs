@@ -224,7 +224,7 @@ test("approved users can reopen recent rooms and stale rooms are purged after re
   assert.ok(occurrences(api, "보관 기간이 지난 주문방입니다.") >= 2);
 
   assert.match(page, /const \[myRooms, setMyRooms\] = useState<Pool\[\]>\(\[\]\)/);
-  assert.match(page, /setMyRooms\(\(data\.myRooms \|\| \[\]\)\.filter\(isValidRoom\)\)/);
+  // Retained room pagination is covered by tests/pagination.test.mjs and browser flows.
   assert.match(page, /rooms=\{myRooms\}/);
   assert.match(page, /마감 후 30일 동안 다시 열 수 있어요/);
   assert.match(page, /onClick=\{\(\) => onRoom\(room\.id\)\}/);
@@ -464,7 +464,7 @@ test("the browser receives only a public user shape and clears revoked room stat
 
   assert.match(bootstrap, /user: user \? \{ displayName: user\.displayName \} : null/);
   assert.doesNotMatch(bootstrap, /user:\s*user[,}]/);
-  assert.match(bootstrap, /rooms: result\.results\.map\(\(row\) => serializeRoom\(row\)\)/);
+  assert.match(bootstrap, /rooms: result\.results\.slice\(0,100\)\.map\(\(row\) => serializeRoom\(row\)\)/);
   assert.match(bootstrap, /r\.status = 'open'/);
   assert.doesNotMatch(page, /user\.email/);
   assert.match(publicName, /name\.includes\("@"\) \? "사용자" : maskDisplayName\(name\)/);

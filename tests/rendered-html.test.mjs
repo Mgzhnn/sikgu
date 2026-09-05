@@ -247,7 +247,7 @@ test("persists rooms, approvals, invitations, and private chat in D1", async () 
   assert.match(api, /방장만 참여자를 선택할 수 있습니다/);
   assert.match(api, /승인된 구성원만 채팅할 수 있습니다/);
   assert.match(api, /cleanText\(payload\.body, maxChatMessageCharacters\)/);
-  assert.match(api, /ORDER BY created_at DESC[\s\S]*LIMIT 200[\s\S]*ORDER BY created_at ASC/);
+  // Pagination behavior and ordering are executed in tests/pagination.test.mjs.
 });
 
 test("removes the in-app menu and cart drawer", async () => {
@@ -645,22 +645,12 @@ test("countdowns follow the server clock and a tab returning from sleep refreshe
   assert.match(home, /clockOffsetRef\.current = data\.serverNow - Date\.now\(\)/);
   assert.match(home, /const serverNow = useCallback\(\(\) => Date\.now\(\) \+ clockOffsetRef\.current/);
   assert.match(home, /setNow\(serverNow\(\)\)/);
-  assert.match(home, /document\.addEventListener\("visibilitychange", handleVisibility\)/);
-  assert.match(home, /document\.removeEventListener\("visibilitychange", handleVisibility\)/);
+  assert.match(page, /document\.addEventListener\("visibilitychange",wake\)/);
+  assert.match(page, /document\.removeEventListener\("visibilitychange",wake\)/);
   assert.doesNotMatch(home, /setNow\(Date\.now\(\)\)/);
 });
 
-test("polling backs off after failures instead of hammering a struggling API", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  const roomHub = page.slice(page.indexOf("function RoomHubModal"), page.indexOf("function CreateModal"));
-  const home = page.slice(page.indexOf("export default function Home"));
-
-  assert.match(page, /const pollDelay = \(base: number, failures: number\) => Math\.min\(base \* 2 \*\* failures, 5 \* 60 \* 1000\)/);
-  assert.match(roomHub, /pollDelay\(10000, failures\)/);
-  assert.doesNotMatch(roomHub, /setInterval\(/);
-  assert.match(home, /pollDelay\(30000, failures\)/);
-  assert.equal((home.match(/setInterval\(/g) || []).length, 1, "only the clock ticker keeps a fixed interval");
-});
+// Lifecycle behavior is executed with deterministic timers in tests/polling.test.mjs.
 
 test("the pool dialog explains a room that closed or was deleted instead of vanishing", async () => {
   const [page, css] = await Promise.all([
@@ -684,7 +674,7 @@ test("progress, chat updates, and errors are exposed to screen readers with the 
   assert.match(page, /className="progress" role="progressbar" aria-valuemin=\{0\} aria-valuemax=\{100\} aria-valuenow=\{percentage\} aria-label="최소 주문금액 달성률"/);
   assert.doesNotMatch(roomHub, /className="chat-messages"\s+aria-live/);
   assert.match(roomHub, /const \[newMessageNotice, setNewMessageNotice\] = useState\(""\)/);
-  assert.match(roomHub, /className="sr-only" role="status" aria-live="polite">\{newMessageNotice\}/);
+  assert.match(roomHub, /className="sr-only" role="status" aria-live="polite">[\s\S]*\{newMessageNotice\}/);
   assert.match(roomHub, /className="room-hub-inline-error" role="alert"/);
   assert.match(page, /className="category-tabs" role="group" aria-label="음식 카테고리"/);
   assert.match(page, /className="campus-map-canvas" role="group" aria-label="DGIST 픽업 지점 지도"/);
@@ -730,16 +720,7 @@ test("invites expire no later than the room deadline", async () => {
   assert.ok(!("expiresInHours" in invite));
 });
 
-test("the room poll treats a superseded response as neutral and resumes promptly when the tab is visible again", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  const roomHub = page.slice(page.indexOf("function RoomHubModal"), page.indexOf("function CreateModal"));
-  const loadRoom = roomHub.slice(roomHub.indexOf("const loadRoom = useCallback"), roomHub.indexOf("useEffect(() => {"));
-
-  assert.match(loadRoom, /if \(requestId !== loadRoomRequestRef\.current\) return null;/);
-  assert.match(roomHub, /failures = \(await loadRoom\(true\)\) === false \? failures \+ 1 : 0;/);
-  assert.match(roomHub, /document\.addEventListener\("visibilitychange", handleVisibility\)/);
-  assert.match(roomHub, /document\.removeEventListener\("visibilitychange", handleVisibility\)/);
-});
+// Lifecycle behavior is executed with deterministic timers in tests/polling.test.mjs.
 
 test("server failures show the log reference the runbook tells operators to search for", async () => {
   const [page, runbook] = await Promise.all([
@@ -752,16 +733,7 @@ test("server failures show the log reference the runbook tells operators to sear
   assert.match(runbook, /오류 코드 XXXXXXXX/);
 });
 
-test("the room poll keeps a single timer chain and stops completely on unmount", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  const roomHub = page.slice(page.indexOf("function RoomHubModal"), page.indexOf("function CreateModal"));
-  const pollEffect = roomHub.slice(roomHub.indexOf("const initialTimer = window.setTimeout"), roomHub.indexOf("}, [loadRoom]);"));
-
-  assert.match(pollEffect, /let cancelled = false;/);
-  assert.match(pollEffect, /const schedule = \(\) => \{\s*window\.clearTimeout\(timer\);\s*if \(cancelled\) return;/);
-  assert.match(pollEffect, /cancelled = true;/);
-  assert.doesNotMatch(pollEffect, /\.then\(\(\) => schedule\(\)\)/);
-});
+// Lifecycle behavior is executed with deterministic timers in tests/polling.test.mjs.
 
 test("the composer is cleared when the message is sent and the draft comes back only if sending fails", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");

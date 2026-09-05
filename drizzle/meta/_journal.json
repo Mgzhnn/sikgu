@@ -36,6 +36,13 @@
       "when": 1788428539755,
       "tag": "0004_room_blocks",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1788582138577,
+      "tag": "0005_history_indexes",
+      "breakpoints": true
     }
   ]
 }

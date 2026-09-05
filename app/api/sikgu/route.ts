@@ -1,3 +1,4 @@
+import { decodeCursor, encodeCursor, cursorWhere, InvalidCursorError } from "./pagination";
 import { env } from "cloudflare:workers";
 import { after } from "next/server";
 import { getChatGPTUser } from "../../chatgpt-auth";
@@ -594,9 +595,35 @@ export async function GET(request: Request) {
       // NULL never equals a stored email, so an anonymous viewer can never be
       // matched as a member or host.
       const email = user?.email || null;
+      const sort = url.searchParams.get("sort");
+      const sortColumn = sort === "deadline" ? "r.closes_at" : sort === "remaining" ? "MAX(0, r.target - r.total)" : "r.created_at";
+      const sortDirection = sort === "deadline" || sort === "remaining" ? "ASC" : "DESC";
+      const cursor = cursorWhere(decodeCursor(url.searchParams.get("roomsCursor")),sortColumn,sortDirection);
+      const mineCursor = cursorWhere(decodeCursor(url.searchParams.get("myRoomsCursor")),"r.created_at","DESC");
+      const filters: string[]=[];
+      const filterValues: (string | number | null)[]=[];
+      const ids = (key:string, validate:(id:string)=>boolean) => (url.searchParams.get(key)||"").split(",").filter(validate).slice(0,30);
+      const categoryIds=ids("categoryIds",isRestaurantId);
+      if (url.searchParams.has("categoryIds")) {
+        filters.push(categoryIds.length ? `r.restaurant_id IN (${categoryIds.map(()=>"?").join(",")})` : "0");
+        filterValues.push(...categoryIds);
+      }
+      if (url.searchParams.has("searchRestaurants")) {
+        const restaurants=ids("searchRestaurants",isRestaurantId), pickups=ids("searchPickups",isPickupId);
+        const parts=[];
+        if(restaurants.length){parts.push(`r.restaurant_id IN (${restaurants.map(()=>"?").join(",")})`);filterValues.push(...restaurants);}
+        if(pickups.length){parts.push(`r.pickup IN (${pickups.map(()=>"?").join(",")})`);filterValues.push(...pickups);}
+        filters.push(parts.length?`(${parts.join(" OR ")})`:"0");
+      }
+      const pickup=url.searchParams.get("pickup");
+      if(pickup && isPickupId(pickup)){filters.push("r.pickup = ?");filterValues.push(pickup);}
+      if(url.searchParams.get("available")==="1"){
+        filters.push("((SELECT COUNT(*) FROM room_members a WHERE a.room_id=r.id AND a.status='approved') < r.capacity OR EXISTS (SELECT 1 FROM room_members m WHERE m.room_id=r.id AND m.user_email=?))");filterValues.push(email);
+      }
+      const filterSql=filters.length?` AND ${filters.join(" AND ")}`:"";
       const result = await withD1ReadRetry(() => env.DB.prepare(`
         SELECT
-          r.*,
+          r.*, ${sortColumn} AS page_sort,
           ? AS current_email,
           (SELECT COUNT(*) FROM room_members approved
             WHERE approved.room_id = r.id AND approved.status = 'approved') AS people,
@@ -606,11 +633,14 @@ export async function GET(request: Request) {
             WHERE pending.room_id = r.id AND pending.status = 'requested') AS pending_count
         FROM rooms r
         WHERE r.status = 'open' AND r.closes_at > ?
-        ORDER BY r.created_at DESC
-        LIMIT 100
-      `).bind(email, email, now).all<Record<string, unknown>>());
+          ${filterSql} ${cursor.sql}
+        ORDER BY ${sortColumn} ${sortDirection}, r.id ${sortDirection}
+        LIMIT 101
+      `).bind(email, email, now, ...filterValues, ...cursor.bind).all<Record<string, unknown>>());
 
       let myRooms: ReturnType<typeof serializeRoom>[] = [];
+      let nextMyRoomsCursor: string | null = null;
+      const nextRoomsCursor=result.results.length>100?encodeCursor(result.results[99],"page_sort"):null;
       if (user) {
         const mine = await withD1ReadRetry(() => env.DB.prepare(`
           SELECT
@@ -627,10 +657,12 @@ export async function GET(request: Request) {
             AND mine.status = 'approved'
             AND r.status = 'open'
             AND r.closes_at > ?
-          ORDER BY r.created_at DESC
-          LIMIT 50
-        `).bind(user.email, user.email, now - recentRoomWindowMs).all<Record<string, unknown>>());
-        myRooms = mine.results.map((row) => serializeRoom(row, true)).filter(isUsableRoom);
+            ${mineCursor.sql}
+          ORDER BY r.created_at DESC, r.id DESC
+          LIMIT 51
+        `).bind(user.email, user.email, now - recentRoomWindowMs, ...mineCursor.bind).all<Record<string, unknown>>());
+        nextMyRoomsCursor=mine.results.length>50?encodeCursor(mine.results[49]):null;
+        myRooms = mine.results.slice(0,50).map((row) => serializeRoom(row, true)).filter(isUsableRoom);
       }
 
       after(() => purgeExpiredRooms(now).catch((error) => console.error("Retention sweep failed", error)));
@@ -639,7 +671,8 @@ export async function GET(request: Request) {
         // Deadlines are server timestamps; the client offsets its own clock
         // by this value so countdowns do not depend on the phone's clock.
         serverNow: now,
-        rooms: result.results.map((row) => serializeRoom(row)).filter(isUsableRoom),
+        nextRoomsCursor, nextMyRoomsCursor,
+        rooms: result.results.slice(0,100).map((row) => serializeRoom(row)).filter(isUsableRoom),
         myRooms,
       });
     }
@@ -671,18 +704,17 @@ export async function GET(request: Request) {
         `).bind(id).run();
         members = await loadMembers();
       }
+      const messageCursor=decodeCursor(url.searchParams.get("messagesCursor"));
       const messages = await withD1ReadRetry(() => env.DB.prepare(`
-        SELECT id, sender_name, body, created_at, mine
-        FROM (
-          SELECT id, sender_name, body, created_at,
-            CASE WHEN sender_email = ? THEN 1 ELSE 0 END AS mine
-          FROM room_messages
-          WHERE room_id = ?
-          ORDER BY created_at DESC
-          LIMIT 200
-        )
-        ORDER BY created_at ASC
-      `).bind(auth.email, id).all());
+        SELECT id, sender_name, body, created_at,
+          CASE WHEN sender_email = ? THEN 1 ELSE 0 END AS mine
+        FROM room_messages
+        WHERE room_id = ?
+          ${messageCursor ? "AND (created_at < ? OR (created_at = ? AND id < ?))" : ""}
+        ORDER BY created_at DESC, id DESC LIMIT 201
+      `).bind(auth.email,id,...(messageCursor?[messageCursor.value,messageCursor.value,messageCursor.id]:[])).all<Record<string,unknown>>());
+      const nextMessagesCursor=messages.results.length>200?encodeCursor(messages.results[199]):null;
+      messages.results=messages.results.slice(0,200).reverse();
       return json({
         room: { ...serializeRoom({ ...room, current_email: auth.email, people: await approvedCount(id) }, true), isHost },
         members: members.results.map((member) => ({
@@ -694,6 +726,7 @@ export async function GET(request: Request) {
           status: member.status,
           created_at: member.created_at,
         })),
+        nextMessagesCursor,
         messages: messages.results.map((message) => ({
           ...message,
           sender_name: publicDisplayName(message.sender_name),
@@ -703,6 +736,7 @@ export async function GET(request: Request) {
 
     return json({ error: "지원하지 않는 요청입니다." }, 400);
   } catch (error) {
+    if (error instanceof InvalidCursorError) return json({error:error.message},400);
     return serverError("Failed to read SIKGU data", error);
   }
 }

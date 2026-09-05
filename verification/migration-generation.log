@@ -1,0 +1,14 @@
+
+> site-creator-vinext-starter@0.1.0 db:generate
+> drizzle-kit generate --name history_indexes
+
+No config path provided, using default 'drizzle.config.ts'
+Reading config file '/Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/drizzle.config.ts'
+5 tables
+room_blocks 3 columns 0 indexes 1 fks
+room_invites 7 columns 1 indexes 1 fks
+room_members 7 columns 2 indexes 1 fks
+room_messages 6 columns 2 indexes 1 fks
+rooms 22 columns 3 indexes 0 fks
+
+[✓] Your SQL migration file ➜ drizzle/0005_history_indexes.sql 🚀

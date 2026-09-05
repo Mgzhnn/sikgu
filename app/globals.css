@@ -3738,3 +3738,45 @@ button:disabled { cursor: not-allowed; opacity: 0.56; }
 .app-estimate { display:grid; gap:6px; min-width:0; }
 .app-estimate strong, .app-estimate span { font-size:14px; }
 .app-estimate small, .app-estimates p { font-size:12px; line-height:1.5; margin:0; }
+
+/* Readable, wrapping choices on a phone, including enlarged browser text. */
+.create-modal { font-size:1rem; }
+.create-head p, .create-modal .form-field > label,
+.restaurant-picker-label label, .restaurant-picker-label span,
+.restaurant-picker-categories button, .restaurant-picker-copy strong,
+.restaurant-picker-price strong, .selected-restaurant-row strong,
+.selected-restaurant-row a, .create-modal .choice-grid span,
+.create-modal .segmented button, .membership-toggle-copy strong,
+.membership-toggle em, .capacity-selector button { font-size:.875rem; line-height:1.5; }
+.restaurant-picker-search input, .order-info-fields input,
+.chat-composer textarea { font-size:1rem; }
+.restaurant-picker-search input { min-width:0; width:100%; }
+.create-modal .form-two-col { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.create-modal .segmented { grid-auto-columns:minmax(0,1fr); }
+.create-modal .segmented button { min-width:0; overflow-wrap:anywhere; }
+.restaurant-picker-copy small, .restaurant-picker-price small,
+.selected-restaurant-row span, .delivery-data-note,
+.membership-toggle-copy small, .choice-grid small,
+.create-modal .form-hint span, .create-modal .form-hint strong,
+.create-modal .form-field > label small { font-size:.75rem; line-height:1.5; }
+.restaurant-picker-copy strong, .restaurant-picker-copy small,
+.selected-restaurant-row strong { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }
+.restaurant-picker-list { max-height:22rem; }
+.restaurant-picker-list > button { grid-template-columns:2.25rem minmax(0,1fr) 1.25rem; min-height:4.5rem; }
+.restaurant-picker-list .restaurant-mark { grid-row:1 / span 2; }
+.restaurant-picker-copy { grid-column:2; }
+.restaurant-picker-price { grid-column:2; grid-row:2; flex-direction:row; flex-wrap:wrap; gap:.5rem; align-items:baseline; }
+.restaurant-picker-list > button > i { grid-column:3; grid-row:1 / span 2; }
+.restaurant-picker-categories button, .selected-restaurant-row a { min-height:2.75rem; }
+.selected-restaurant-row { flex-wrap:wrap; }
+.selected-restaurant-row a { display:inline-flex; align-items:center; }
+.create-modal .choice-grid button, .create-modal .segmented button,
+.membership-toggle, .capacity-selector button { min-height:2.75rem; height:auto; }
+.history-more { display:block; margin:16px auto; padding:12px 18px; min-height:44px; border:1px solid var(--line); border-radius:12px; background:var(--paper); color:var(--deep); font-size:.875rem; cursor:pointer; }
+.history-more:disabled { opacity:.6; cursor:wait; }
+@media (max-width:680px) {
+  .create-modal .choice-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .create-modal .segmented { flex-wrap:wrap; }
+  .create-modal .capacity-selector { grid-auto-flow:row; grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .room-hub-head { flex-wrap:wrap; gap:12px; }
+}

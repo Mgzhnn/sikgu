@@ -30,9 +30,22 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Report toolchain
+        run: |
+          node --version
+          npm --version
+          echo "runner ${{ runner.os }} ${{ runner.arch }}"
+
       - name: Lint
         run: npm run lint
 
-      # Runs the build, then typecheck, then the node:test suite.
-      - name: Build, typecheck and test
-        run: npm test
+      # npm test chains build, typecheck and the node:test suite. They are split
+      # here so a failure names the stage without needing the full run log.
+      - name: Build
+        run: npm run build
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: node --test

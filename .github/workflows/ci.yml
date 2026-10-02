@@ -21,20 +21,21 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # 22.18.0 is the floor for the test suite, not an arbitrary pin: the API
+      # harness imports app/api/sikgu/route.ts directly and relies on Node
+      # stripping TypeScript types natively. That is off by default through
+      # 22.17 (process.features.typescript === false) and on from 22.18.0, so
+      # anything lower fails every harness test with ERR_UNKNOWN_FILE_EXTENSION.
+      # package.json engines says >=22.13.0, which is the app's runtime floor;
+      # the tests need more.
       - name: Install Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22.13.0
+          node-version: 22.18.0
           cache: npm
 
       - name: Install locked dependencies
         run: npm ci
-
-      - name: Report toolchain
-        run: |
-          node --version
-          npm --version
-          echo "runner ${{ runner.os }} ${{ runner.arch }}"
 
       - name: Lint
         run: npm run lint
@@ -47,32 +48,5 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      # Temporarily one step per file: the run log needs authentication to read,
-      # but step names and results do not, so this attributes the failure.
-      # Collapses back to a single `node --test` once the cause is known.
-      - name: Test sikgu
-        run: node --test tests/sikgu.test.mjs
-      - name: Test receipt-image
-        if: always()
-        run: node --test tests/receipt-image.test.mjs
-      - name: Test repairs-api
-        if: always()
-        run: node --test tests/repairs-api.test.mjs
-      - name: Test rendered-html
-        if: always()
-        run: node --test tests/rendered-html.test.mjs
-      - name: Test polling
-        if: always()
-        run: node --test tests/polling.test.mjs
-      - name: Test message-history
-        if: always()
-        run: node --test tests/message-history.test.mjs
-      - name: Test order-estimates
-        if: always()
-        run: node --test tests/order-estimates.test.mjs
-      - name: Test invite-continuation
-        if: always()
-        run: node --test tests/invite-continuation.test.mjs
-      - name: Test pagination
-        if: always()
-        run: node --test tests/pagination.test.mjs
+      - name: Test
+        run: node --test

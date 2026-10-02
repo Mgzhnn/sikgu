@@ -47,5 +47,32 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Test
-        run: node --test
+      # Temporarily one step per file: the run log needs authentication to read,
+      # but step names and results do not, so this attributes the failure.
+      # Collapses back to a single `node --test` once the cause is known.
+      - name: Test sikgu
+        run: node --test tests/sikgu.test.mjs
+      - name: Test receipt-image
+        if: always()
+        run: node --test tests/receipt-image.test.mjs
+      - name: Test repairs-api
+        if: always()
+        run: node --test tests/repairs-api.test.mjs
+      - name: Test rendered-html
+        if: always()
+        run: node --test tests/rendered-html.test.mjs
+      - name: Test polling
+        if: always()
+        run: node --test tests/polling.test.mjs
+      - name: Test message-history
+        if: always()
+        run: node --test tests/message-history.test.mjs
+      - name: Test order-estimates
+        if: always()
+        run: node --test tests/order-estimates.test.mjs
+      - name: Test invite-continuation
+        if: always()
+        run: node --test tests/invite-continuation.test.mjs
+      - name: Test pagination
+        if: always()
+        run: node --test tests/pagination.test.mjs

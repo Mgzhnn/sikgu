@@ -13,6 +13,7 @@ import { capturePendingInvite, clearPendingInvite } from "./invite-continuation.
 import { getAppEstimates } from "./order-estimates.mjs";
 import { maskDisplayName } from "./name-mask.mjs";
 import {
+  maxRoomNoteCharacters,
   roomCapacities,
   roomDurations,
 } from "./sikgu-rules.mjs";
@@ -311,7 +312,11 @@ function HomeView({
   const filterAnchorRef = useRef<HTMLDivElement>(null);
   const filterTriggerRef = useRef<HTMLButtonElement>(null);
   const filterPanelRef = useRef<HTMLDivElement>(null);
-  const categories = ["전체", "분식", "버거", "중식", "치킨", "한식", "초밥"];
+  // Derived from the catalog so a cuisine cannot exist without a tab.
+  const categories = useMemo(
+    () => ["전체", ...Array.from(new Set(restaurants.map((item) => item.cuisine)))],
+    [],
+  );
   const activeFilterCount = Number(filters.availableOnly)
     + Number(filters.currentPickupOnly)
     + Number(filters.sortBy !== "default");
@@ -768,7 +773,8 @@ function RightRail({
   onAuth: () => void;
   onMap: (pickupId: string) => void;
 }) {
-  const closest = pools.find((pool) => pool.pickup === currentPickup) || pools[0];
+  const open = pools.filter((pool) => pool.closesAt > now);
+  const closest = open.find((pool) => pool.pickup === currentPickup) || open[0];
   const maskedUserName = user ? maskDisplayName(user.displayName) : "";
   const restaurant = closest
     ? restaurants.find((item) => item.id === closest.restaurantId)
@@ -1068,14 +1074,18 @@ function PoolModal({
         <div className="modal-progress">
           <div><span>{ready ? "최소 주문금액을 달성했어요" : `${money(gap)}만 더 모으면 주문 가능`}</span><strong>{money(pool.total)} <small>/ {money(pool.target)}</small></strong></div>
           <Progress current={pool.total} target={pool.target} />
-          <div className="thresholds">
-            <span style={{ left: `${Math.min(95, restaurant.minimum.coupang / Math.max(restaurant.minimum.baemin, restaurant.minimum.coupang) * 90)}%` }}>
-              쿠팡 {money(restaurant.minimum.coupang)}
-            </span>
-            <span style={{ left: `${Math.min(78, restaurant.minimum.baemin / Math.max(restaurant.minimum.baemin, restaurant.minimum.coupang) * 74)}%` }}>
-              배민 {money(restaurant.minimum.baemin)}
-            </span>
-          </div>
+          {estimates.length > 1 && (
+            <div className="thresholds">
+              {estimates.map((estimate) => (
+                <span
+                  key={estimate.app}
+                  style={{ left: `${Math.min(90, estimate.minimum / Math.max(...estimates.map((item) => item.minimum)) * 90)}%` }}
+                >
+                  {appLabels[estimate.app].name} {money(estimate.minimum)}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="app-estimates" aria-label="앱별 주문 조건">
@@ -1148,10 +1158,12 @@ function CreateModal({
     minutes: number;
     capacity: number;
     membership: MembershipApp;
+    note: string;
   }) => Promise<void>;
 }) {
   const dialogRef = useRef<HTMLElement>(null);
   useDialogLifecycle(dialogRef, onClose);
+  const [note, setNote] = useState("");
   const [restaurantId, setRestaurantId] = useState(preferredRestaurant?.id || restaurants[0].id);
   const [pickup, setPickup] = useState(
     pickupPoints.some((point) => point.id === preferredPickup) ? preferredPickup : "E3",
@@ -1191,7 +1203,7 @@ function CreateModal({
     if (!apps.length || creating) return;
     setCreating(true);
     try {
-      await onCreate({ restaurantId, pickup, apps, minutes, capacity, membership });
+      await onCreate({ restaurantId, pickup, apps, minutes, capacity, membership, note });
     } finally {
       setCreating(false);
     }
@@ -1366,6 +1378,19 @@ function CreateModal({
           </div>
         </div>
 
+        <div className="form-field">
+          <label htmlFor="create-note">한마디 <small>선택 · 메뉴, 모이는 시간 등</small></label>
+          <textarea
+            id="create-note"
+            className="create-note"
+            value={note}
+            maxLength={maxRoomNoteCharacters}
+            rows={2}
+            placeholder="예: 치즈떡볶이 시킬 건데 튀김 추가할 분?"
+            onChange={(event) => setNote(event.target.value)}
+          />
+        </div>
+
         <button
           className="primary-button create-submit"
           disabled={!apps.length || creating}
@@ -1412,6 +1437,14 @@ export default function Home() {
   const [showCampusMap, setShowCampusMap] = useState(false);
   const [campusMapPickup, setCampusMapPickup] = useState("E3");
   const [search, setSearch] = useState("");
+  // The server query follows the search box after a pause: wiring it directly
+  // restarted bootstrap and polling on every keystroke (one per jamo with a
+  // Korean IME). The list itself filters on `search` immediately.
+  const [searchTerm, setSearchTerm] = useState("");
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearchTerm(search), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
   const [category, setCategory] = useState("전체");
   const [filters, setFilters] = useState<PoolFilters>(defaultPoolFilters);
   const [currentPickup, setCurrentPickup] = useState("E3");
@@ -1466,7 +1499,7 @@ export default function Home() {
   const feedQuery = useMemo(() => {
     const query=new URLSearchParams({action:"bootstrap",sort:filters.sortBy});
     if(category!=="전체")query.set("categoryIds",restaurants.filter(r=>r.cuisine===category).map(r=>r.id).join(","));
-    const term=search.trim().toLowerCase();
+    const term=searchTerm.trim().toLowerCase();
     if(term){
       query.set("searchRestaurants",restaurants.filter(r=>r.name.toLowerCase().includes(term)).map(r=>r.id).join(","));
       query.set("searchPickups",pickupPoints.filter(p=>p.full.toLowerCase().includes(term)).map(p=>p.id).join(","));
@@ -1474,7 +1507,7 @@ export default function Home() {
     if(filters.currentPickupOnly)query.set("pickup",currentPickup);
     if(filters.availableOnly)query.set("available","1");
     return query.toString();
-  },[category,search,filters,currentPickup]);
+  },[category,searchTerm,filters,currentPickup]);
 
   const loadRooms = useCallback(async (signal?: AbortSignal) => {
     const requestId = ++loadRoomsRequestRef.current;
@@ -1515,7 +1548,9 @@ export default function Home() {
   const loadMoreRooms = async (kind: "feed" | "mine") => {
     const cursor=kind==="feed"?nextRoomsCursor:nextMyRoomsCursor;
     if(!cursor || loadingMore)return;
-    const requestId=loadRoomsRequestRef.current;
+    // A background poll must not discard this page: only a changed query
+    // makes the response stale, and merging by id keeps either order correct.
+    const issuedQuery=feedQuery;
     setLoadingMore(kind);
     try {
       const query=new URLSearchParams(feedQuery);
@@ -1523,7 +1558,7 @@ export default function Home() {
       const response=await fetch(`/api/sikgu?${query}`,{cache:"no-store"});
       const data=await readJson<{rooms?:Pool[];myRooms?:Pool[];nextRoomsCursor?:string|null;nextMyRoomsCursor?:string|null}>(response);
       if(!response.ok)throw new Error(data.error || "이전 주문방을 불러오지 못했어요.");
-      if(requestId!==loadRoomsRequestRef.current)return;
+      if(issuedQuery!==lastFeedQueryRef.current)return;
       if(kind==="feed"){
         loadedFeedHistoryRef.current=true;
         setPools(previous=>[...new Map([...previous,...(data.rooms || [])].map(r=>[r.id,r])).values()]);
@@ -1742,6 +1777,7 @@ export default function Home() {
     minutes: number;
     capacity: number;
     membership: MembershipApp;
+    note: string;
   }) => {
     const point = pickupPoints.find((item) => item.id === values.pickup)
       || pickupPoints.find((item) => item.id === "E3")
@@ -1756,7 +1792,8 @@ export default function Home() {
         minutes: values.minutes,
         capacity: values.capacity,
         membership: values.membership,
-        note: "같이 맛있게 먹어요!",
+        // The server substitutes its default for a blank note.
+        note: values.note.trim(),
       });
     } catch (createError) {
       notify(createError instanceof Error ? createError.message : "주문방을 만들지 못했어요.", "error");

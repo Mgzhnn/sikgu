@@ -439,9 +439,16 @@ test("masks Korean and English display names consistently", async () => {
     readFile(new URL("../app/api/sikgu/route.ts", import.meta.url), "utf8"),
   ]);
 
-  assert.equal(maskDisplayName("Ugrp"), "Ug***");
-  assert.equal(maskDisplayName("Alex"), "Al***");
-  assert.equal(maskDisplayName("Jonathan Smith"), "Jo***");
+  assert.equal(maskDisplayName("Ugrp"), "Ugrp");
+  assert.equal(maskDisplayName("Alex"), "Alex");
+  assert.equal(maskDisplayName("Jonathan Smith"), "Jonathan S.");
+  assert.equal(maskDisplayName("Jonathan S."), "Jonathan S.", "masking is idempotent");
+  assert.equal(maskDisplayName("John Kim"), "John K.");
+  assert.notEqual(maskDisplayName("John Kim"), maskDisplayName("Joseph Lee"), "two Latin names must not collapse into one label");
+  // The server's nameless fallback keeps its hash suffix, which is what tells
+  // two such accounts apart in the host's approval list.
+  assert.equal(maskDisplayName("User-1A2B3C"), "User-1A2B3C");
+  assert.notEqual(maskDisplayName("User-1A2B3C"), maskDisplayName("User-4D5E6F"));
   assert.equal(maskDisplayName("권혁준"), "권*준");
   assert.equal(maskDisplayName("홍길동"), "홍*동");
   assert.equal(maskDisplayName("김준"), "김*");

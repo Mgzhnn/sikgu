@@ -2,30 +2,20 @@
   {
     "file": "index.js",
     "imports": [
-      "_next/static/react-DNQhlH1z.js",
       "virtual:vite-rsc/assets-manifest",
-      "node:async_hooks",
-      "./vinext-client-assets.js"
+      "node:async_hooks"
     ],
     "dynamicImports": [
-      "index.js",
-      "_next/static/layout-segment-context-PSQ4wRt_.js",
-      "_next/static/client-page-root-ByyWvewo.js",
-      "_next/static/error-boundary-BIPEwALv.js",
-      "_next/static/page-UGIwlczb.js",
-      "_next/static/streamed-icons-MO9KmFwE.js",
-      "_next/static/app-router-scroll-Ca03ijI0.js",
-      "_next/static/app-prefetch-fetch-queue-DeEsQt0Q.js",
-      "_next/static/static.edge-C4-f9T7Y.js",
-      "node:module",
-      "node:path"
+      "assets/layout-segment-context-g_xbg_h0.js",
+      "assets/error-boundary-CrL44Ynz.js",
+      "assets/page-C4C9tp90.js",
+      "index.js"
     ],
     "modules": [
       "<project>/node_modules/@vitejs/plugin-rsc/dist/core/ssr.js",
+      "<project>/node_modules/@vitejs/plugin-rsc/dist/dist-rz-Bnebz.js",
       "<project>/node_modules/@vitejs/plugin-rsc/dist/react/ssr.js",
-      "<project>/node_modules/@vitejs/plugin-rsc/dist/shared-BWJvctW6.js",
-      "<project>/node_modules/@vitejs/plugin-rsc/dist/shared-CXQb6hk9.js",
-      "<project>/node_modules/@vitejs/plugin-rsc/dist/shared-Y4B6DJ99.js",
+      "<project>/node_modules/@vitejs/plugin-rsc/dist/shared-BViDMJTQ.js",
       "<project>/node_modules/@vitejs/plugin-rsc/dist/ssr.js",
       "<project>/node_modules/react-dom/cjs/react-dom-server-legacy.browser.production.js",
       "<project>/node_modules/react-dom/cjs/react-dom-server.edge.production.js",
@@ -35,129 +25,53 @@
       "<project>/node_modules/react-server-dom-webpack/cjs/react-server-dom-webpack-client.edge.production.js",
       "<project>/node_modules/react-server-dom-webpack/client.edge.js",
       "<project>/node_modules/react/cjs/react-jsx-runtime.production.js",
+      "<project>/node_modules/react/cjs/react.production.js",
+      "<project>/node_modules/react/index.js",
       "<project>/node_modules/react/jsx-runtime.js",
-      "<project>/node_modules/vinext/dist/client/browser-globals.js",
-      "<project>/node_modules/vinext/dist/server/app-bfcache-id.js",
-      "<project>/node_modules/vinext/dist/server/app-bfcache-identity.js",
+      "<project>/node_modules/vinext/dist/client/instrumentation-client-state.js",
+      "<project>/node_modules/vinext/dist/server/app-browser-hydration.js",
       "<project>/node_modules/vinext/dist/server/app-client-reference-preloader.js",
-      "<project>/node_modules/vinext/dist/server/app-elements-wire-key.js",
       "<project>/node_modules/vinext/dist/server/app-elements-wire.js",
       "<project>/node_modules/vinext/dist/server/app-elements.js",
-      "<project>/node_modules/vinext/dist/server/app-page-search-params-observation.js",
-      "<project>/node_modules/vinext/dist/server/app-render-abort-error.js",
-      "<project>/node_modules/vinext/dist/server/app-render-dependency.js",
-      "<project>/node_modules/vinext/dist/server/app-rsc-embedded-chunks.js",
+      "<project>/node_modules/vinext/dist/server/app-page-stream.js",
+      "<project>/node_modules/vinext/dist/server/app-rsc-cache-busting.js",
+      "<project>/node_modules/vinext/dist/server/app-rsc-render-mode.js",
       "<project>/node_modules/vinext/dist/server/app-ssr-entry.js",
-      "<project>/node_modules/vinext/dist/server/app-ssr-error-meta.js",
-      "<project>/node_modules/vinext/dist/server/app-ssr-router-instance.js",
-      "<project>/node_modules/vinext/dist/server/app-ssr-search-params-gate.js",
       "<project>/node_modules/vinext/dist/server/app-ssr-stream.js",
       "<project>/node_modules/vinext/dist/server/artifact-compatibility.js",
-      "<project>/node_modules/vinext/dist/server/before-interactive-head.js",
-      "<project>/node_modules/vinext/dist/server/client-trace-metadata.js",
-      "<project>/node_modules/vinext/dist/server/defer-until-stream-consumed.js",
-      "<project>/node_modules/vinext/dist/server/dev-initial-server-error.js",
+      "<project>/node_modules/vinext/dist/server/headers.js",
       "<project>/node_modules/vinext/dist/server/html.js",
       "<project>/node_modules/vinext/dist/server/http-error-responses.js",
-      "<project>/node_modules/vinext/dist/server/next-error-digest.js",
-      "<project>/node_modules/vinext/dist/server/normalize-path.js",
-      "<project>/node_modules/vinext/dist/server/open-redirect.js",
-      "<project>/node_modules/vinext/dist/server/pages-client-assets.js",
-      "<project>/node_modules/vinext/dist/server/server-globals.js",
-      "<project>/node_modules/vinext/dist/shims/before-interactive-context.js",
-      "<project>/node_modules/vinext/dist/shims/default-global-error.js",
+      "<project>/node_modules/vinext/dist/server/request-pipeline.js",
       "<project>/node_modules/vinext/dist/shims/internal/als-registry.js",
-      "<project>/node_modules/vinext/dist/shims/internal/app-router-context.js",
-      "<project>/node_modules/vinext/dist/shims/internal/headers-state.js",
-      "<project>/node_modules/vinext/dist/shims/internal/make-hanging-promise.js",
-      "<project>/node_modules/vinext/dist/shims/internal/thenable-well-known-properties.js",
-      "<project>/node_modules/vinext/dist/shims/navigation-context-state.js",
-      "<project>/node_modules/vinext/dist/shims/navigation-errors.js",
-      "<project>/node_modules/vinext/dist/shims/navigation-server.js",
       "<project>/node_modules/vinext/dist/shims/navigation-state.js",
-      "<project>/node_modules/vinext/dist/shims/ppr-fallback-shell.js",
-      "<project>/node_modules/vinext/dist/shims/request-context.js",
-      "<project>/node_modules/vinext/dist/shims/root-params.js",
+      "<project>/node_modules/vinext/dist/shims/navigation.js",
+      "<project>/node_modules/vinext/dist/shims/readonly-url-search-params.js",
       "<project>/node_modules/vinext/dist/shims/script-nonce-context.js",
-      "<project>/node_modules/vinext/dist/shims/search-params-gate.js",
       "<project>/node_modules/vinext/dist/shims/slot.js",
-      "<project>/node_modules/vinext/dist/shims/thenable-params.js",
       "<project>/node_modules/vinext/dist/shims/unified-request-context.js",
       "<project>/node_modules/vinext/dist/shims/url-safety.js",
+      "<project>/node_modules/vinext/dist/shims/url-utils.js",
       "<project>/node_modules/vinext/dist/utils/base-path.js",
-      "<project>/node_modules/vinext/dist/utils/compare.js",
-      "<project>/node_modules/vinext/dist/utils/deployment-id.js",
-      "<project>/node_modules/vinext/dist/utils/query.js",
-      "<project>/node_modules/vinext/dist/utils/record.js",
-      "<project>/node_modules/vinext/dist/utils/redirect-digest.js",
+      "rolldown/runtime.js",
       "virtual:vinext-app-ssr-entry",
       "virtual:vite-rsc/client-references"
     ]
   },
   {
-    "file": "_next/static/app-prefetch-fetch-queue-DeEsQt0Q.js",
+    "file": "assets/error-boundary-CrL44Ynz.js",
     "imports": [
-      "_next/static/react-DNQhlH1z.js"
-    ],
-    "dynamicImports": [],
-    "modules": [
-      "<project>/node_modules/vinext/dist/shims/internal/app-prefetch-fetch-queue.js"
-    ]
-  },
-  {
-    "file": "_next/static/app-router-scroll-Ca03ijI0.js",
-    "imports": [
-      "_next/static/react-DNQhlH1z.js",
       "index.js"
     ],
     "dynamicImports": [],
     "modules": [
-      "<project>/node_modules/vinext/dist/shims/app-router-scroll-state.js",
-      "<project>/node_modules/vinext/dist/shims/app-router-scroll.js",
-      "<project>/node_modules/vinext/dist/shims/hash-scroll.js"
-    ]
-  },
-  {
-    "file": "_next/static/client-page-root-ByyWvewo.js",
-    "imports": [
-      "_next/static/react-DNQhlH1z.js",
-      "index.js"
-    ],
-    "dynamicImports": [],
-    "modules": [
-      "<project>/node_modules/vinext/dist/routing/route-matching.js",
-      "<project>/node_modules/vinext/dist/server/app-browser-rsc-redirect.js",
-      "<project>/node_modules/vinext/dist/server/app-history-state.js",
-      "<project>/node_modules/vinext/dist/server/app-rsc-cache-busting.js",
-      "<project>/node_modules/vinext/dist/server/app-rsc-vary.js",
-      "<project>/node_modules/vinext/dist/server/headers.js",
-      "<project>/node_modules/vinext/dist/server/navigation-planner.js",
-      "<project>/node_modules/vinext/dist/server/rsc-completion-metadata.js",
-      "<project>/node_modules/vinext/dist/shims/client-page-root.js",
-      "<project>/node_modules/vinext/dist/shims/internal/hybrid-client-route-owner-direct.js",
-      "<project>/node_modules/vinext/dist/shims/navigation.js",
-      "<project>/node_modules/vinext/dist/utils/html-limited-bots.js",
-      "<project>/node_modules/vinext/dist/utils/protocol-headers.js"
-    ]
-  },
-  {
-    "file": "_next/static/error-boundary-BIPEwALv.js",
-    "imports": [
-      "_next/static/react-DNQhlH1z.js",
-      "index.js"
-    ],
-    "dynamicImports": [],
-    "modules": [
-      "<project>/node_modules/vinext/dist/client/app-nav-failure-handler.js",
-      "<project>/node_modules/vinext/dist/shims/error-boundary-navigation.js",
       "<project>/node_modules/vinext/dist/shims/error-boundary.js",
       "<project>/node_modules/vinext/dist/utils/navigation-signal.js"
     ]
   },
   {
-    "file": "_next/static/layout-segment-context-PSQ4wRt_.js",
+    "file": "assets/layout-segment-context-g_xbg_h0.js",
     "imports": [
-      "_next/static/react-DNQhlH1z.js",
       "index.js"
     ],
     "dynamicImports": [],
@@ -166,16 +80,33 @@
     ]
   },
   {
-    "file": "_next/static/page-UGIwlczb.js",
+    "file": "assets/page-C4C9tp90.js",
     "imports": [
-      "_next/static/react-DNQhlH1z.js",
       "index.js"
     ],
     "dynamicImports": [],
     "modules": [
       "<project>/app/catalog.ts",
+      "<project>/app/components/brand.tsx",
+      "<project>/app/components/campus-map-preview.tsx",
+      "<project>/app/components/header.tsx",
+      "<project>/app/components/location-picker.tsx",
+      "<project>/app/components/pool-card.tsx",
+      "<project>/app/components/progress.tsx",
+      "<project>/app/continuations.ts",
+      "<project>/app/hooks/use-current-pickup.ts",
+      "<project>/app/hooks/use-feed.ts",
+      "<project>/app/hooks/use-room-actions.ts",
+      "<project>/app/hooks/use-session.ts",
       "<project>/app/invite-continuation.mjs",
+      "<project>/app/lib/api.ts",
+      "<project>/app/lib/pool-status.ts",
       "<project>/app/message-history.mjs",
+      "<project>/app/modals/campus-map-modal.tsx",
+      "<project>/app/modals/create-modal.tsx",
+      "<project>/app/modals/feedback-modal.tsx",
+      "<project>/app/modals/invite-confirmation.tsx",
+      "<project>/app/modals/pool-modal.tsx",
       "<project>/app/name-mask.mjs",
       "<project>/app/order-estimates.mjs",
       "<project>/app/page.tsx",
@@ -183,38 +114,11 @@
       "<project>/app/restaurant-mark.tsx",
       "<project>/app/room-hub.tsx",
       "<project>/app/room-ui.tsx",
-      "<project>/app/sikgu-rules.mjs"
-    ]
-  },
-  {
-    "file": "_next/static/react-DNQhlH1z.js",
-    "imports": [],
-    "dynamicImports": [],
-    "modules": [
-      "<project>/node_modules/react/cjs/react.production.js",
-      "<project>/node_modules/react/index.js",
-      "rolldown/runtime.js"
-    ]
-  },
-  {
-    "file": "_next/static/static.edge-C4-f9T7Y.js",
-    "imports": [
-      "_next/static/react-DNQhlH1z.js",
-      "index.js"
-    ],
-    "dynamicImports": [],
-    "modules": [
-      "<project>/node_modules/react-dom/static.edge.js"
-    ]
-  },
-  {
-    "file": "_next/static/streamed-icons-MO9KmFwE.js",
-    "imports": [
-      "_next/static/react-DNQhlH1z.js"
-    ],
-    "dynamicImports": [],
-    "modules": [
-      "<project>/node_modules/vinext/dist/shims/streamed-icons.js"
+      "<project>/app/sikgu-rules.mjs",
+      "<project>/app/views/home-view.tsx",
+      "<project>/app/views/profile-view.tsx",
+      "<project>/app/views/restaurants-view.tsx",
+      "<project>/app/views/right-rail.tsx"
     ]
   }
 ]

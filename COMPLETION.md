@@ -144,7 +144,7 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
   *Accept:* no file over 500 lines; all existing tests pass unchanged except
   for import paths.
 
-- [ ] **F2 · Split the page** (M)
+- [x] **F2 · Split the page** (M)
   `app/page.tsx` becomes `useFeed`, `useSession`, `continuations.ts`,
   `lib/api.ts`, `lib/pool-status.ts` and one file per modal.
   *Accept:* `Home` under 300 lines; browser tests pass unchanged.

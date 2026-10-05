@@ -84,7 +84,7 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
   *Accept:* a dated note in RUNBOOK with the observed log line and the chosen
   limit.
 
-- [ ] **C2 · Health check covers storage and has a monitor** (S)
+- [ ] **C2 · Health check covers storage and has a monitor** (S) — code half done 2026-10-06 (`storage` in health JSON); the external monitor is the owner's remaining step
   `?action=health` also does a 1-object R2 list and reports `storage`. An
   external uptime monitor polls it and emails the owner on failure.
   *Accept:* health JSON includes `storage`; monitor URL and recipient recorded
@@ -138,7 +138,7 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
 
 ## F. Code structure (bounded refactor, no behaviour change)
 
-- [ ] **F1 · Split the API route** (M)
+- [x] **F1 · Split the API route** (M)
   `app/api/sikgu/route.ts` becomes `rooms.ts`, `chat.ts`, `receipts.ts`,
   `retention.ts`, `lock.ts` and a short dispatcher. Raw SQL stays.
   *Accept:* no file over 500 lines; all existing tests pass unchanged except
@@ -149,7 +149,7 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
   `lib/api.ts`, `lib/pool-status.ts` and one file per modal.
   *Accept:* `Home` under 300 lines; browser tests pass unchanged.
 
-- [ ] **F3 · Dead code removed** (S)
+- [x] **F3 · Dead code removed** (S)
   Email-scrub table scans in the sweep, `review_token` backfill in GET (after
   confirming no NULL rows in production), unused `db/index.ts`, legacy
   receipt key names, JPEG receipt tests for a PNG-only path.

@@ -1,14 +1,14 @@
 [
   {
-    "file": "_next/static/chunks/index-BMJO_BL0.js",
+    "file": "_next/static/chunks/index-CJy-pI2A.js",
     "imports": [
       "_next/static/chunks/rolldown-runtime-hePW80VL.js",
       "_next/static/chunks/framework-DTZGTDtF.js",
-      "_next/static/chunks/vinext-C9K8Fz9l.js"
+      "_next/static/chunks/vinext-n9wbGoz1.js"
     ],
     "dynamicImports": [
-      "_next/static/chunks/vinext-C9K8Fz9l.js",
-      "_next/static/chunks/layout-segment-context-BJXbD5GW.js",
+      "_next/static/chunks/vinext-n9wbGoz1.js",
+      "_next/static/chunks/layout-segment-context-Mln4nlN8.js",
       "_next/static/chunks/page-DU-28ARa.js"
     ],
     "modules": [
@@ -75,11 +75,11 @@
     ]
   },
   {
-    "file": "_next/static/chunks/layout-segment-context-BJXbD5GW.js",
+    "file": "_next/static/chunks/layout-segment-context-Mln4nlN8.js",
     "imports": [
       "_next/static/chunks/rolldown-runtime-hePW80VL.js",
       "_next/static/chunks/framework-DTZGTDtF.js",
-      "_next/static/chunks/vinext-C9K8Fz9l.js"
+      "_next/static/chunks/vinext-n9wbGoz1.js"
     ],
     "dynamicImports": [],
     "modules": [
@@ -116,13 +116,13 @@
     ]
   },
   {
-    "file": "_next/static/chunks/vinext-C9K8Fz9l.js",
+    "file": "_next/static/chunks/vinext-n9wbGoz1.js",
     "imports": [
       "_next/static/chunks/rolldown-runtime-hePW80VL.js",
       "_next/static/chunks/framework-DTZGTDtF.js"
     ],
     "dynamicImports": [
-      "_next/static/chunks/vinext-C9K8Fz9l.js"
+      "_next/static/chunks/vinext-n9wbGoz1.js"
     ],
     "modules": [
       "<project>/node_modules/vinext/dist/client/app-nav-failure-handler.js",

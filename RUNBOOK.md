@@ -38,8 +38,8 @@ Record the date it was enabled here: _not yet enabled_.
 
 ## Deploy
 
-1. Run `npm ci`, `npm test`, `npm run lint`, and `npm run test:browser` (install Playwright Chromium first). Inspect a fresh `npm audit --json`; use the per-advisory reasoning in `REPAIRS.md` rather than assuming all development packages are harmless.
-2. Verify the hosting identity gate below before exposing a new release. Keep production data untouched during local verification.
+1. Run `npm ci`, `npm test`, `npm run lint`, and `npm run test:browser` (install Playwright Chromium first). CI runs the same set plus `npm audit --omit=dev --audit-level=high`; merge only on a green run. For development-only audit entries use the per-advisory reasoning in `REPAIRS.md`.
+2. After the deploy, run `npm run probe -- https://<origin>` and commit its output under `verification/` as `identity-probe-<date>.log`; it must print `"summary":"PASS"`. Keep production data untouched during local verification.
 3. Prepare and push the verified source, build/package its Sites artifact, save a version and deploy that explicit version through Sites. A GitHub push does not itself verify or perform this release workflow. The build packages `.openai/hosting.json` and generated migrations in `dist/.openai/`; verify the expected migration is in the artifact and applied by the platform.
 4. Check migration/schema readiness through the platform's database tools (expected tables, columns and indexes), then probe health. In an authorized test room verify create, join, approve, chat, upload/read a receipt as a member, and delete. Verify the deleted receipt object is gone from R2.
 5. Old tabs should reload after a contract change. This repair returns absolute `expiresAt` for invitation creation instead of `expiresInHours`; stale clients must not continue advertising 24 hours. New pagination fields are additive and optional cursor parameters preserve first-page behavior. Do not claim compatibility of stale cached UI just because the API still responds.

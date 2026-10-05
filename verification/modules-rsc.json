@@ -2,153 +2,1036 @@
   {
     "file": "index.js",
     "imports": [
+      "_next/static/rolldown-runtime-hePW80VL.js",
+      "_next/static/fetch-cache-CRIAOpye.js",
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/prerender-work-unit-setup-BhwUCVbk.js",
+      "_next/static/als-registry-Ca9CZnfN.js",
+      "_next/static/unified-request-context-CpOgWEVy.js",
+      "_next/static/request-context-D4PUtYt8.js",
+      "_next/static/http-error-responses-B2gV-Vqb.js",
+      "_next/static/request-pipeline-D8UPNNY4.js",
+      "_next/static/base-path-Cmiu3HvG.js",
+      "_next/static/cache-control-e-seFAYO.js",
+      "_next/static/text-stream-VKwurfmw.js",
+      "_next/static/artifact-compatibility-BNhP17sO.js",
+      "_next/static/rsc-completion-metadata-D7GkcV6u.js",
+      "_next/static/cache-handler-D-mhLqkd.js",
+      "_next/static/worker-prerender-discovery-Di3D1ibs.js",
+      "_next/static/app-action-request-C6O0_QeF.js",
+      "_next/static/server-C1NYkGR9.js",
+      "_next/static/framework~index~layout~page~metadata-route-response~app-rsc-response-stage~app-route-handle~obkhqkvm-BO2z_WaE.js",
+      "_next/static/framework~index-T0AVJYE7.js",
+      "_next/static/implicit-tags-DkIVQshm.js",
+      "_next/static/headers-DtGR1iYh.js",
+      "_next/static/thenable-params-Cl4QATui.js",
+      "_next/static/framework~index~layout~metadata-route-response~app-route-handler-dispatch~app-page-cache~ap~lrienajf-B6QksT4v.js",
+      "_next/static/utils-C9PM00n7.js",
+      "_next/static/response-stage-policy-BJSKsgF-.js",
+      "_next/static/app-rsc-cache-busting-LGj3mP0P.js",
+      "_next/static/html-puL_u02q.js",
+      "_next/static/app-page-tracing-gT-uwk7Z.js",
+      "_next/static/root-params-I7qAbYCA.js",
+      "_next/static/app-elements-C6uwuqrY.js",
+      "_next/static/app-page-segment-state-Dv9R2yCq.js",
+      "_next/static/route-pattern-DcM4RjVd.js",
+      "_next/static/isr-cache-DOpU1RaQ.js",
+      "_next/static/app-page-stream-BMoIpiu5.js",
+      "_next/static/app-page-cache-finalizer-CCaXaiqi.js",
+      "_next/static/app-prerender-static-params-D1Q-_1qK.js",
       "cloudflare:workers",
       "node:async_hooks",
-      "virtual:vite-rsc/assets-manifest",
-      "node:fs",
-      "node:path",
-      "node:zlib"
+      "./__vinext_cacheability_manifest.js",
+      "./vinext-client-assets.js",
+      "virtual:vinext-action-owner-manifest",
+      "./__vinext_pregenerated_concrete_paths.js",
+      "virtual:vite-rsc/assets-manifest"
+    ],
+    "dynamicImports": [
+      "_next/static/app-prerender-endpoints-JxQcPm36.js",
+      "_next/static/config-headers-cBnkVReB.js",
+      "_next/static/fetch-cache-CRIAOpye.js",
+      "_next/static/app-rsc-response-stage-X627zpJy.js",
+      "_next/static/app-static-generation-BX8cz43B.js",
+      "_next/static/app-page-cache-D-QEZErG.js",
+      "_next/static/app-page-cache-render-1ZuCVAwq.js",
+      "_next/static/app-route-handler-dispatch-BZhjbeC8.js",
+      "_next/static/metadata-route-response-BXFEGdXO.js",
+      "_next/static/file-based-metadata-B7TxHJ0X.js",
+      "_next/static/page-CNIIZzpg.js",
+      "index.js",
+      "_next/static/route-C07vqk7n.js",
+      "_next/static/cacheability-request-CmcVomVx.js"
+    ],
+    "modules": [
+      "<project>/app/globals.css",
+      "<project>/app/layout.tsx",
+      "<project>/node_modules/@vitejs/plugin-rsc/dist/client.shared-D1HxyClg.js",
+      "<project>/node_modules/@vitejs/plugin-rsc/dist/react/rsc.js",
+      "<project>/node_modules/@vitejs/plugin-rsc/dist/react/rsc/client.js",
+      "<project>/node_modules/vinext/dist/build/google-fonts/build-url.js",
+      "<project>/node_modules/vinext/dist/build/google-fonts/sort-variants.js",
+      "<project>/node_modules/vinext/dist/config/request-context.js",
+      "<project>/node_modules/vinext/dist/routing/app-route-ids.js",
+      "<project>/node_modules/vinext/dist/routing/route-trie.js",
+      "<project>/node_modules/vinext/dist/server/app-fallback-renderer.js",
+      "<project>/node_modules/vinext/dist/server/app-hook-warning-suppression.js",
+      "<project>/node_modules/vinext/dist/server/app-layout-param-observation.js",
+      "<project>/node_modules/vinext/dist/server/app-metadata-tracing.js",
+      "<project>/node_modules/vinext/dist/server/app-page-boundary-render.js",
+      "<project>/node_modules/vinext/dist/server/app-page-boundary.js",
+      "<project>/node_modules/vinext/dist/server/app-page-dispatch.js",
+      "<project>/node_modules/vinext/dist/server/app-page-element-builder.js",
+      "<project>/node_modules/vinext/dist/server/app-page-head.js",
+      "<project>/node_modules/vinext/dist/server/app-page-http-access-fallback-metadata.js",
+      "<project>/node_modules/vinext/dist/server/app-page-method.js",
+      "<project>/node_modules/vinext/dist/server/app-page-params.js",
+      "<project>/node_modules/vinext/dist/server/app-page-probe.js",
+      "<project>/node_modules/vinext/dist/server/app-page-render.js",
+      "<project>/node_modules/vinext/dist/server/app-page-request.js",
+      "<project>/node_modules/vinext/dist/server/app-page-route-wiring.js",
+      "<project>/node_modules/vinext/dist/server/app-page-search-params-observation.js",
+      "<project>/node_modules/vinext/dist/server/app-page-segment-plan.js",
+      "<project>/node_modules/vinext/dist/server/app-post-middleware-context.js",
+      "<project>/node_modules/vinext/dist/server/app-request-context.js",
+      "<project>/node_modules/vinext/dist/server/app-route-module-loader.js",
+      "<project>/node_modules/vinext/dist/server/app-route-tree-prefetch.js",
+      "<project>/node_modules/vinext/dist/server/app-router-entry.js",
+      "<project>/node_modules/vinext/dist/server/app-rsc-combined-handler.js",
+      "<project>/node_modules/vinext/dist/server/app-rsc-error-handler.js",
+      "<project>/node_modules/vinext/dist/server/app-rsc-handler.js",
+      "<project>/node_modules/vinext/dist/server/app-rsc-response-finalizer.js",
+      "<project>/node_modules/vinext/dist/server/app-rsc-route-matching.js",
+      "<project>/node_modules/vinext/dist/server/bfcache-identity.js",
+      "<project>/node_modules/vinext/dist/server/cloudflare-workers-tracing.js",
+      "<project>/node_modules/vinext/dist/server/csp.js",
+      "<project>/node_modules/vinext/dist/server/default-global-error-module.js",
+      "<project>/node_modules/vinext/dist/server/default-global-not-found-module.js",
+      "<project>/node_modules/vinext/dist/server/default-not-found-module.js",
+      "<project>/node_modules/vinext/dist/server/image-optimization.js",
+      "<project>/node_modules/vinext/dist/server/pages-client-assets.js",
+      "<project>/node_modules/vinext/dist/server/pages-data-route.js",
+      "<project>/node_modules/vinext/dist/server/pages-i18n.js",
+      "<project>/node_modules/vinext/dist/server/pages-response-stage.js",
+      "<project>/node_modules/vinext/dist/server/request-tracing.js",
+      "<project>/node_modules/vinext/dist/server/rsc-stream-hints.js",
+      "<project>/node_modules/vinext/dist/server/server-action-not-found.js",
+      "<project>/node_modules/vinext/dist/server/server-globals.js",
+      "<project>/node_modules/vinext/dist/server/skip-cache-proof.js",
+      "<project>/node_modules/vinext/dist/server/static-layout-client-reuse-proof.js",
+      "<project>/node_modules/vinext/dist/server/streaming-metadata.js",
+      "<project>/node_modules/vinext/dist/server/worker-revalidation-context.js",
+      "<project>/node_modules/vinext/dist/server/worker-utils.js",
+      "<project>/node_modules/vinext/dist/server/workers-tracing.js",
+      "<project>/node_modules/vinext/dist/shims/app-router-scroll.js",
+      "<project>/node_modules/vinext/dist/shims/client-hook-error.js",
+      "<project>/node_modules/vinext/dist/shims/client-page-root.js",
+      "<project>/node_modules/vinext/dist/shims/default-global-error.js",
+      "<project>/node_modules/vinext/dist/shims/default-not-found.js",
+      "<project>/node_modules/vinext/dist/shims/error-boundary.js",
+      "<project>/node_modules/vinext/dist/shims/font-google-base.js",
+      "<project>/node_modules/vinext/dist/shims/font-google.js",
+      "<project>/node_modules/vinext/dist/shims/font-local.js",
+      "<project>/node_modules/vinext/dist/shims/font-utils.js",
+      "<project>/node_modules/vinext/dist/shims/internal/app-page-props-cache-key.js",
+      "<project>/node_modules/vinext/dist/shims/layout-segment-context.js",
+      "<project>/node_modules/vinext/dist/shims/metadata.js",
+      "<project>/node_modules/vinext/dist/shims/navigation-errors.js",
+      "<project>/node_modules/vinext/dist/shims/navigation-server.js",
+      "<project>/node_modules/vinext/dist/shims/navigation-state.js",
+      "<project>/node_modules/vinext/dist/shims/navigation.react-server.js",
+      "<project>/node_modules/vinext/dist/shims/slot.js",
+      "<project>/node_modules/vinext/dist/shims/streamed-icons.js",
+      "<project>/node_modules/vinext/dist/shims/url-utils.js",
+      "<project>/node_modules/vinext/dist/utils/domain-locale.js",
+      "<project>/node_modules/vinext/dist/utils/query.js",
+      "<project>/worker/index.ts",
+      "virtual:cloudflare/worker-entry",
+      "virtual:vinext-cache-adapters",
+      "virtual:vinext-image-adapters",
+      "virtual:vinext-rsc-entry",
+      "virtual:vite-rsc/css?type=rsc&id=%2Fhome%2Fmagzhan%2Fprojects%2Fsikgu%2Fapp%2Flayout.tsx&lang.js"
+    ]
+  },
+  {
+    "file": "_next/static/als-registry-Ca9CZnfN.js",
+    "imports": [
+      "node:async_hooks"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/shims/internal/als-registry.js"
+    ]
+  },
+  {
+    "file": "_next/static/app-action-request-C6O0_QeF.js",
+    "imports": [
+      "_next/static/headers-CM5uQWa2.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/app-action-request.js",
+      "<project>/node_modules/vinext/dist/server/app-route-request-built-ins.js"
+    ]
+  },
+  {
+    "file": "_next/static/app-elements-C6uwuqrY.js",
+    "imports": [
+      "_next/static/rolldown-runtime-hePW80VL.js",
+      "_next/static/fetch-cache-CRIAOpye.js",
+      "_next/static/artifact-compatibility-BNhP17sO.js",
+      "_next/static/cache-handler-D-mhLqkd.js",
+      "_next/static/framework~index~layout~page~metadata-route-response~app-rsc-response-stage~app-route-handle~obkhqkvm-BO2z_WaE.js",
+      "_next/static/framework~index~layout~metadata-route-response~app-route-handler-dispatch~app-page-cache~ap~lrienajf-B6QksT4v.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/app-elements-wire.js",
+      "<project>/node_modules/vinext/dist/server/app-elements.js",
+      "<project>/node_modules/vinext/dist/server/app-render-dependency.js",
+      "<project>/node_modules/vinext/dist/utils/compare.js"
+    ]
+  },
+  {
+    "file": "_next/static/app-page-cache-D-QEZErG.js",
+    "imports": [
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/cache-control-e-seFAYO.js",
+      "_next/static/text-stream-VKwurfmw.js",
+      "_next/static/artifact-compatibility-BNhP17sO.js",
+      "_next/static/cache-handler-D-mhLqkd.js",
+      "_next/static/app-rsc-cache-busting-LGj3mP0P.js",
+      "_next/static/html-puL_u02q.js",
+      "_next/static/isr-cache-DOpU1RaQ.js",
+      "_next/static/app-page-cache-finalizer-CCaXaiqi.js",
+      "_next/static/isr-decision-CI6O61j-.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/client/browser-globals.js",
+      "<project>/node_modules/vinext/dist/server/app-page-cache.js",
+      "<project>/node_modules/vinext/dist/server/app-ppr-fallback-shell.js",
+      "<project>/node_modules/vinext/dist/server/app-rsc-embedded-chunks.js",
+      "<project>/node_modules/vinext/dist/server/app-ssr-stream.js"
+    ]
+  },
+  {
+    "file": "_next/static/app-page-cache-finalizer-CCaXaiqi.js",
+    "imports": [
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/cache-control-e-seFAYO.js",
+      "_next/static/text-stream-VKwurfmw.js",
+      "_next/static/artifact-compatibility-BNhP17sO.js",
+      "_next/static/cache-handler-D-mhLqkd.js",
+      "_next/static/isr-cache-DOpU1RaQ.js"
+    ],
+    "dynamicImports": [
+      "_next/static/client-trace-metadata-DUR2PiYt.js"
+    ],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/app-page-cache-finalizer.js"
+    ]
+  },
+  {
+    "file": "_next/static/app-page-cache-render-1ZuCVAwq.js",
+    "imports": [
+      "_next/static/fetch-cache-CRIAOpye.js",
+      "_next/static/text-stream-VKwurfmw.js",
+      "_next/static/implicit-tags-DkIVQshm.js",
+      "_next/static/headers-DtGR1iYh.js",
+      "_next/static/app-page-tracing-gT-uwk7Z.js",
+      "_next/static/app-page-stream-BMoIpiu5.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/app-page-cache-render.js"
+    ]
+  },
+  {
+    "file": "_next/static/app-page-segment-state-Dv9R2yCq.js",
+    "imports": [
+      "_next/static/utils-C9PM00n7.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/app-page-segment-state.js"
+    ]
+  },
+  {
+    "file": "_next/static/app-page-stream-BMoIpiu5.js",
+    "imports": [
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/text-stream-VKwurfmw.js",
+      "_next/static/artifact-compatibility-BNhP17sO.js",
+      "_next/static/implicit-tags-DkIVQshm.js",
+      "_next/static/app-rsc-cache-busting-LGj3mP0P.js",
+      "_next/static/html-puL_u02q.js",
+      "_next/static/app-page-tracing-gT-uwk7Z.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/app-page-stream.js"
+    ]
+  },
+  {
+    "file": "_next/static/app-page-tracing-gT-uwk7Z.js",
+    "imports": [
+      "_next/static/rolldown-runtime-hePW80VL.js",
+      "_next/static/fetch-cache-CRIAOpye.js",
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/base-path-Cmiu3HvG.js",
+      "_next/static/artifact-compatibility-BNhP17sO.js",
+      "_next/static/framework~index~layout~page~metadata-route-response~app-rsc-response-stage~app-route-handle~obkhqkvm-BO2z_WaE.js",
+      "_next/static/implicit-tags-DkIVQshm.js",
+      "_next/static/headers-DtGR1iYh.js",
+      "_next/static/app-rsc-cache-busting-LGj3mP0P.js",
+      "_next/static/html-puL_u02q.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/app-page-execution.js",
+      "<project>/node_modules/vinext/dist/server/app-page-tracing.js",
+      "<project>/node_modules/vinext/dist/server/app-render-abort-error.js",
+      "<project>/node_modules/vinext/dist/server/app-rsc-errors.js",
+      "<project>/node_modules/vinext/dist/server/app-rsc-redirect-flight.js",
+      "<project>/node_modules/vinext/dist/server/app-ssr-error-meta.js",
+      "<project>/node_modules/vinext/dist/utils/navigation-signal.js"
+    ]
+  },
+  {
+    "file": "_next/static/app-prerender-endpoints-JxQcPm36.js",
+    "imports": [
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/http-error-responses-B2gV-Vqb.js",
+      "_next/static/app-prerender-static-params-D1Q-_1qK.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/app-prerender-endpoints.js"
+    ]
+  },
+  {
+    "file": "_next/static/app-prerender-static-params-D1Q-_1qK.js",
+    "imports": [
+      "_next/static/root-params-I7qAbYCA.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/app-prerender-static-params.js"
+    ]
+  },
+  {
+    "file": "_next/static/app-route-handler-dispatch-BZhjbeC8.js",
+    "imports": [
+      "_next/static/rolldown-runtime-hePW80VL.js",
+      "_next/static/fetch-cache-CRIAOpye.js",
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/unified-request-context-CpOgWEVy.js",
+      "_next/static/request-context-D4PUtYt8.js",
+      "_next/static/cache-control-e-seFAYO.js",
+      "_next/static/rsc-completion-metadata-D7GkcV6u.js",
+      "_next/static/server-C1NYkGR9.js",
+      "_next/static/framework~index~layout~page~metadata-route-response~app-rsc-response-stage~app-route-handle~obkhqkvm-BO2z_WaE.js",
+      "_next/static/implicit-tags-DkIVQshm.js",
+      "_next/static/headers-DtGR1iYh.js",
+      "_next/static/server-ClsUn-qu.js",
+      "_next/static/ppr-fallback-shell-Bsn4mtxE.js",
+      "_next/static/thenable-params-Cl4QATui.js",
+      "_next/static/app-rsc-cache-busting-LGj3mP0P.js",
+      "_next/static/app-elements-C6uwuqrY.js",
+      "_next/static/isr-cache-DOpU1RaQ.js",
+      "_next/static/app-route-handler-execution-6nBgh7Cg.js",
+      "_next/static/app-static-generation-BX8cz43B.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/routing/route-matching.js",
+      "<project>/node_modules/vinext/dist/server/app-bfcache-id.js",
+      "<project>/node_modules/vinext/dist/server/app-browser-rsc-redirect.js",
+      "<project>/node_modules/vinext/dist/server/app-history-state.js",
+      "<project>/node_modules/vinext/dist/server/app-route-handler-cache.js",
+      "<project>/node_modules/vinext/dist/server/app-route-handler-dispatch.js",
+      "<project>/node_modules/vinext/dist/server/navigation-planner.js",
+      "<project>/node_modules/vinext/dist/shims/internal/app-prefetch-fetch-queue.js",
+      "<project>/node_modules/vinext/dist/shims/internal/app-router-context.js",
+      "<project>/node_modules/vinext/dist/shims/internal/hybrid-client-route-owner-direct.js",
+      "<project>/node_modules/vinext/dist/shims/navigation.js"
+    ]
+  },
+  {
+    "file": "_next/static/app-route-handler-execution-6nBgh7Cg.js",
+    "imports": [
+      "_next/static/fetch-cache-CRIAOpye.js",
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/unified-request-context-CpOgWEVy.js",
+      "_next/static/request-pipeline-D8UPNNY4.js",
+      "_next/static/base-path-Cmiu3HvG.js",
+      "_next/static/cache-control-e-seFAYO.js",
+      "_next/static/artifact-compatibility-BNhP17sO.js",
+      "_next/static/app-action-request-C6O0_QeF.js",
+      "_next/static/implicit-tags-DkIVQshm.js",
+      "_next/static/headers-DtGR1iYh.js",
+      "_next/static/server-ClsUn-qu.js",
+      "_next/static/root-params-I7qAbYCA.js",
+      "_next/static/isr-cache-DOpU1RaQ.js",
+      "_next/static/isr-decision-CI6O61j-.js",
+      "_next/static/app-static-generation-BX8cz43B.js",
+      "_next/static/cacheability-limits-BTpP4ZoO.js"
+    ],
+    "dynamicImports": [
+      "_next/static/cacheability-request-CmcVomVx.js"
+    ],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/app-route-handler-execution.js",
+      "<project>/node_modules/vinext/dist/server/app-route-handler-policy.js",
+      "<project>/node_modules/vinext/dist/server/app-route-handler-response.js",
+      "<project>/node_modules/vinext/dist/server/app-route-handler-runtime.js",
+      "<project>/node_modules/vinext/dist/server/cookie-utils.js"
+    ]
+  },
+  {
+    "file": "_next/static/app-rsc-cache-busting-LGj3mP0P.js",
+    "imports": [
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/artifact-compatibility-BNhP17sO.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/app-rsc-cache-busting.js",
+      "<project>/node_modules/vinext/dist/utils/deployment-id.js"
+    ]
+  },
+  {
+    "file": "_next/static/app-rsc-response-stage-X627zpJy.js",
+    "imports": [
+      "_next/static/fetch-cache-CRIAOpye.js",
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/prerender-work-unit-setup-BhwUCVbk.js",
+      "_next/static/unified-request-context-CpOgWEVy.js",
+      "_next/static/request-context-D4PUtYt8.js",
+      "_next/static/request-pipeline-D8UPNNY4.js",
+      "_next/static/implicit-tags-DkIVQshm.js",
+      "_next/static/headers-DtGR1iYh.js",
+      "_next/static/response-stage-policy-BJSKsgF-.js",
+      "_next/static/app-rsc-cache-busting-LGj3mP0P.js",
+      "_next/static/app-page-tracing-gT-uwk7Z.js",
+      "_next/static/root-params-I7qAbYCA.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/app-rsc-response-stage.js"
+    ]
+  },
+  {
+    "file": "_next/static/app-static-generation-BX8cz43B.js",
+    "imports": [],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/app-static-generation.js"
+    ]
+  },
+  {
+    "file": "_next/static/artifact-compatibility-BNhP17sO.js",
+    "imports": [
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/unified-request-context-CpOgWEVy.js",
+      "_next/static/cache-handler-D-mhLqkd.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/routing/route-validation.js",
+      "<project>/node_modules/vinext/dist/server/app-elements-wire-key.js",
+      "<project>/node_modules/vinext/dist/server/app-mounted-slots-header.js",
+      "<project>/node_modules/vinext/dist/server/app-response-header-provenance.js",
+      "<project>/node_modules/vinext/dist/server/app-rsc-render-mode.js",
+      "<project>/node_modules/vinext/dist/server/artifact-compatibility.js",
+      "<project>/node_modules/vinext/dist/server/cache-headers.js",
+      "<project>/node_modules/vinext/dist/server/middleware-response-headers.js",
+      "<project>/node_modules/vinext/dist/server/normalize-path.js",
+      "<project>/node_modules/vinext/dist/utils/hash.js"
+    ]
+  },
+  {
+    "file": "_next/static/base-path-Cmiu3HvG.js",
+    "imports": [],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/utils/base-path.js"
+    ]
+  },
+  {
+    "file": "_next/static/cache-control-e-seFAYO.js",
+    "imports": [
+      "_next/static/request-context-D4PUtYt8.js"
+    ],
+    "dynamicImports": [
+      "_next/static/cache-handler-D-mhLqkd.js"
+    ],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/cache-control.js",
+      "<project>/node_modules/vinext/dist/shims/cacheability-classification.js",
+      "<project>/node_modules/vinext/dist/shims/cdn-cache-state.js",
+      "<project>/node_modules/vinext/dist/shims/cdn-cache.js"
+    ]
+  },
+  {
+    "file": "_next/static/cache-handler-D-mhLqkd.js",
+    "imports": [
+      "_next/static/rolldown-runtime-hePW80VL.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/shims/cache-handler.js",
+      "<project>/node_modules/vinext/dist/utils/cache-control-metadata.js",
+      "<project>/node_modules/vinext/dist/utils/record.js"
+    ]
+  },
+  {
+    "file": "_next/static/cacheability-limits-BTpP4ZoO.js",
+    "imports": [],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/cacheability-limits.js"
+    ]
+  },
+  {
+    "file": "_next/static/cacheability-request-CmcVomVx.js",
+    "imports": [
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/cache-control-e-seFAYO.js",
+      "_next/static/worker-prerender-discovery-Di3D1ibs.js",
+      "_next/static/response-stage-policy-BJSKsgF-.js",
+      "_next/static/cacheability-limits-BTpP4ZoO.js"
+    ],
+    "dynamicImports": [
+      "_next/static/client-trace-metadata-DUR2PiYt.js"
+    ],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/cacheability-request.js"
+    ]
+  },
+  {
+    "file": "_next/static/client-trace-metadata-DUR2PiYt.js",
+    "imports": [],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/client-trace-metadata.js"
+    ]
+  },
+  {
+    "file": "_next/static/config-headers-cBnkVReB.js",
+    "imports": [
+      "_next/static/cache-control-e-seFAYO.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/config/config-matchers.js",
+      "<project>/node_modules/vinext/dist/server/config-headers.js",
+      "<project>/node_modules/vinext/dist/utils/regex-safety.js"
+    ]
+  },
+  {
+    "file": "_next/static/dist-CeW7sDxB.js",
+    "imports": [
+      "node:path"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/deps/.pnpm/pathslash@0.1.0/deps/pathslash/dist/index.js"
+    ]
+  },
+  {
+    "file": "_next/static/fetch-cache-CRIAOpye.js",
+    "imports": [
+      "_next/static/rolldown-runtime-hePW80VL.js",
+      "_next/static/als-registry-Ca9CZnfN.js",
+      "_next/static/unified-request-context-CpOgWEVy.js",
+      "_next/static/request-context-D4PUtYt8.js",
+      "_next/static/cache-handler-D-mhLqkd.js",
+      "_next/static/headers-DtGR1iYh.js",
+      "node:buffer"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/app-fetch-tracing.js",
+      "<project>/node_modules/vinext/dist/server/framework-tracer.js",
+      "<project>/node_modules/vinext/dist/server/opentelemetry-api.js",
+      "<project>/node_modules/vinext/dist/server/opentelemetry-tracing.js",
+      "<project>/node_modules/vinext/dist/server/tracer.js",
+      "<project>/node_modules/vinext/dist/shims/cache-request-state.js",
+      "<project>/node_modules/vinext/dist/shims/fetch-cache.js",
+      "<project>/node_modules/vinext/dist/utils/encode-cache-tag.js",
+      "<project>/node_modules/vinext/dist/utils/promise.js"
+    ]
+  },
+  {
+    "file": "_next/static/file-based-metadata-B7TxHJ0X.js",
+    "imports": [
+      "_next/static/base-path-Cmiu3HvG.js",
+      "_next/static/thenable-params-Cl4QATui.js",
+      "_next/static/route-pattern-DcM4RjVd.js",
+      "_next/static/metadata-routes-DxjPhNmE.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/file-based-metadata.js"
+    ]
+  },
+  {
+    "file": "_next/static/framework~index-T0AVJYE7.js",
+    "imports": [
+      "_next/static/rolldown-runtime-hePW80VL.js",
+      "_next/static/framework~index~page~app-route-handler-dispatch-DemNApxu.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/react-server-dom-webpack/cjs/react-server-dom-webpack-client.edge.production.js",
+      "<project>/node_modules/react-server-dom-webpack/client.edge.js",
+      "<project>/node_modules/react-server-dom-webpack/static.edge.js"
+    ]
+  },
+  {
+    "file": "_next/static/framework~index~layout~metadata-route-response~app-route-handler-dispatch~app-page-cache~ap~lrienajf-B6QksT4v.js",
+    "imports": [
+      "_next/static/rolldown-runtime-hePW80VL.js",
+      "_next/static/framework~index~layout~page~metadata-route-response~app-rsc-response-stage~app-route-handle~obkhqkvm-BO2z_WaE.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/react/cjs/react-jsx-runtime.react-server.production.js",
+      "<project>/node_modules/react/jsx-runtime.react-server.js"
+    ]
+  },
+  {
+    "file": "_next/static/framework~index~layout~page~metadata-route-response~app-rsc-response-stage~app-route-handle~obkhqkvm-BO2z_WaE.js",
+    "imports": [
+      "_next/static/rolldown-runtime-hePW80VL.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/react/cjs/react.react-server.production.js",
+      "<project>/node_modules/react/react.react-server.js"
+    ]
+  },
+  {
+    "file": "_next/static/framework~index~page~app-route-handler-dispatch-DemNApxu.js",
+    "imports": [
+      "_next/static/rolldown-runtime-hePW80VL.js",
+      "_next/static/framework~index~layout~page~metadata-route-response~app-rsc-response-stage~app-route-handle~obkhqkvm-BO2z_WaE.js",
+      "node:async_hooks"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/react-dom/cjs/react-dom.react-server.production.js",
+      "<project>/node_modules/react-dom/react-dom.react-server.js",
+      "<project>/node_modules/react-server-dom-webpack/cjs/react-server-dom-webpack-server.edge.production.js",
+      "<project>/node_modules/react-server-dom-webpack/server.edge.js"
+    ]
+  },
+  {
+    "file": "_next/static/headers-CM5uQWa2.js",
+    "imports": [],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/app-rsc-vary.js",
+      "<project>/node_modules/vinext/dist/server/headers.js",
+      "<project>/node_modules/vinext/dist/utils/protocol-headers.js"
+    ]
+  },
+  {
+    "file": "_next/static/headers-DtGR1iYh.js",
+    "imports": [
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/als-registry-Ca9CZnfN.js",
+      "_next/static/unified-request-context-CpOgWEVy.js",
+      "_next/static/ppr-fallback-shell-Bsn4mtxE.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/shims/headers.js",
+      "<project>/node_modules/vinext/dist/shims/internal/headers-state.js",
+      "<project>/node_modules/vinext/dist/utils/parse-cookie.js"
+    ]
+  },
+  {
+    "file": "_next/static/html-puL_u02q.js",
+    "imports": [
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/cache-control-e-seFAYO.js",
+      "_next/static/artifact-compatibility-BNhP17sO.js",
+      "_next/static/app-rsc-cache-busting-LGj3mP0P.js",
+      "_next/static/prerender-cache-life-header-B4AcMLN8.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/app-page-response.js",
+      "<project>/node_modules/vinext/dist/server/html.js"
+    ]
+  },
+  {
+    "file": "_next/static/http-error-responses-B2gV-Vqb.js",
+    "imports": [],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/http-error-responses.js"
+    ]
+  },
+  {
+    "file": "_next/static/implicit-tags-DkIVQshm.js",
+    "imports": [
+      "_next/static/fetch-cache-CRIAOpye.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/implicit-tags.js",
+      "<project>/node_modules/vinext/dist/server/next-error-digest.js",
+      "<project>/node_modules/vinext/dist/utils/redirect-digest.js"
+    ]
+  },
+  {
+    "file": "_next/static/isr-cache-DOpU1RaQ.js",
+    "imports": [
+      "_next/static/fetch-cache-CRIAOpye.js",
+      "_next/static/request-context-D4PUtYt8.js",
+      "_next/static/cache-control-e-seFAYO.js",
+      "_next/static/artifact-compatibility-BNhP17sO.js",
+      "_next/static/utils-C9PM00n7.js",
+      "_next/static/work-unit-async-storage-DfLYVwR3.js",
+      "_next/static/app-elements-C6uwuqrY.js",
+      "_next/static/dist-CeW7sDxB.js",
+      "node:fs"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/app-page-render-identity.js",
+      "<project>/node_modules/vinext/dist/server/instrumentation-runtime.js",
+      "<project>/node_modules/vinext/dist/server/instrumentation.js",
+      "<project>/node_modules/vinext/dist/server/isr-cache.js",
+      "<project>/node_modules/vinext/dist/server/otel-tracer-extension.js"
+    ]
+  },
+  {
+    "file": "_next/static/isr-decision-CI6O61j-.js",
+    "imports": [
+      "_next/static/cache-control-e-seFAYO.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/isr-decision.js"
+    ]
+  },
+  {
+    "file": "_next/static/metadata-route-response-BXFEGdXO.js",
+    "imports": [
+      "_next/static/fetch-cache-CRIAOpye.js",
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/unified-request-context-CpOgWEVy.js",
+      "_next/static/request-context-D4PUtYt8.js",
+      "_next/static/http-error-responses-B2gV-Vqb.js",
+      "_next/static/cache-control-e-seFAYO.js",
+      "_next/static/cache-handler-D-mhLqkd.js",
+      "_next/static/implicit-tags-DkIVQshm.js",
+      "_next/static/headers-DtGR1iYh.js",
+      "_next/static/utils-C9PM00n7.js",
+      "_next/static/prerender-cache-life-header-B4AcMLN8.js",
+      "_next/static/app-page-segment-state-Dv9R2yCq.js",
+      "_next/static/isr-cache-DOpU1RaQ.js",
+      "_next/static/isr-decision-CI6O61j-.js",
+      "_next/static/app-route-handler-execution-6nBgh7Cg.js",
+      "_next/static/app-static-generation-BX8cz43B.js",
+      "_next/static/metadata-routes-DxjPhNmE.js"
     ],
     "dynamicImports": [
       "index.js"
     ],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/metadata-route-response.js"
+    ]
+  },
+  {
+    "file": "_next/static/metadata-routes-DxjPhNmE.js",
+    "imports": [
+      "_next/static/route-pattern-DcM4RjVd.js",
+      "_next/static/dist-CeW7sDxB.js",
+      "node:fs"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/metadata-routes.js"
+    ]
+  },
+  {
+    "file": "_next/static/page-CNIIZzpg.js",
+    "imports": [
+      "_next/static/server-C1NYkGR9.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/app/page.tsx"
+    ]
+  },
+  {
+    "file": "_next/static/ppr-fallback-shell-Bsn4mtxE.js",
+    "imports": [
+      "_next/static/als-registry-Ca9CZnfN.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/shims/internal/make-hanging-promise.js",
+      "<project>/node_modules/vinext/dist/shims/ppr-fallback-shell.js"
+    ]
+  },
+  {
+    "file": "_next/static/prerender-cache-life-header-B4AcMLN8.js",
+    "imports": [
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/cache-handler-D-mhLqkd.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/prerender-cache-life-header.js"
+    ]
+  },
+  {
+    "file": "_next/static/prerender-work-unit-setup-BhwUCVbk.js",
+    "imports": [
+      "_next/static/fetch-cache-CRIAOpye.js",
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/http-error-responses-B2gV-Vqb.js",
+      "_next/static/request-pipeline-D8UPNNY4.js",
+      "_next/static/base-path-Cmiu3HvG.js",
+      "_next/static/cache-control-e-seFAYO.js",
+      "_next/static/artifact-compatibility-BNhP17sO.js",
+      "_next/static/cache-handler-D-mhLqkd.js",
+      "_next/static/utils-C9PM00n7.js",
+      "_next/static/response-stage-policy-BJSKsgF-.js",
+      "_next/static/app-rsc-cache-busting-LGj3mP0P.js",
+      "_next/static/work-unit-async-storage-DfLYVwR3.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/app-interception-context-header.js",
+      "<project>/node_modules/vinext/dist/server/app-rsc-request-normalization.js",
+      "<project>/node_modules/vinext/dist/server/app-worker-stages.js",
+      "<project>/node_modules/vinext/dist/server/client-reuse-manifest.js",
+      "<project>/node_modules/vinext/dist/server/pages-execution-tracing.js",
+      "<project>/node_modules/vinext/dist/server/pregenerated-concrete-paths.js",
+      "<project>/node_modules/vinext/dist/server/prerender-route-params.js",
+      "<project>/node_modules/vinext/dist/server/prerender-work-unit-setup.js",
+      "<project>/node_modules/vinext/dist/utils/asset-prefix.js",
+      "<project>/node_modules/vinext/dist/utils/number.js"
+    ]
+  },
+  {
+    "file": "_next/static/request-context-D4PUtYt8.js",
+    "imports": [
+      "_next/static/als-registry-Ca9CZnfN.js",
+      "_next/static/unified-request-context-CpOgWEVy.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/shims/request-context.js"
+    ]
+  },
+  {
+    "file": "_next/static/request-pipeline-D8UPNNY4.js",
+    "imports": [
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/http-error-responses-B2gV-Vqb.js",
+      "_next/static/base-path-Cmiu3HvG.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/open-redirect.js",
+      "<project>/node_modules/vinext/dist/server/request-pipeline.js",
+      "<project>/node_modules/vinext/dist/server/static-file-signal.js",
+      "<project>/node_modules/vinext/dist/utils/middleware-request-headers.js"
+    ]
+  },
+  {
+    "file": "_next/static/response-stage-policy-BJSKsgF-.js",
+    "imports": [
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/unified-request-context-CpOgWEVy.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/cacheability-manifest.js",
+      "<project>/node_modules/vinext/dist/server/response-stage-policy.js",
+      "<project>/node_modules/vinext/dist/server/worker-stages.js"
+    ]
+  },
+  {
+    "file": "_next/static/rolldown-runtime-hePW80VL.js",
+    "imports": [],
+    "dynamicImports": [],
+    "modules": [
+      "rolldown/runtime.js"
+    ]
+  },
+  {
+    "file": "_next/static/root-params-I7qAbYCA.js",
+    "imports": [
+      "_next/static/als-registry-Ca9CZnfN.js",
+      "_next/static/unified-request-context-CpOgWEVy.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/shims/root-params.js"
+    ]
+  },
+  {
+    "file": "_next/static/route-C07vqk7n.js",
+    "imports": [
+      "_next/static/headers-DtGR1iYh.js",
+      "_next/static/server-ClsUn-qu.js",
+      "cloudflare:workers",
+      "node:zlib"
+    ],
+    "dynamicImports": [],
     "modules": [
       "<project>/app/api/sikgu/invites.ts",
       "<project>/app/api/sikgu/pagination.ts",
       "<project>/app/api/sikgu/responses.ts",
       "<project>/app/api/sikgu/route.ts",
       "<project>/app/chatgpt-auth.ts",
-      "<project>/app/globals.css",
-      "<project>/app/layout.tsx",
       "<project>/app/name-mask.mjs",
-      "<project>/app/page.tsx",
       "<project>/app/receipt-image.mjs",
-      "<project>/app/sikgu-rules.mjs",
-      "<project>/node_modules/@vitejs/plugin-rsc/dist/core/rsc.js",
-      "<project>/node_modules/@vitejs/plugin-rsc/dist/dist-rz-Bnebz.js",
-      "<project>/node_modules/@vitejs/plugin-rsc/dist/react/rsc.js",
-      "<project>/node_modules/@vitejs/plugin-rsc/dist/rsc.js",
-      "<project>/node_modules/@vitejs/plugin-rsc/dist/shared-BViDMJTQ.js",
-      "<project>/node_modules/@vitejs/plugin-rsc/dist/utils/encryption-runtime.js",
-      "<project>/node_modules/react-dom/cjs/react-dom.react-server.production.js",
-      "<project>/node_modules/react-dom/react-dom.react-server.js",
-      "<project>/node_modules/react-server-dom-webpack/cjs/react-server-dom-webpack-client.edge.production.js",
-      "<project>/node_modules/react-server-dom-webpack/cjs/react-server-dom-webpack-server.edge.production.js",
-      "<project>/node_modules/react-server-dom-webpack/client.edge.js",
-      "<project>/node_modules/react-server-dom-webpack/server.edge.js",
-      "<project>/node_modules/react/cjs/react-jsx-runtime.react-server.production.js",
-      "<project>/node_modules/react/cjs/react.react-server.production.js",
-      "<project>/node_modules/react/jsx-runtime.react-server.js",
-      "<project>/node_modules/react/react.react-server.js",
-      "<project>/node_modules/vinext/dist/build/google-fonts/build-url.js",
-      "<project>/node_modules/vinext/dist/build/google-fonts/sort-variants.js",
-      "<project>/node_modules/vinext/dist/config/config-matchers.js",
-      "<project>/node_modules/vinext/dist/routing/route-pattern.js",
-      "<project>/node_modules/vinext/dist/routing/route-trie.js",
-      "<project>/node_modules/vinext/dist/routing/utils.js",
-      "<project>/node_modules/vinext/dist/server/app-elements-wire.js",
-      "<project>/node_modules/vinext/dist/server/app-elements.js",
-      "<project>/node_modules/vinext/dist/server/app-fallback-renderer.js",
-      "<project>/node_modules/vinext/dist/server/app-hook-warning-suppression.js",
-      "<project>/node_modules/vinext/dist/server/app-middleware.js",
-      "<project>/node_modules/vinext/dist/server/app-mounted-slots-header.js",
-      "<project>/node_modules/vinext/dist/server/app-page-boundary-render.js",
-      "<project>/node_modules/vinext/dist/server/app-page-boundary.js",
-      "<project>/node_modules/vinext/dist/server/app-page-cache.js",
-      "<project>/node_modules/vinext/dist/server/app-page-dispatch.js",
-      "<project>/node_modules/vinext/dist/server/app-page-element-builder.js",
-      "<project>/node_modules/vinext/dist/server/app-page-execution.js",
-      "<project>/node_modules/vinext/dist/server/app-page-head.js",
-      "<project>/node_modules/vinext/dist/server/app-page-method.js",
-      "<project>/node_modules/vinext/dist/server/app-page-params.js",
-      "<project>/node_modules/vinext/dist/server/app-page-probe.js",
-      "<project>/node_modules/vinext/dist/server/app-page-render.js",
-      "<project>/node_modules/vinext/dist/server/app-page-request.js",
-      "<project>/node_modules/vinext/dist/server/app-page-response.js",
-      "<project>/node_modules/vinext/dist/server/app-page-route-wiring.js",
-      "<project>/node_modules/vinext/dist/server/app-page-segment-state.js",
-      "<project>/node_modules/vinext/dist/server/app-page-stream.js",
-      "<project>/node_modules/vinext/dist/server/app-post-middleware-context.js",
-      "<project>/node_modules/vinext/dist/server/app-prerender-endpoints.js",
-      "<project>/node_modules/vinext/dist/server/app-prerender-static-params.js",
-      "<project>/node_modules/vinext/dist/server/app-render-dependency.js",
-      "<project>/node_modules/vinext/dist/server/app-request-context.js",
-      "<project>/node_modules/vinext/dist/server/app-route-handler-cache.js",
-      "<project>/node_modules/vinext/dist/server/app-route-handler-dispatch.js",
-      "<project>/node_modules/vinext/dist/server/app-route-handler-execution.js",
-      "<project>/node_modules/vinext/dist/server/app-route-handler-policy.js",
-      "<project>/node_modules/vinext/dist/server/app-route-handler-response.js",
-      "<project>/node_modules/vinext/dist/server/app-route-handler-runtime.js",
-      "<project>/node_modules/vinext/dist/server/app-router-entry.js",
-      "<project>/node_modules/vinext/dist/server/app-rsc-cache-busting.js",
-      "<project>/node_modules/vinext/dist/server/app-rsc-error-handler.js",
-      "<project>/node_modules/vinext/dist/server/app-rsc-errors.js",
-      "<project>/node_modules/vinext/dist/server/app-rsc-handler.js",
-      "<project>/node_modules/vinext/dist/server/app-rsc-render-mode.js",
-      "<project>/node_modules/vinext/dist/server/app-rsc-request-normalization.js",
-      "<project>/node_modules/vinext/dist/server/app-rsc-response-finalizer.js",
-      "<project>/node_modules/vinext/dist/server/app-rsc-route-matching.js",
+      "<project>/app/sikgu-rules.mjs"
+    ]
+  },
+  {
+    "file": "_next/static/route-pattern-DcM4RjVd.js",
+    "imports": [
+      "_next/static/utils-C9PM00n7.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/routing/route-pattern.js"
+    ]
+  },
+  {
+    "file": "_next/static/rsc-completion-metadata-D7GkcV6u.js",
+    "imports": [
+      "_next/static/rolldown-runtime-hePW80VL.js",
+      "_next/static/fetch-cache-CRIAOpye.js",
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/unified-request-context-CpOgWEVy.js",
+      "_next/static/artifact-compatibility-BNhP17sO.js",
+      "_next/static/framework~index~layout~page~metadata-route-response~app-rsc-response-stage~app-route-handle~obkhqkvm-BO2z_WaE.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
       "<project>/node_modules/vinext/dist/server/app-segment-config.js",
-      "<project>/node_modules/vinext/dist/server/app-server-action-execution.js",
-      "<project>/node_modules/vinext/dist/server/app-static-generation.js",
-      "<project>/node_modules/vinext/dist/server/artifact-compatibility.js",
-      "<project>/node_modules/vinext/dist/server/cache-control.js",
-      "<project>/node_modules/vinext/dist/server/csp.js",
-      "<project>/node_modules/vinext/dist/server/file-based-metadata.js",
-      "<project>/node_modules/vinext/dist/server/headers.js",
-      "<project>/node_modules/vinext/dist/server/http-error-responses.js",
-      "<project>/node_modules/vinext/dist/server/implicit-tags.js",
-      "<project>/node_modules/vinext/dist/server/instrumentation.js",
-      "<project>/node_modules/vinext/dist/server/isr-cache.js",
-      "<project>/node_modules/vinext/dist/server/metadata-route-response.js",
-      "<project>/node_modules/vinext/dist/server/metadata-routes.js",
-      "<project>/node_modules/vinext/dist/server/middleware-matcher.js",
-      "<project>/node_modules/vinext/dist/server/middleware-request-headers.js",
-      "<project>/node_modules/vinext/dist/server/middleware-response-headers.js",
-      "<project>/node_modules/vinext/dist/server/middleware-runtime.js",
-      "<project>/node_modules/vinext/dist/server/next-error-digest.js",
-      "<project>/node_modules/vinext/dist/server/normalize-path.js",
-      "<project>/node_modules/vinext/dist/server/prerender-work-unit-setup.js",
-      "<project>/node_modules/vinext/dist/server/request-pipeline.js",
-      "<project>/node_modules/vinext/dist/server/rsc-stream-hints.js",
-      "<project>/node_modules/vinext/dist/server/server-action-not-found.js",
-      "<project>/node_modules/vinext/dist/server/worker-utils.js",
-      "<project>/node_modules/vinext/dist/shims/cache.js",
-      "<project>/node_modules/vinext/dist/shims/client-hook-error.js",
-      "<project>/node_modules/vinext/dist/shims/error-boundary.js",
-      "<project>/node_modules/vinext/dist/shims/fetch-cache.js",
-      "<project>/node_modules/vinext/dist/shims/font-google-base.js",
-      "<project>/node_modules/vinext/dist/shims/font-google.js",
-      "<project>/node_modules/vinext/dist/shims/font-local.js",
-      "<project>/node_modules/vinext/dist/shims/headers.js",
-      "<project>/node_modules/vinext/dist/shims/internal/als-registry.js",
+      "<project>/node_modules/vinext/dist/server/edge-api-runtime.js",
+      "<project>/node_modules/vinext/dist/server/response-start-tracing.js",
+      "<project>/node_modules/vinext/dist/server/revalidation-request.js",
+      "<project>/node_modules/vinext/dist/server/rsc-completion-metadata.js",
+      "<project>/node_modules/vinext/dist/shims/navigation-context-state.js",
+      "<project>/node_modules/vinext/dist/utils/html-limited-bots.js"
+    ]
+  },
+  {
+    "file": "_next/static/server-C1NYkGR9.js",
+    "imports": [
+      "_next/static/rolldown-runtime-hePW80VL.js",
+      "_next/static/framework~index~page~app-route-handler-dispatch-DemNApxu.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/@vitejs/plugin-rsc/dist/core/rsc.js",
+      "<project>/node_modules/@vitejs/plugin-rsc/dist/react/rsc/server.js",
+      "<project>/node_modules/@vitejs/plugin-rsc/dist/shared-BWJvctW6.js"
+    ]
+  },
+  {
+    "file": "_next/static/server-ClsUn-qu.js",
+    "imports": [
+      "_next/static/headers-CM5uQWa2.js",
+      "_next/static/unified-request-context-CpOgWEVy.js",
+      "_next/static/request-context-D4PUtYt8.js",
+      "_next/static/base-path-Cmiu3HvG.js",
+      "_next/static/headers-DtGR1iYh.js",
+      "node:module"
+    ],
+    "dynamicImports": [
+      "_next/static/headers-DtGR1iYh.js"
+    ],
+    "modules": [
+      "<project>/node_modules/vinext/dist/_virtual/_rolldown/runtime.js",
+      "<project>/node_modules/vinext/dist/deps/.pnpm/ua-parser-js@1.0.35/deps/ua-parser-js/src/ua-parser.js",
       "<project>/node_modules/vinext/dist/shims/internal/cookie-serialize.js",
-      "<project>/node_modules/vinext/dist/shims/internal/parse-cookie-header.js",
-      "<project>/node_modules/vinext/dist/shims/internal/work-unit-async-storage.js",
-      "<project>/node_modules/vinext/dist/shims/layout-segment-context.js",
-      "<project>/node_modules/vinext/dist/shims/metadata.js",
-      "<project>/node_modules/vinext/dist/shims/navigation-state.js",
-      "<project>/node_modules/vinext/dist/shims/navigation.js",
-      "<project>/node_modules/vinext/dist/shims/navigation.react-server.js",
-      "<project>/node_modules/vinext/dist/shims/readonly-url-search-params.js",
-      "<project>/node_modules/vinext/dist/shims/request-context.js",
-      "<project>/node_modules/vinext/dist/shims/root-params.js",
       "<project>/node_modules/vinext/dist/shims/server.js",
-      "<project>/node_modules/vinext/dist/shims/slot.js",
-      "<project>/node_modules/vinext/dist/shims/thenable-params.js",
-      "<project>/node_modules/vinext/dist/shims/unified-request-context.js",
       "<project>/node_modules/vinext/dist/shims/url-safety.js",
-      "<project>/node_modules/vinext/dist/utils/base-path.js",
-      "<project>/node_modules/vinext/dist/utils/cache-control-metadata.js",
-      "<project>/node_modules/vinext/dist/utils/encode-cache-tag.js",
-      "<project>/node_modules/vinext/dist/utils/hash.js",
-      "<project>/node_modules/vinext/dist/utils/text-stream.js",
-      "<project>/worker/index.ts",
-      "rolldown/runtime.js",
-      "virtual:cloudflare/worker-entry",
-      "virtual:vinext-rsc-entry",
-      "virtual:vite-rsc/css?type=rsc&id=%2Fhome%2Fmagzhan%2Fprojects%2Fsikgu%2Fapp%2Flayout.tsx&lang.js",
-      "virtual:vite-rsc/server-references"
+      "<project>/node_modules/vinext/dist/shims/user-agent.js"
+    ]
+  },
+  {
+    "file": "_next/static/text-stream-VKwurfmw.js",
+    "imports": [
+      "_next/static/fetch-cache-CRIAOpye.js",
+      "_next/static/artifact-compatibility-BNhP17sO.js",
+      "_next/static/headers-DtGR1iYh.js",
+      "_next/static/app-elements-C6uwuqrY.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/app-page-render-observation.js",
+      "<project>/node_modules/vinext/dist/server/cache-proof.js",
+      "<project>/node_modules/vinext/dist/server/defer-until-stream-consumed.js",
+      "<project>/node_modules/vinext/dist/utils/sorted-array.js",
+      "<project>/node_modules/vinext/dist/utils/text-stream.js"
+    ]
+  },
+  {
+    "file": "_next/static/thenable-params-Cl4QATui.js",
+    "imports": [
+      "_next/static/ppr-fallback-shell-Bsn4mtxE.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/shims/internal/thenable-well-known-properties.js",
+      "<project>/node_modules/vinext/dist/shims/thenable-params.js"
+    ]
+  },
+  {
+    "file": "_next/static/unified-request-context-CpOgWEVy.js",
+    "imports": [
+      "_next/static/als-registry-Ca9CZnfN.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/fully-buffered-response.js",
+      "<project>/node_modules/vinext/dist/shims/unified-request-context.js"
+    ]
+  },
+  {
+    "file": "_next/static/utils-C9PM00n7.js",
+    "imports": [],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/routing/utils.js"
+    ]
+  },
+  {
+    "file": "_next/static/work-unit-async-storage-DfLYVwR3.js",
+    "imports": [
+      "_next/static/als-registry-Ca9CZnfN.js",
+      "node:async_hooks"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/shims/internal/work-unit-async-storage.js"
+    ]
+  },
+  {
+    "file": "_next/static/worker-prerender-discovery-Di3D1ibs.js",
+    "imports": [
+      "_next/static/headers-CM5uQWa2.js"
+    ],
+    "dynamicImports": [],
+    "modules": [
+      "<project>/node_modules/vinext/dist/server/worker-prerender-discovery.js"
     ]
   }
 ]

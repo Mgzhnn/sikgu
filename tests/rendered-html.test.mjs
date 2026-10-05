@@ -240,7 +240,7 @@ test("persists rooms, approvals, invitations, and private chat in D1", async () 
   }
 
   assert.match(page, /aria-label="주문방 최대 인원"/);
-  assert.match(page, /import \{[^}]*\broomCapacities,[^}]*\broomDurations,?[^}]*\} from "\.\/sikgu-rules\.mjs"/);
+  assert.match(page, /import \{[^}]*\broomCapacities,[^}]*\broomDurations,?[^}]*\} from "\.\.?\/sikgu-rules\.mjs"/);
   assert.match(page, /\{roomCapacities\.map\(\(value\) =>/);
   assert.match(page, /action: "request_join"/);
   assert.match(page, /action: "review_member"/);
@@ -526,7 +526,8 @@ test("the client never shows a JSON parser error when the platform answers with 
   assert.match(readJson, /catch/);
   assert.match(readJson, /서버 오류가 발생했습니다/);
   assert.equal(occurrences("await response.json()"), 0, "every response body must go through readJson");
-  assert.ok(occurrences("await readJson<") >= 6, "post, saveOrderInfo, deleteRoom, postAction, loadRooms, loadRoom");
+  // Mutations and reads share lib/api.ts; the multipart PUT and the DELETE read their bodies directly.
+  assert.ok(occurrences("await readJson<") >= 4, "apiPost, apiGet, saveOrderInfo, deleteRoom");
 });
 
 test("browser storage that throws (private mode, blocked site data) never breaks joining or loading", async () => {
@@ -578,29 +579,34 @@ test("new chat messages scroll only the message list, and only when the reader i
 test("feed refreshes after room actions never reject unhandled, and an expired session in the room hub goes to sign-in", async () => {
   const page = await readClientSource();
   const occurrences = (fragment) => page.split(fragment).length - 1;
+  // One mutation path (lib/api.ts) serves the room sheet and the feed actions.
+  const sharedPost = page.slice(page.indexOf("export async function apiPost"), page.indexOf("export async function apiGet"));
   const roomPost = page.slice(page.indexOf("const post = async"), page.indexOf("const review = async"));
-  const globalPost = page.slice(page.indexOf("const postAction = useCallback"), page.indexOf("const loadRooms = useCallback"));
+  const roomActions = page.slice(page.indexOf("export function useRoomActions"));
 
   assert.equal((page.match(/void loadRooms\(\)(?!\.catch)/g) || []).length, 0, "bare loadRooms() calls reject unhandled when bootstrap fails");
   assert.match(page, /const refreshRooms = useCallback\(\(\) => loadRooms\(\)\.catch\(\(\) => undefined\), \[loadRooms\]\)/);
   assert.ok(occurrences("refreshRooms()") >= 3, "onChanged, onDeleted, onLeft");
   assert.match(page, /function redirectToSignIn\(\)/);
-  assert.match(roomPost, /response\.status === 401[\s\S]{0,80}redirectToSignIn\(\)/);
-  assert.match(globalPost, /response\.status === 401[\s\S]{0,80}signIn\(\)/);
+  assert.match(sharedPost, /response\.status === 401[\s\S]{0,80}redirectToSignIn\(\)/);
+  assert.match(roomPost, /apiPost\(\{ \.\.\.payload, roomId \}\)/);
+  assert.match(roomActions, /await apiPost\(\{ action: "request_join"/);
 });
 
 test("the pool dialog disables joining a full room and Escape is ignored mid-IME-composition", async () => {
   const page = await readClientSource();
-  const poolModal = page.slice(page.indexOf("function PoolModal"), page.indexOf("function RoomHubModal"));
-  const dialogHook = page.slice(page.indexOf("function useDialogLifecycle"), page.indexOf("const appLabels"));
-  const locationPicker = page.slice(page.indexOf("function LocationPicker"), page.indexOf("function RestaurantMark"));
-  const homeView = page.slice(page.indexOf("function HomeView"), page.indexOf("function RestaurantsView"));
+  const poolModal = page.slice(page.indexOf("function PoolModal"));
+  const poolStatus = page.slice(page.indexOf("export const isFull"), page.indexOf("export const isClosed"));
+  const dialogHook = page.slice(page.indexOf("function useDialogLifecycle"), page.indexOf("export function timeLeft"));
+  const locationPicker = page.slice(page.indexOf("function LocationPicker"), page.indexOf("function PoolCard"));
+  const homeView = page.slice(page.indexOf("function HomeView"), page.indexOf("function ProfileView"));
 
-  assert.match(poolModal, /const isFull = !pool\.isHost && pool\.myStatus !== "approved" && pool\.people >= pool\.capacity/);
+  assert.match(poolStatus, /!pool\.isHost && pool\.myStatus !== "approved" && pool\.people >= pool\.capacity/);
+  assert.match(poolModal, /const isFull = isPoolFull\(pool\)/);
   assert.match(poolModal, /disabled=\{joining \|\| isFull \|\| unavailable\}/);
   // A pending requester gets a cancel control instead of a disabled join button.
   assert.match(poolModal, /awaitingApproval \? \([\s\S]*신청 취소/);
-  assert.match(poolModal, /isFull[\s\S]{0,40}"정원 마감"/);
+  assert.match(poolModal, /status === "full"[\s\S]{0,40}"정원 마감"/);
   for (const [name, source] of [["dialog hook", dialogHook], ["location picker", locationPicker], ["home filter", homeView]]) {
     assert.match(source, /event\.isComposing \|\| event\.keyCode === 229/, `${name} must ignore Escape during composition`);
   }
@@ -617,7 +623,7 @@ test("pending invitation validation rejects malformed tokens and future or expir
 
 test("every choice group in the create dialog has an accessible name and pressed state", async () => {
   const page = await readClientSource();
-  const createModal = page.slice(page.indexOf("function CreateModal"), page.indexOf("export default function Home"));
+  const createModal = page.slice(page.indexOf("function CreateModal"), page.indexOf("function FeedbackModal"));
 
   assert.match(createModal, /<label id="create-pickup-label">픽업 장소<\/label>/);
   assert.match(createModal, /className="choice-grid" role="group" aria-labelledby="create-pickup-label"/);
@@ -640,14 +646,14 @@ test("the anonymous placeholder name survives re-masking on the client", () => {
 
 test("the create dialog sends the chosen preset, not a deadline computed from the device clock", async () => {
   const page = await readClientSource();
-  const handleCreate = page.slice(page.indexOf("const handleCreate = async"), page.indexOf("const retryBootstrap"));
+  const handleCreate = page.slice(page.indexOf("const handleCreate = async"), page.indexOf("const acceptPendingInvite = async"));
   assert.match(handleCreate, /minutes: values\.minutes/);
   assert.doesNotMatch(handleCreate, /closesAt/);
 });
 
 test("the room hub shows the deadline state and disables host actions that a closed room would refuse", async () => {
   const page = await readClientSource();
-  const roomHub = page.slice(page.indexOf("function RoomHubModal"), page.indexOf("function CreateModal"));
+  const roomHub = page.slice(page.indexOf("function RoomHubModal"), page.indexOf("export const money"));
 
   assert.match(roomHub, /now: number;/);
   assert.match(roomHub, /const isClosed = Boolean\(room\) && room!\.closesAt <= now/);
@@ -659,15 +665,15 @@ test("the room hub shows the deadline state and disables host actions that a clo
 
 test("countdowns follow the server clock and a tab returning from sleep refreshes immediately", async () => {
   const page = await readClientSource();
-  const home = page.slice(page.indexOf("export default function Home"));
+  const feed = page.slice(page.indexOf("export function useFeed"));
 
-  assert.match(home, /const clockOffsetRef = useRef\(0\)/);
-  assert.match(home, /clockOffsetRef\.current = data\.serverNow - Date\.now\(\)/);
-  assert.match(home, /const serverNow = useCallback\(\(\) => Date\.now\(\) \+ clockOffsetRef\.current/);
-  assert.match(home, /setNow\(serverNow\(\)\)/);
+  assert.match(feed, /const clockOffsetRef = useRef\(0\)/);
+  assert.match(feed, /clockOffsetRef\.current = data\.serverNow - Date\.now\(\)/);
+  assert.match(feed, /const serverNow = useCallback\(\(\) => Date\.now\(\) \+ clockOffsetRef\.current/);
+  assert.match(feed, /setNow\(serverNow\(\)\)/);
   assert.match(page, /document\.addEventListener\("visibilitychange",wake\)/);
   assert.match(page, /document\.removeEventListener\("visibilitychange",wake\)/);
-  assert.doesNotMatch(home, /setNow\(Date\.now\(\)\)/);
+  assert.doesNotMatch(feed, /setNow\(Date\.now\(\)\)/);
 });
 
 // Lifecycle behavior is executed with deterministic timers in tests/polling.test.mjs.
@@ -677,7 +683,7 @@ test("the pool dialog explains a room that closed or was deleted instead of vani
     readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
-  const poolModal = page.slice(page.indexOf("function PoolModal"), page.indexOf("function RoomHubModal"));
+  const poolModal = page.slice(page.indexOf("function PoolModal"));
   const home = page.slice(page.indexOf("export default function Home"));
 
   assert.match(poolModal, /unavailable\?: boolean;/);
@@ -691,7 +697,7 @@ test("the pool dialog explains a room that closed or was deleted instead of vani
 
 test("progress, chat updates, and errors are exposed to screen readers with the right semantics", async () => {
   const page = await readClientSource();
-  const roomHub = page.slice(page.indexOf("function RoomHubModal"), page.indexOf("function CreateModal"));
+  const roomHub = page.slice(page.indexOf("function RoomHubModal"), page.indexOf("export const money"));
 
   assert.match(page, /className="progress" role="progressbar" aria-valuemin=\{0\} aria-valuemax=\{100\} aria-valuenow=\{percentage\} aria-label="최소 주문금액 달성률"/);
   assert.doesNotMatch(roomHub, /className="chat-messages"\s+aria-live/);
@@ -708,7 +714,7 @@ test("small controls get phone-sized hit areas and sheets do not scroll the page
     readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
-  const dialogHook = page.slice(page.indexOf("function useDialogLifecycle"), page.indexOf("const appLabels"));
+  const dialogHook = page.slice(page.indexOf("function useDialogLifecycle"), page.indexOf("export function timeLeft"));
 
   const hitAreaRule = css.slice(css.lastIndexOf(".search-box button::before"), css.indexOf("}", css.lastIndexOf(".search-box button::before")));
   for (const selector of [".search-box button", ".restaurant-picker-search button", ".campus-map-preview-marker"]) {

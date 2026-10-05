@@ -8,7 +8,7 @@
     "dynamicImports": [
       "assets/layout-segment-context-g_xbg_h0.js",
       "assets/error-boundary-CrL44Ynz.js",
-      "assets/page-ZM5xydW2.js",
+      "assets/page-C4C9tp90.js",
       "index.js"
     ],
     "modules": [
@@ -80,15 +80,33 @@
     ]
   },
   {
-    "file": "assets/page-ZM5xydW2.js",
+    "file": "assets/page-C4C9tp90.js",
     "imports": [
       "index.js"
     ],
     "dynamicImports": [],
     "modules": [
       "<project>/app/catalog.ts",
+      "<project>/app/components/brand.tsx",
+      "<project>/app/components/campus-map-preview.tsx",
+      "<project>/app/components/header.tsx",
+      "<project>/app/components/location-picker.tsx",
+      "<project>/app/components/pool-card.tsx",
+      "<project>/app/components/progress.tsx",
+      "<project>/app/continuations.ts",
+      "<project>/app/hooks/use-current-pickup.ts",
+      "<project>/app/hooks/use-feed.ts",
+      "<project>/app/hooks/use-room-actions.ts",
+      "<project>/app/hooks/use-session.ts",
       "<project>/app/invite-continuation.mjs",
+      "<project>/app/lib/api.ts",
+      "<project>/app/lib/pool-status.ts",
       "<project>/app/message-history.mjs",
+      "<project>/app/modals/campus-map-modal.tsx",
+      "<project>/app/modals/create-modal.tsx",
+      "<project>/app/modals/feedback-modal.tsx",
+      "<project>/app/modals/invite-confirmation.tsx",
+      "<project>/app/modals/pool-modal.tsx",
       "<project>/app/name-mask.mjs",
       "<project>/app/order-estimates.mjs",
       "<project>/app/page.tsx",
@@ -96,7 +114,11 @@
       "<project>/app/restaurant-mark.tsx",
       "<project>/app/room-hub.tsx",
       "<project>/app/room-ui.tsx",
-      "<project>/app/sikgu-rules.mjs"
+      "<project>/app/sikgu-rules.mjs",
+      "<project>/app/views/home-view.tsx",
+      "<project>/app/views/profile-view.tsx",
+      "<project>/app/views/restaurants-view.tsx",
+      "<project>/app/views/right-rail.tsx"
     ]
   }
 ]

@@ -7,6 +7,7 @@ import {money, estimatedArrivalLabel, maxReceiptUploadBytes, prepareReceiptUploa
 import {maskDisplayName} from "./name-mask.mjs";
 import {maxChatMessageCharacters} from "./sikgu-rules.mjs";
 import {mergeMessages, newMessageCount} from "./message-history.mjs";
+import {apiGet, apiPost} from "./lib/api";
 
 export function RoomHubModal({
   roomId,
@@ -76,16 +77,13 @@ export function RoomHubModal({
     const requestId = ++loadRoomRequestRef.current;
     if (!quiet) setLoading(true);
     try {
-      const response = await fetch(`/api/sikgu?action=room&roomId=${encodeURIComponent(roomId)}`, {
-        cache: "no-store", signal,
-      });
-      const data = await readJson<{
+      const { response, data } = await apiGet<{
         room?: Pool;
         members?: RoomMember[];
         messages?: ChatMessage[];
         nextMessagesCursor?: string | null;
         code?: string;
-      }>(response);
+      }>(`action=room&roomId=${encodeURIComponent(roomId)}`, signal);
       if (signal?.aborted || requestId !== loadRoomRequestRef.current) return null;
       if (!response.ok || !data.room) {
         if (response.status === 401 || response.status === 403) {
@@ -156,8 +154,7 @@ export function RoomHubModal({
     setLoadingOlder(true);
     const list=chatListRef.current, previousHeight=list?.scrollHeight || 0;
     try {
-      const response=await fetch(`/api/sikgu?action=room&roomId=${encodeURIComponent(roomId)}&messagesCursor=${encodeURIComponent(olderMessagesCursor)}`,{cache:"no-store"});
-      const data=await readJson<{messages?:ChatMessage[];nextMessagesCursor?:string|null}>(response);
+      const {response,data}=await apiGet<{messages?:ChatMessage[];nextMessagesCursor?:string|null}>(`action=room&roomId=${encodeURIComponent(roomId)}&messagesCursor=${encodeURIComponent(olderMessagesCursor)}`);
       if(!response.ok){if([401,403,410].includes(response.status)){setRoom(null);setMessages([]);}throw new Error(data.error || "이전 메시지를 불러오지 못했어요.");}
       const incoming=data.messages || [];
       incoming.forEach(message=>knownMessageIdsRef.current?.add(message.id));
@@ -169,20 +166,7 @@ export function RoomHubModal({
     finally{setLoadingOlder(false);}
   };
 
-  const post = async (payload: Record<string, unknown>) => {
-    const response = await fetch("/api/sikgu", {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-sikgu-request": "1" },
-      body: JSON.stringify({ ...payload, roomId }),
-    });
-    const data = await readJson<{ token?: string; expiresAt?: number }>(response);
-    if (response.status === 401) {
-      redirectToSignIn();
-      throw new Error("로그인이 필요합니다.");
-    }
-    if (!response.ok) throw new Error(data.error || "요청을 처리하지 못했어요.");
-    return data;
-  };
+  const post = async (payload: Record<string, unknown>) => apiPost({ ...payload, roomId });
 
   const review = async (memberRef: string, decision: "approve" | "reject") => {
     if (reviewingMember) return;

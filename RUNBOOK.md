@@ -17,19 +17,61 @@ architecture are described in `README.md`; the current repair record is `REPAIRS
 ## Health
 
 `GET /api/sikgu?action=health` needs no sign-in and returns
-`{"ok":true,"database":"ok"}` after a one-row D1 round trip, or HTTP 503 with
-`{"ok":false,"database":"unavailable"}` when D1 does not answer. Probe it
-after every deploy and from any uptime monitor. This is a connectivity/liveness probe (`SELECT 1`), not a schema, R2, authentication or end-to-end readiness check. A missing migration or broken receipt bucket can coexist with a green health response.
+`{"ok":true,"database":"ok","storage":"ok"}` after a one-row D1 round trip
+and a one-key R2 listing, or HTTP 503 with `Retry-After: 30` and the failing
+dependency marked `"unavailable"`. Probe it after every deploy and from an
+uptime monitor. This is a connectivity probe (`SELECT 1` plus `list`), not a
+schema, authentication or end-to-end readiness check. A missing migration can
+coexist with a green health response.
+
+External monitor (COMPLETION.md item C2): _not yet configured_. When set up,
+record here the monitor service, the probe URL, the interval and the alert
+recipient, so the next operator knows where alerts go.
+
+## Repository protection (COMPLETION.md item D3)
+
+`main` must require a pull request with a green CI run before merge, and no
+direct pushes. GitHub → repository Settings → Branches → Add rule for `main`:
+"Require a pull request before merging", "Require status checks to pass"
+(select the `verify` job), "Do not allow bypassing the above settings".
+Record the date it was enabled here: _not yet enabled_.
 
 ## Deploy
 
-1. Run `npm ci`, `npm test`, `npm run lint`, and `npm run test:browser` (install Playwright Chromium first). Inspect a fresh `npm audit --json`; use the per-advisory reasoning in `REPAIRS.md` rather than assuming all development packages are harmless.
-2. Verify the hosting identity gate below before exposing a new release. Keep production data untouched during local verification.
+1. Run `npm ci`, `npm test`, `npm run lint`, and `npm run test:browser` (install Playwright Chromium first). CI runs the same set plus `npm audit --omit=dev --audit-level=high`; merge only on a green run. For development-only audit entries use the per-advisory reasoning in `REPAIRS.md`.
+2. After the deploy, run `npm run probe -- https://<origin>` and commit its output under `verification/` as `identity-probe-<date>.log`; it must print `"summary":"PASS"`. Keep production data untouched during local verification.
 3. Prepare and push the verified source, build/package its Sites artifact, save a version and deploy that explicit version through Sites. A GitHub push does not itself verify or perform this release workflow. The build packages `.openai/hosting.json` and generated migrations in `dist/.openai/`; verify the expected migration is in the artifact and applied by the platform.
 4. Check migration/schema readiness through the platform's database tools (expected tables, columns and indexes), then probe health. In an authorized test room verify create, join, approve, chat, upload/read a receipt as a member, and delete. Verify the deleted receipt object is gone from R2.
 5. Old tabs should reload after a contract change. This repair returns absolute `expiresAt` for invitation creation instead of `expiresInHours`; stale clients must not continue advertising 24 hours. New pagination fields are additive and optional cursor parameters preserve first-page behavior. Do not claim compatibility of stale cached UI just because the API still responds.
 
 Last deploy: 2026-10-05, commit `e5e77d7` as Sites version 26, saved and deployed by Codex on the server with the Sites tools. Sites applied migrations 0004 and 0005; all tables were empty beforehand, so migration 0001's row deletion could not lose data. The owning ChatGPT account must be the one Codex is logged in as, or Sites reports the project as not found.
+
+## Catalog: adding or updating a restaurant or pickup point
+
+The catalog is code, deployed with the app (no admin UI by decision; see
+COMPLETION.md). Minimums and fees change on Baemin and Coupang Eats, so
+review them on a fixed cadence (once per semester) and record the date in
+the header comment of `app/catalog.ts`.
+
+1. Minimum order amounts per app live in `app/sikgu-rules.mjs`
+   (`restaurantMinimums`); the restaurant's name, cuisine, address, delivery
+   fees and menu live in `app/catalog.ts` (`restaurants`). Both keys must
+   match exactly; the server validates room creation against
+   `restaurantMinimums` and the client renders from `catalog.ts`.
+2. To add a restaurant: add its id and both minimums to `restaurantMinimums`,
+   then its entry to `restaurants` in `catalog.ts` with `verified: true` only
+   after checking the address on the map link. To update prices: edit the
+   numbers only.
+3. Pickup points: `pickupFullNames` in `app/sikgu-rules.mjs` and
+   `pickupPoints` in `app/catalog.ts` (with map coordinates) must stay in
+   step.
+4. Never remove or rename an id that existing rooms may use: rooms with an
+   unknown id are hidden from every list, including My Rooms. Retire a
+   restaurant by leaving its id in place and setting a note in the catalog
+   entry; remove it only after the 30-day retention window has passed.
+5. Run `node --test` (the catalog preservation test checks the 21/8 counts
+   and the id correspondence; update its expectations when the set
+   deliberately changes), then deploy as a normal release.
 
 ## Migrations
 
@@ -47,9 +89,31 @@ Last deploy: 2026-10-05, commit `e5e77d7` as Sites version 26, saved and deploye
 
 ## Rollback
 
-- Redeploy the previous known-good commit. Migration 0004 adds `room_blocks`; 0005 adds history/rate-window indexes and replaces the message-order index with one that adds an ID tie-breaker. It does not rewrite rows or remove columns, so earlier code can use the newer schema. Check the migration result before a rollback; do not undo the index migration by editing history.
-- If a bad migration was applied, write a new forward migration that undoes
-  it; do not edit or delete the applied file.
+Every migration so far is additive (0004 adds `room_blocks`, 0005 adds
+indexes, 0006 adds the nullable `room_members.amount` and
+`rooms.extensions` columns), so earlier code runs against the newer schema.
+Never undo a migration by editing history; if a migration itself is bad,
+write a new forward migration that reverses it.
+
+Procedure (rehearse once and record the date and elapsed time below):
+
+1. Note the current live version number from the Sites project view and the
+   commit it was built from (README "Production" line).
+2. On the server, open Codex in the project folder, signed in as the owning
+   account (the UG account; a wrong account reports "project not found").
+3. Ask Codex to list the saved Sites versions and deploy the previous
+   known-good version number publicly. Do not rebuild: redeploying a saved
+   version is the rollback.
+4. Probe `GET /api/sikgu?action=health` on the public origin and run
+   `npm run probe -- https://<origin>`; both must pass.
+5. In a test room, create, join from a second account, approve, chat, and
+   delete. Confirm the deleted receipt object is gone.
+6. Record the rollback in REPAIRS.md: from version, to version, reason, time.
+7. When the fix is ready, deploy forward as a new version; never leave the
+   rolled-back version undocumented.
+
+Rehearsal record: _not yet rehearsed_ (COMPLETION.md item C3; fill in the
+date, the from/to versions and the elapsed time here after the rehearsal).
 
 ## Logs
 
@@ -58,6 +122,28 @@ Last deploy: 2026-10-05, commit `e5e77d7` as Sites version 26, saved and deploye
   The user's error message ends with `(오류 코드 XXXXXXXX)`, the first eight
   characters of that `reference`; ask them for it and search the platform
   log viewer for that prefix.
+
+### Finding a failure from the code a user quotes
+
+Worked example. A student reports: "저장이 안 돼요. 서버 오류가 발생했습니다.
+(오류 코드 225af8ad)".
+
+1. The eight characters are the prefix of the `reference` UUID in exactly
+   one log line. In the Sites project, open Logs, set the time range to the
+   hour the student reported, and search for `225af8ad`.
+2. The matching line looks like
+   `{"level":"error","reference":"225af8ad-3f7a-4d2f-831d-5f2c7f60b84e","context":"Failed to update private order information","error":{"name":"Error","message":"영수증 저장소가 연결되지 않았습니다.","stack":"..."}}`.
+   `context` names the handler (here the order-info PUT); `error.message` is
+   the cause (here the R2 binding was missing). The stack shows the file and
+   line in the deployed build.
+3. There is no email, name, room id or request body in the line by design.
+   If you need the room, ask the student which room and when; do not add
+   identities to the log.
+4. Deferred-cleanup lines ("Deferred …") and the `retention_sweep` event are
+   not keyed by a reference; search by the prefix text instead.
+5. Reply to the student with what happened in plain words and, if it was a
+   platform fault, when it was fixed. Record platform faults in REPAIRS.md
+   with the reference so repeat reports can be matched.
 - Log lines never contain emails, names, or request bodies. Keep it that
   way: log identifiers (room id, reference), not people.
 - Deferred cleanups log with a fixed prefix: "Deferred stale receipt

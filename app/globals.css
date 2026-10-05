@@ -2108,6 +2108,7 @@ button:disabled { cursor: not-allowed; opacity: 0.56; }
   background: rgba(9, 31, 35, 0.46);
   backdrop-filter: blur(6px);
   animation: fade-in 180ms ease both;
+  overflow-y: auto;
 }
 
 .overlay.centered { align-items: center; justify-content: center; padding: 24px; }
@@ -2468,6 +2469,19 @@ button:disabled { cursor: not-allowed; opacity: 0.56; }
   color: var(--deep);
   font-size: 10px;
   font-weight: 700;
+}
+.form-field .create-note {
+  width: 100%;
+  min-height: 56px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card, #fff);
+  color: var(--deep);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  resize: vertical;
 }
 
 .form-hint {
@@ -3628,6 +3642,7 @@ button:disabled { cursor: not-allowed; opacity: 0.56; }
   .create-modal {
     width: 100%;
     max-height: 92vh;
+    max-height: 92dvh;
     border-radius: 25px 25px 0 0;
   }
 
@@ -3637,6 +3652,9 @@ button:disabled { cursor: not-allowed; opacity: 0.56; }
   .room-hub {
     width: 100vw;
     max-height: calc(100vh - 12px);
+    /* iOS Safari: the overlay is the small viewport while 100vh is the large
+       one, which pushed the sheet header above the screen. */
+    max-height: calc(100dvh - 12px);
     border-radius: 24px 24px 0 0;
   }
   .room-hub-body { grid-template-columns: 1fr; overflow-y: auto; }
@@ -3781,3 +3799,71 @@ button:disabled { cursor: not-allowed; opacity: 0.56; }
   .create-modal .capacity-selector { grid-auto-flow:row; grid-template-columns:repeat(4,minmax(0,1fr)); }
   .room-hub-head { flex-wrap:wrap; gap:12px; }
 }
+
+/* Completion plan group 2: member amounts, deadline actions, pending state, privacy notice. */
+.member-list > div { flex-wrap: wrap; }
+.amount-editor {
+  display: flex;
+  flex-basis: 100%;
+  gap: 6px;
+  margin-top: 6px;
+}
+.amount-editor label { flex: 1; min-width: 0; }
+.amount-editor input {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  color: var(--deep);
+  font: inherit;
+  font-size: 13px;
+}
+.amount-editor button {
+  height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--deep);
+  color: white;
+  font-weight: 700;
+  font-size: 12px;
+}
+.amount-editor button:disabled { opacity: 0.6; }
+.room-deadline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.room-deadline-actions button {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  color: var(--deep);
+  font-weight: 700;
+  font-size: 12px;
+}
+.room-deadline-actions button:disabled { opacity: 0.6; }
+.room-deadline-actions small { flex-basis: 100%; color: var(--muted); font-size: 11px; }
+.pending-badge {
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--orange-soft, #fff1e8);
+  color: var(--deep);
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.pool-pending-note { margin: 0 0 10px; color: var(--muted); font-size: 12px; }
+.privacy-notice { margin-top: 24px; }
+.privacy-notice ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.privacy-notice li { color: var(--muted); font-size: 12px; line-height: 1.55; }
+.privacy-notice li strong { display: block; color: var(--deep); font-size: 12px; margin-bottom: 2px; }

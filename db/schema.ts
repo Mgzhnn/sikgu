@@ -22,6 +22,8 @@ export const rooms = sqliteTable("rooms", {
   mutationToken: text("mutation_token"),
   mutationStartedAt: integer("mutation_started_at"),
   status: text("status").notNull().default("open"),
+  /** Host-granted recruitment extensions used so far (bounded by the API). */
+  extensions: integer("extensions").notNull().default(0),
   createdAt: integer("created_at").notNull(),
 }, (table) => [
   index("rooms_status_closes_idx").on(table.status, table.closesAt),
@@ -36,6 +38,12 @@ export const roomMembers = sqliteTable("room_members", {
   role: text("role").notNull().default("member"),
   status: text("status").notNull().default("requested"),
   reviewToken: text("review_token"),
+  /**
+   * What this member intends to order, in won. `rooms.total` is maintained
+   * as the sum over approved members, so nobody types the pooled amount by
+   * hand.
+   */
+  amount: integer("amount"),
   createdAt: integer("created_at").notNull(),
 }, (table) => [
   primaryKey({ columns: [table.roomId, table.userEmail] }),

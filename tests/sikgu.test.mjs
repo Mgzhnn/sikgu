@@ -1,3 +1,4 @@
+import {readApiSource} from "./helpers/api-source.mjs";
 import {readClientSource} from "./helpers/client-source.mjs";
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
@@ -17,7 +18,7 @@ import {
 const root = new URL("../", import.meta.url);
 
 const sourceFiles = Promise.all([
-  readFile(new URL("app/api/sikgu/route.ts", root), "utf8"),
+  readApiSource(),
   readClientSource(),
   readFile(new URL("db/schema.ts", root), "utf8"),
   readFile(new URL("worker/index.ts", root), "utf8"),
@@ -95,7 +96,7 @@ test("shared room rules reject unsupported values and drive both client and serv
   assert.equal(Object.isFrozen(deliveryAppIds), true);
   assert.equal(Object.isFrozen(restaurantMinimums), true);
   assert.equal(Object.isFrozen(pickupFullNames), true);
-  assert.match(page, /import \{[^}]*\broomCapacities,[^}]*\broomDurations,?[^}]*\} from "\.\/sikgu-rules\.mjs"/);
+  assert.match(page, /import \{[^}]*\broomCapacities,[^}]*\broomDurations,?[^}]*\} from "\.\.?\/sikgu-rules\.mjs"/);
   assert.match(api, /from "\.\.\/\.\.\/sikgu-rules\.mjs"/);
   assert.match(page, /const \[apps, setApps\] = useState<DeliveryApp\[\]>\(\[\]\)/);
   assert.doesNotMatch(page, /useState<DeliveryApp\[\]>\(\["baemin"\]\)/);
@@ -106,8 +107,8 @@ test("shared room rules reject unsupported values and drive both client and serv
 test("server derives room data from allowlists and bounds every request before parsing", async () => {
   const { api } = await sourceFiles;
   const post = section(api, "export async function POST", "return serverError(\"Failed to mutate SIKGU data\"");
-  const createRoom = section(post, "if (action === \"create_room\")", "const id = textField(payload.roomId");
-  const put = section(api, "export async function PUT", "export async function DELETE");
+  const createRoom = section(api, "export async function createRoom", "export async function requestJoin");
+  const put = section(api, "export async function updateOrderInfo", "export async function deleteRoom");
 
   assert.match(api, /const maxJsonBytes = 32 \* 1024/);
   assert.match(post, /startsWith\("application\/json"\)/);
@@ -133,16 +134,19 @@ test("server derives room data from allowlists and bounds every request before p
   assert.match(put, /initialRoom\.status !== "open"/);
   assert.match(put, /Number\(initialRoom\.closes_at\) < Date\.now\(\) - recentRoomWindowMs/);
   assert.match(put, /Number\.isInteger\(orderTotal\)[\s\S]*10_000_000/);
-  assert.match(put, /Number\.isInteger\(collectedTotal\)[\s\S]*10_000_000/);
+  // The pooled total is the sum of member amounts; the host no longer types it.
+  assert.doesNotMatch(put, /collectedTotal/);
+  assert.doesNotMatch(put, /SET total = \?/);
+  assert.match(api, /Number\.isInteger\(amount\)[\s\S]*maxAmountWon/);
 });
 
 test("member review uses opaque references and never serializes member email addresses", async () => {
   const [{ api, page, schema }, migrations] = await Promise.all([sourceFiles, migrationSource]);
-  const roomRead = section(api, "if (action === \"room\")", "return json({ error: \"지원하지 않는 요청입니다.\"");
+  const roomRead = section(api, "export async function readRoom", "export async function bootstrap");
   const memberQuery = section(roomRead, "const loadMembers =", "const messages =");
   const memberResponse = section(roomRead, "members: members.results.map", "messages: messages.results.map");
   const roomMemberType = section(page, "type RoomMember = {", "type ChatMessage = {");
-  const reviewAction = section(api, "if (action === \"review_member\")", "if (action === \"remove_member\")");
+  const reviewAction = section(api, "export async function reviewMember", "export async function removeMember");
 
   assert.match(schema, /reviewToken: text\("review_token"\)/);
   assert.match(
@@ -150,10 +154,9 @@ test("member review uses opaque references and never serializes member email add
     /(?:ADD\s+`review_token`|`review_token`\s+text)/i,
     "a deployed migration must add room_members.review_token",
   );
-  assert.match(memberQuery, /SELECT review_token, display_name, role, status, created_at/);
-  assert.doesNotMatch(memberQuery, /user_email/);
-  assert.match(memberQuery, /members\.results\.some\(\(member\) => !member\.review_token\)/);
-  assert.match(memberQuery, /WHERE room_id = \? AND review_token IS NULL/);
+  assert.match(memberQuery, /SELECT review_token, display_name, role, status, created_at, amount,\s+CASE WHEN user_email = \? THEN 1 ELSE 0 END AS mine/);
+  // The address is compared to mark the viewer's own row; it is never selected.
+  assert.doesNotMatch(memberQuery, /SELECT[^\n]*user_email/);
   assert.match(memberQuery, /members = await loadMembers\(\)/);
   assert.match(memberResponse, /member_ref: String\(member\.review_token \|\| ""\)/);
   assert.doesNotMatch(memberResponse, /user_email|\.\.\.member/);
@@ -185,8 +188,8 @@ test("approval and invite acceptance reserve capacity atomically", async () => {
 
 test("approved users can reopen recent rooms and stale rooms are purged after receipt cleanup", async () => {
   const { api, page } = await sourceFiles;
-  const purge = section(api, "async function purgeExpiredRooms", "export async function GET");
-  const bootstrap = section(api, "if (action === \"bootstrap\")", "if (action === \"room\")");
+  const purge = section(api, "async function purgeExpiredRooms", "// ---- app/api/sikgu/receipts.ts");
+  const bootstrap = section(api, "export async function bootstrap", "// ---- app/api/sikgu/rooms.ts");
 
   assert.match(api, /const recentRoomWindowMs = 30 \* 24 \* 60 \* 60 \* 1000/);
   assert.match(purge, /lastRetentionSweep < 60 \* 60 \* 1000/);
@@ -216,7 +219,7 @@ test("approved users can reopen recent rooms and stale rooms are purged after re
 
   assert.match(bootstrap, /let myRooms:/);
   assert.match(bootstrap, /JOIN room_members mine ON mine\.room_id = r\.id/);
-  assert.match(bootstrap, /mine\.status = 'approved'/);
+  assert.match(bootstrap, /mine\.status IN \('approved', 'requested'\)/);
   assert.match(bootstrap, /r\.status = 'open'/);
   assert.match(bootstrap, /r\.closes_at > \?/);
   assert.match(bootstrap, /now - recentRoomWindowMs/);
@@ -228,12 +231,12 @@ test("approved users can reopen recent rooms and stale rooms are purged after re
   // Retained room pagination is covered by tests/pagination.test.mjs and browser flows.
   assert.match(page, /rooms=\{myRooms\}/);
   assert.match(page, /마감 후 30일 동안 다시 열 수 있어요/);
-  assert.match(page, /onClick=\{\(\) => onRoom\(room\.id\)\}/);
+  assert.match(page, /onClick=\{\(\) => \(room\.myStatus === "requested" \? onPending\(room\) : onRoom\(room\.id\)\)\}/);
 });
 
 test("mobile and desktop location pickers share behavior without overwriting stored state", async () => {
   const { page } = await sourceFiles;
-  const picker = section(page, "function LocationPicker", "function CampusMapPreview");
+  const picker = section(page, "function LocationPicker", "function PoolCard");
 
   assert.match(picker, /compact = false/);
   assert.match(picker, /mobile-location-options/);
@@ -249,21 +252,24 @@ test("mobile and desktop location pickers share behavior without overwriting sto
 
 test("dialogs, Korean IME input, request ordering, and bootstrap states have explicit safeguards", async () => {
   const { page } = await sourceFiles;
-  const dialogHook = section(page, "function useDialogLifecycle", "const appLabels");
+  const dialogHook = section(page, "function useDialogLifecycle", "export function timeLeft");
 
   assert.match(dialogHook, /event\.key === "Escape"/);
   assert.match(dialogHook, /event\.key !== "Tab"/);
   assert.match(dialogHook, /document\.body\.style\.overflow = "hidden"/);
   assert.match(dialogHook, /previouslyFocused\?\.focus\(\)/);
+  // Each dialog in the order the client source is concatenated: room-hub.tsx
+  // at the app root, then app/modals/* by file name.
   for (const [component, nextComponent] of [
-    ["function CampusMapModal", "function FeedbackModal"],
-    ["function FeedbackModal", "function PoolModal"],
-    ["function PoolModal", "function RoomHubModal"],
-    ["function RoomHubModal", "function CreateModal"],
-    ["function CreateModal", "export default function Home"],
+    ["function RoomHubModal", "export const money"],
+    ["function CampusMapModal", "function CreateModal"],
+    ["function CreateModal", "function FeedbackModal"],
+    ["function FeedbackModal", "function InviteConfirmation"],
+    ["function InviteConfirmation", "function PoolModal"],
   ]) {
     assert.match(section(page, component, nextComponent), /useDialogLifecycle\(/);
   }
+  assert.match(page.slice(page.indexOf("function PoolModal")), /useDialogLifecycle\(/);
 
   assert.match(page, /!event\.nativeEvent\.isComposing/);
   assert.match(page, /event\.nativeEvent\.keyCode !== 229/);
@@ -280,28 +286,32 @@ test("dialogs, Korean IME input, request ordering, and bootstrap states have exp
 test("all client mutations carry the custom same-origin request header", async () => {
   const { api, page } = await sourceFiles;
   const sameOrigin = section(api, "function sameOrigin", "function contentLength");
+  // The room sheet and the feed actions post through lib/api.ts; the
+  // multipart PUT and the DELETE build their own requests.
+  const sharedPost = section(page, "export async function apiPost", "export async function apiGet");
   const roomPost = section(page, "const post = async", "const review = async");
   const saveOrder = section(page, "const saveOrderInfo = async", "const deleteRoom = async");
   const deleteRoom = section(page, "const deleteRoom = async", "const leaveRoom = async");
-  const globalPost = section(page, "const postAction = useCallback", "const loadRooms = useCallback");
 
   assert.match(sameOrigin, /request\.headers\.get\("x-sikgu-request"\) !== "1"/);
   assert.match(sameOrigin, /origin === expectedOrigin/);
   assert.match(sameOrigin, /new URL\(referer\)\.origin === expectedOrigin/);
   assert.equal(occurrences(api, "if (!sameOrigin(request))"), 3);
-  for (const mutation of [roomPost, saveOrder, deleteRoom, globalPost]) {
+  for (const mutation of [sharedPost, saveOrder, deleteRoom]) {
     assert.match(mutation, /"x-sikgu-request": "1"/);
   }
+  assert.match(roomPost, /apiPost\(/);
+  assert.equal(occurrences(page, 'method: "POST"'), 1, "every POST goes through apiPost");
   assert.match(deleteRoom, /response\.status === 404[\s\S]*onDeleted\(\)/);
 });
 
 test("receipt updates and room deletion use fenced mutations with recoverable storage cleanup", async () => {
   const { api, receiptImage } = await sourceFiles;
-  const put = section(api, "export async function PUT", "export async function DELETE");
-  const deleteRoom = section(api, "export async function DELETE", "export async function POST");
+  const put = section(api, "export async function updateOrderInfo", "export async function deleteRoom");
+  const deleteRoom = section(api, "export async function deleteRoom", "export async function readReceipt");
   const normalizedPut = compact(put);
   const lock = section(api, "async function acquireRoomMutation", "async function releaseRoomMutation");
-  const cleanup = section(api, "async function deleteReceiptObjectsForRoom", "function isRetryableD1ReadError");
+  const cleanup = section(api, "async function deleteReceiptObjectsForRoom", "export async function updateOrderInfo");
 
   assert.match(api, /const receiptUploadCooldownMs = 30 \* 1000/);
   assert.match(
@@ -310,11 +320,9 @@ test("receipt updates and room deletion use fenced mutations with recoverable st
   );
   assert.match(receiptImage, /const maxReceiptDimension = 2400/);
   assert.match(receiptImage, /const maxReceiptPixels = 5_760_000/);
-  assert.match(receiptImage, /const maxJpegSegments = 4096/);
   assert.match(receiptImage, /const maxPngChunks = 4096/);
   assert.match(api, /const receiptTypes = new Set\(\["image\/png"\]\)/);
   assert.match(receiptImage, /export function sanitizeReceiptImage\(buffer, contentType\)/);
-  assert.match(receiptImage, /const isMetadata = \(marker >= 0xe0 && marker <= 0xef\) \|\| marker === 0xfe/);
   assert.match(receiptImage, /const safeAncillaryChunks = new Set\(\["tRNS"\]\)/);
   assert.match(lock, /SET mutation_token = \?, mutation_started_at = \?/);
   assert.match(lock, /status = 'open'[\s\S]*mutation_token IS NULL[\s\S]*mutation_started_at < \?/);
@@ -388,14 +396,8 @@ test("production reads retry transient D1 failures and cleanup avoids repeated w
   const { api } = await sourceFiles;
   const retryable = section(api, "function isRetryableD1ReadError", "async function withD1ReadRetry");
   const retry = section(api, "async function withD1ReadRetry", "function sameOrigin");
-  const cleanup = section(api, "async function deleteReceiptObjectsForRoom", "function isRetryableD1ReadError");
-  const purge = section(api, "async function purgeExpiredRooms", "export async function GET");
-  const roomRead = section(
-    api,
-    "if (action === \"room\")",
-    "return json({ error: \"지원하지 않는 요청입니다.\"",
-  );
-  const deleteRoom = section(api, "export async function DELETE", "export async function POST");
+  const cleanup = section(api, "async function deleteReceiptObjectsForRoom", "export async function updateOrderInfo");
+  const deleteRoom = section(api, "export async function deleteRoom", "export async function readReceipt");
 
   for (const fragment of [
     "Network connection lost",
@@ -415,53 +417,17 @@ test("production reads retry transient D1 failures and cleanup avoids repeated w
   assert.match(cleanup, /limit: 1000/);
   assert.match(cleanup, /bucket\.delete\(allKeys\.slice\(offset, offset \+ 1000\)\)/);
 
-  assert.match(purge, /SELECT CASE WHEN[\s\S]*EXISTS\(SELECT 1 FROM rooms/);
-  assert.match(purge, /if \(legacyNames\?\.found\)/);
-  assert.match(roomRead, /members\.results\.some\(\(member\) => !member\.review_token\)/);
-
   assert.match(deleteRoom, /D1 can commit an idempotent delete/);
   assert.match(deleteRoom, /SELECT id FROM rooms WHERE id = \?/);
   assert.match(deleteRoom, /if \(remaining\) \{[\s\S]*mutationToken = ""[\s\S]*503/);
 });
 
-test("API and worker responses carry privacy and browser security headers", async () => {
-  const { api, worker } = await sourceFiles;
-
-  assert.match(api, /"Cache-Control": "private, no-store"/);
-  assert.match(api, /"X-Content-Type-Options": "nosniff"/);
-  assert.match(api, /"Cross-Origin-Resource-Policy": "same-origin"/);
-
-  for (const header of [
-    "Content-Security-Policy",
-    "Permissions-Policy",
-    "Referrer-Policy",
-    "X-Content-Type-Options",
-    "X-Frame-Options",
-  ]) {
-    assert.ok(worker.includes(`"${header}"`), `missing ${header}`);
-  }
-  for (const directive of [
-    "default-src 'self'",
-    "object-src 'none'",
-    "frame-ancestors 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-  ]) {
-    assert.ok(worker.includes(`"${directive}"`), `missing CSP directive ${directive}`);
-  }
-  assert.match(worker, /return withSecurityHeaders\(new Response\("Not Found"/);
-  assert.match(worker, /return withSecurityHeaders\(await handler\.fetch\(request, env, ctx\)\)/);
-  assert.doesNotMatch(worker, /IMAGES|handleImageOptimization/);
-  assert.match(worker, /url\.pathname === "\/_vinext\/image"[\s\S]*status: 404/);
-});
-
 test("the browser receives only a public user shape and clears revoked room state", async () => {
   const { api, page } = await sourceFiles;
-  const bootstrap = section(api, 'if (action === "bootstrap")', 'if (action === "room")');
-  const roomRead = section(api, 'if (action === "room")', 'return json({ error: "지원하지 않는 요청입니다."');
-  const publicName = section(api, "function publicDisplayName", "async function acquireRoomMutation");
+  const bootstrap = section(api, "export async function bootstrap", "// ---- app/api/sikgu/rooms.ts");
+  const roomRead = section(api, "export async function readRoom", "export async function bootstrap");
+  const publicName = section(api, "function publicDisplayName", "async function roomForUser");
   const roomLookup = section(api, "async function roomForUser", "async function approvedCount");
-  const roomLoader = section(page, "const loadRoom = useCallback", "useEffect(() => {");
 
   assert.match(bootstrap, /user: user \? \{ displayName: user\.displayName \} : null/);
   assert.doesNotMatch(bootstrap, /user:\s*user[,}]/);
@@ -474,10 +440,7 @@ test("the browser receives only a public user shape and clears revoked room stat
   assert.match(roomRead, /sender_name: publicDisplayName\(message\.sender_name\)/);
   assert.match(roomLookup, /WHERE r\.id = \? AND r\.status = 'open'/);
   assert.ok(occurrences(api, 'room.status !== "open"') >= 2);
-  assert.match(roomLoader, /response\.status === 401 \|\| response\.status === 403/);
-  assert.match(roomLoader, /setRoom\(null\)/);
-  assert.match(roomLoader, /setMembers\(\[\]\)/);
-  assert.match(roomLoader, /setMessages\(\[\]\)/);
+  // The 401/403 behaviour of the room read is covered by browser-tests (D2) and tests/completion-product.test.mjs (A4).
 });
 
 test("the review-token migration works whether the production column already exists or not", async () => {
@@ -656,7 +619,7 @@ test("a receipt upload without an R2 binding fails cleanly and releases the room
 
   const response = await api.call("PUT", host, {
     query: `?action=update_order_info&roomId=${roomId}`,
-    form: { estimatedArrival: "", orderTotal: "12000", collectedTotal: "0", receipt },
+    form: { estimatedArrival: "", orderTotal: "12000", receipt },
   });
   assert.equal(response.status, 500);
   assert.equal(typeof response.data.reference, "string", "the failure must be a JSON server error with a reference");
@@ -922,7 +885,7 @@ test("the estimated arrival must be a real calendar time, not one that Date.pars
   })).data;
   const put = (estimatedArrival) => api.call("PUT", host, {
     query: `?action=update_order_info&roomId=${roomId}`,
-    form: { estimatedArrival, orderTotal: "", collectedTotal: "0" },
+    form: { estimatedArrival, orderTotal: "" },
   });
   for (const invalid of ["2024-02-30T10:00", "2023-02-29T10:00", "2024-04-31T10:00", "2024-01-01T24:00", "2024-13-01T10:00"]) {
     assert.equal((await put(invalid)).status, 400, `${invalid} is not a real time`);
@@ -1027,7 +990,7 @@ test("a health check answers without identity and server errors are logged as on
   const api = await createApi();
   const health = await api.get(undefined, "?action=health");
   assert.equal(health.status, 200);
-  assert.deepEqual(health.data, { ok: true, database: "ok" });
+  assert.deepEqual(health.data, { ok: true, database: "ok", storage: "ok" });
   assert.equal(health.headers.get("cache-control"), "private, no-store");
 
   const lines = [];

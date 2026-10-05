@@ -43,6 +43,13 @@
       "when": 1788582138577,
       "tag": "0005_history_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1791209142859,
+      "tag": "0006_member_amounts_and_extensions",
+      "breakpoints": true
     }
   ]
 }

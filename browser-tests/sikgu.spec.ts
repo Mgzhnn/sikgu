@@ -224,3 +224,56 @@ test('A4: the room sheet closes itself with the right message when the room is g
   await expect(page.locator('.toast')).toContainText('방장이 주문방을 삭제했어요.');
   await expect(page.getByRole('dialog',{name:'비공개 주문방 채팅'})).toHaveCount(0);
 });
+
+test('B3: every response from the worker carries the browser security headers',async({page})=>{
+  for(const path of ['/','/api/sikgu?action=health']){
+    const response=await page.request.get(path);
+    const headers=response.headers();
+    expect(headers['content-security-policy'],path).toContain("default-src 'self'");
+    expect(headers['content-security-policy'],path).toContain("frame-ancestors 'none'");
+    expect(headers['content-security-policy'],path).toContain("object-src 'none'");
+    expect(headers['x-content-type-options'],path).toBe('nosniff');
+    expect(headers['x-frame-options'],path).toBe('DENY');
+    expect(headers['referrer-policy'],path).toBe('strict-origin-when-cross-origin');
+    expect(headers['permissions-policy'],path).toContain('camera=()');
+  }
+  const api=await page.request.get('/api/sikgu?action=health');
+  expect(api.headers()['cache-control']).toBe('private, no-store');
+});
+
+test('D2: an expired session inside the room sheet goes to sign-in instead of a retry loop',async({page})=>{
+  await mockApi(page);
+  await page.route('**/api/sikgu?action=room**',async route=>route.fulfill({status:401,json:{error:'로그인이 필요합니다.',signInPath:'/signin-with-chatgpt?return_to=/'}}));
+  await page.route('**/signin-with-chatgpt**',async route=>route.fulfill({contentType:'text/html',body:'<title>sign-in</title><p>sign-in page</p>'}));
+  await page.goto('/');
+  await page.locator('.pool-card').first().click();
+  await page.getByRole('button',{name:/참여자 관리/}).click();
+  await expect(page).toHaveURL(/\/signin-with-chatgpt\?return_to=/);
+  await expect(page.getByText('sign-in page')).toBeVisible();
+});
+
+test('D2: a feed poll that lands first does not discard a load-more page',async({page})=>{
+  const first={...room,id:'room_page1'},second={...room,id:'room_page2',restaurantId:'mom'};
+  let boots=0,release!:()=>void,started!:()=>void;
+  const moreStarted=new Promise<void>(r=>{started=r});
+  await page.route('**/api/sikgu**',async route=>{
+    const url=new URL(route.request().url());
+    if(url.searchParams.has('roomsCursor')){
+      started();await new Promise<void>(r=>{release=r});
+      return route.fulfill({json:{rooms:[second],myRooms:[],nextRoomsCursor:null}});
+    }
+    boots++;
+    return route.fulfill({json:{user:{displayName:'테*트'},serverNow:Date.now(),rooms:[first],myRooms:[],nextRoomsCursor:'page2',nextMyRoomsCursor:null}});
+  });
+  await page.goto('/');
+  await expect(page.locator('.pool-card')).toHaveCount(1);
+  const bootsBefore=boots;
+  await page.getByRole('button',{name:'주문방 더 보기',exact:true}).click();
+  await moreStarted;
+  // A visibility change wakes the poller, so a fresh page-1 response lands while page 2 is still in flight.
+  await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+  await expect.poll(()=>boots).toBeGreaterThan(bootsBefore);
+  release();
+  await expect(page.locator('.pool-card')).toHaveCount(2);
+  await expect(page.locator('.pool-card').nth(1)).toContainText('맘스터치');
+});

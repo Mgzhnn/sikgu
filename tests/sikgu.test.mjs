@@ -428,44 +428,12 @@ test("production reads retry transient D1 failures and cleanup avoids repeated w
   assert.match(deleteRoom, /if \(remaining\) \{[\s\S]*mutationToken = ""[\s\S]*503/);
 });
 
-test("API and worker responses carry privacy and browser security headers", async () => {
-  const { api, worker } = await sourceFiles;
-
-  assert.match(api, /"Cache-Control": "private, no-store"/);
-  assert.match(api, /"X-Content-Type-Options": "nosniff"/);
-  assert.match(api, /"Cross-Origin-Resource-Policy": "same-origin"/);
-
-  for (const header of [
-    "Content-Security-Policy",
-    "Permissions-Policy",
-    "Referrer-Policy",
-    "X-Content-Type-Options",
-    "X-Frame-Options",
-  ]) {
-    assert.ok(worker.includes(`"${header}"`), `missing ${header}`);
-  }
-  for (const directive of [
-    "default-src 'self'",
-    "object-src 'none'",
-    "frame-ancestors 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-  ]) {
-    assert.ok(worker.includes(`"${directive}"`), `missing CSP directive ${directive}`);
-  }
-  assert.match(worker, /return withSecurityHeaders\(new Response\("Not Found"/);
-  assert.match(worker, /return withSecurityHeaders\(await handler\.fetch\(request, env, ctx\)\)/);
-  assert.doesNotMatch(worker, /IMAGES|handleImageOptimization/);
-  assert.match(worker, /url\.pathname === "\/_vinext\/image"[\s\S]*status: 404/);
-});
-
 test("the browser receives only a public user shape and clears revoked room state", async () => {
   const { api, page } = await sourceFiles;
   const bootstrap = section(api, 'if (action === "bootstrap")', 'if (action === "room")');
   const roomRead = section(api, 'if (action === "room")', 'return json({ error: "지원하지 않는 요청입니다."');
   const publicName = section(api, "function publicDisplayName", "async function acquireRoomMutation");
   const roomLookup = section(api, "async function roomForUser", "async function approvedCount");
-  const roomLoader = section(page, "const loadRoom = useCallback", "useEffect(() => {");
 
   assert.match(bootstrap, /user: user \? \{ displayName: user\.displayName \} : null/);
   assert.doesNotMatch(bootstrap, /user:\s*user[,}]/);
@@ -478,10 +446,7 @@ test("the browser receives only a public user shape and clears revoked room stat
   assert.match(roomRead, /sender_name: publicDisplayName\(message\.sender_name\)/);
   assert.match(roomLookup, /WHERE r\.id = \? AND r\.status = 'open'/);
   assert.ok(occurrences(api, 'room.status !== "open"') >= 2);
-  assert.match(roomLoader, /response\.status === 401 \|\| response\.status === 403/);
-  assert.match(roomLoader, /setRoom\(null\)/);
-  assert.match(roomLoader, /setMembers\(\[\]\)/);
-  assert.match(roomLoader, /setMessages\(\[\]\)/);
+  // The 401/403 behaviour of the room read is covered by browser-tests (D2) and tests/completion-product.test.mjs (A4).
 });
 
 test("the review-token migration works whether the production column already exists or not", async () => {

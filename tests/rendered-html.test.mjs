@@ -1,14 +1,20 @@
 import {readClientSource} from "./helpers/client-source.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import test from "node:test";
 import { maskDisplayName } from "../app/name-mask.mjs";
 
-test("builds the SIKGU product shell", async () => {
+test("builds the SIKGU product shell", async (t) => {
+  const builtWorker = new URL("../dist/server/index.js", import.meta.url);
+  if (!existsSync(builtWorker)) {
+    t.skip("dist/server/index.js is absent: run `npm run build` first (CI builds before testing)");
+    return;
+  }
   const [layout, page, worker] = await Promise.all([
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readClientSource(),
-    readFile(new URL("../dist/server/index.js", import.meta.url), "utf8"),
+    readFile(builtWorker, "utf8"),
   ]);
 
   assert.match(layout, /const title = "SIKGU/);

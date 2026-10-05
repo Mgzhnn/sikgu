@@ -28,7 +28,7 @@ Requires Node.js ≥22.13 to run and ≥22.18 to run the tests (the API harness 
 
 ```bash
 npm ci
-npm run dev -- --hostname 127.0.0.1
+npm run dev -- --host 127.0.0.1
 npm test                    # production build, TypeScript, Node/SQLite tests
 npm run lint
 npx playwright install chromium

@@ -141,9 +141,11 @@ function PoolCard({
       ? "승인 대기"
       : pool.myStatus === "approved"
         ? "참여 중"
-        : ready
-          ? "주문 가능"
-          : "모집중";
+        : pool.myStatus === "rejected"
+          ? "거절됨"
+          : ready
+            ? "주문 가능"
+            : "모집중";
 
   return (
     <article className="pool-card">
@@ -690,6 +692,7 @@ function ProfileView({
   rooms,
   now,
   onRoom,
+  onPending,
   onAuth,
 }: {
   onCreate: () => void;
@@ -698,6 +701,7 @@ function ProfileView({
   rooms: Pool[];
   now: number;
   onRoom: (roomId: string) => void;
+  onPending: (pool: Pool) => void;
   onAuth: () => void;
 }) {
   const profileName = user ? maskDisplayName(user.displayName) : "게스트";
@@ -732,10 +736,10 @@ function ProfileView({
               if (!restaurant) return null;
               const isClosed = room.closesAt <= now;
               return (
-                <button type="button" onClick={() => onRoom(room.id)} key={room.id}>
+                <button type="button" onClick={() => (room.myStatus === "requested" ? onPending(room) : onRoom(room.id))} key={room.id}>
                   <RestaurantMark restaurant={restaurant} />
                   <span>
-                    <strong>{restaurant.name}</strong>
+                    <strong>{restaurant.name}{room.myStatus === "requested" && <i className="pending-badge">승인 대기</i>}</strong>
                     <small>{room.pickupFull} · {room.people}/{room.capacity}명</small>
                   </span>
                   <em className={isClosed ? "closed" : ""}>{isClosed ? "마감됨" : timeLeft(room.closesAt, now)}</em>
@@ -751,6 +755,22 @@ function ProfileView({
             <button type="button" onClick={user ? onCreate : onAuth}>{user ? "주문방 만들기" : "로그인"}</button>
           </div>
         )}
+      </section>
+
+      <section className="privacy-notice" aria-labelledby="privacy-heading">
+        <div className="section-heading">
+          <div>
+            <span>PRIVACY</span>
+            <h2 id="privacy-heading">개인정보 안내</h2>
+          </div>
+        </div>
+        <ul>
+          <li><strong>저장하는 정보</strong> ChatGPT 로그인 계정의 이메일과 이름, 주문방 참여 상태와 주문 금액, 채팅 메시지, 방장이 올린 영수증 이미지.</li>
+          <li><strong>보여지는 범위</strong> 이름은 항상 가려서 표시되고(예: 김*수, Jonathan S.), 이메일은 다른 사용자에게 전달되지 않아요. 채팅과 영수증은 승인된 구성원만 볼 수 있어요.</li>
+          <li><strong>보관 기간</strong> 주문방은 모집 마감 후 30일 동안 다시 열 수 있고, 그 뒤에는 접근이 끊기며 데이터가 삭제돼요. 삭제는 순차적으로 진행되어 조금 늦어질 수 있어요.</li>
+          <li><strong>직접 삭제</strong> 방장은 주문방에서 ‘방 삭제’로 참여자·채팅·초대 링크·영수증을 즉시 지울 수 있고, 참여자는 ‘방 나가기’로 참여 기록을 지울 수 있어요.</li>
+          <li><strong>하지 않는 것</strong> 결제 정보를 받지 않고, 배달앱 주문을 대신 넣지 않으며, 개인정보를 외부에 제공하지 않아요.</li>
+        </ul>
       </section>
     </>
   );
@@ -1036,6 +1056,7 @@ function PoolModal({
   unavailable = false,
   onClose,
   onToggleJoin,
+  onCancelJoin,
 }: {
   pool: Pool;
   now: number;
@@ -1043,10 +1064,12 @@ function PoolModal({
   unavailable?: boolean;
   onClose: () => void;
   onToggleJoin: (pool: Pool) => Promise<void>;
+  onCancelJoin: (pool: Pool) => Promise<void>;
 }) {
   const dialogRef = useRef<HTMLElement>(null);
   useDialogLifecycle(dialogRef, onClose);
   const [joining, setJoining] = useState(false);
+  const awaitingApproval = !pool.isHost && pool.myStatus === "requested";
   const restaurant = restaurants.find((item) => item.id === pool.restaurantId)!;
   const gap = Math.max(0, pool.target - pool.total);
   const ready = gap === 0;
@@ -1104,38 +1127,62 @@ function PoolModal({
           <span>“</span><p>{pool.note}</p><small>— 방장 {maskDisplayName(pool.host)}</small>
         </div>
 
+        {awaitingApproval && (
+          <p className="pool-pending-note" id="pool-pending-note" role="status">
+            방장 승인을 기다리고 있어요. 승인되면 채팅방이 열립니다.
+          </p>
+        )}
         <div className="modal-footer">
           <div>
             <span>예상 배달비</span>
             <strong>{estimates.length > 1 ? "앱별 조건 확인" : estimates[0]?.fee === 0 ? "무료" : `${money(estimates[0]?.eachFee || 0)} / 1인`}</strong>
           </div>
-          <button
-            className={pool.myStatus === "requested" ? "secondary-button" : "primary-button"}
-            onClick={async () => {
-              if (joining) return;
-              setJoining(true);
-              try {
-                await onToggleJoin(pool);
-              } finally {
-                setJoining(false);
-              }
-            }}
-            disabled={pool.myStatus === "requested" || joining || isFull || unavailable}
-          >
-            {joining
-              ? "처리 중…"
-              : pool.isHost
-              ? `참여자 관리${pool.pendingCount ? ` · ${pool.pendingCount}명 대기` : ""}`
-              : pool.myStatus === "approved"
-                ? "채팅방 열기"
-                : pool.myStatus === "requested"
-                  ? "방장 승인 대기 중"
+          {awaitingApproval ? (
+            <button
+              className="secondary-button"
+              onClick={async () => {
+                if (joining) return;
+                setJoining(true);
+                try {
+                  await onCancelJoin(pool);
+                } finally {
+                  setJoining(false);
+                }
+              }}
+              disabled={joining}
+              aria-describedby="pool-pending-note"
+            >
+              {joining ? "처리 중…" : "신청 취소"}
+            </button>
+          ) : (
+            <button
+              className="primary-button"
+              onClick={async () => {
+                if (joining) return;
+                setJoining(true);
+                try {
+                  await onToggleJoin(pool);
+                } finally {
+                  setJoining(false);
+                }
+              }}
+              disabled={joining || isFull || unavailable}
+            >
+              {joining
+                ? "처리 중…"
+                : pool.isHost
+                ? `참여자 관리${pool.pendingCount ? ` · ${pool.pendingCount}명 대기` : ""}`
+                : pool.myStatus === "approved"
+                  ? "채팅방 열기"
                   : isFull
                     ? "정원 마감"
-                    : ready
-                      ? "참여 신청하기"
-                      : "이 주문에 참여 신청"}
-          </button>
+                    : pool.myStatus === "rejected"
+                      ? "거절됨 · 다시 신청"
+                      : ready
+                        ? "참여 신청하기"
+                        : "이 주문에 참여 신청"}
+            </button>
+          )}
         </div>
       </section>
     </div>
@@ -1770,6 +1817,25 @@ export default function Home() {
     }
   };
 
+  const handleCancelJoin = async (pool: Pool) => {
+    try {
+      await postAction({ action: "leave_room", roomId: pool.id });
+    } catch (cancelError) {
+      notify(cancelError instanceof Error ? cancelError.message : "신청을 취소하지 못했어요.", "error");
+      return;
+    }
+    setSelectedPool(null);
+    const clear = (rooms: Pool[]) => rooms.map((room) => (room.id === pool.id ? { ...room, myStatus: null } : room));
+    setPools(clear);
+    setMyRooms((rooms) => rooms.filter((room) => room.id !== pool.id));
+    try {
+      await loadRooms();
+      notify("참여 신청을 취소했어요.", "success");
+    } catch {
+      notify("참여 신청은 취소됐어요. 목록은 잠시 후 자동으로 갱신됩니다.", "info");
+    }
+  };
+
   const handleCreate = async (values: {
     restaurantId: string;
     pickup: string;
@@ -1914,6 +1980,7 @@ export default function Home() {
             rooms={myRooms}
             now={now}
             onRoom={setRoomHubId}
+            onPending={setSelectedPool}
             onCreate={() => openCreate()}
             onAuth={() => window.location.assign(user ? "/signout-with-chatgpt?return_to=/" : "/signin-with-chatgpt?return_to=/")}
           />
@@ -1951,6 +2018,7 @@ export default function Home() {
           unavailable={!latestSelectedPool}
           onClose={() => setSelectedPool(null)}
           onToggleJoin={handleToggleJoin}
+          onCancelJoin={handleCancelJoin}
         />
       )}
       {showCampusMap && (
@@ -1988,6 +2056,11 @@ export default function Home() {
             setRoomHubId(null);
             void refreshRooms();
             notify("주문방에서 나왔어요.", "success");
+          }}
+          onGone={(message) => {
+            setRoomHubId(null);
+            void refreshRooms();
+            notify(message, "info");
           }}
         />
       )}

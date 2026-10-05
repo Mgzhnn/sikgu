@@ -19,7 +19,7 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
 
 ## A. Product completeness (the three gaps that send students back to KakaoTalk)
 
-- [ ] **A1 · Per-member order amount** (L)
+- [x] **A1 · Per-member order amount** (L)
   `room_members.amount` (integer won, nullable) added by a Drizzle migration.
   Approved members set and edit their own amount in the room; the host can
   override any member's amount. `rooms.total` is no longer typed by hand: the
@@ -28,7 +28,7 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
   *Accept:* harness tests for set / edit / override / sum; browser test for a
   member entering an amount; feed shows the summed total.
 
-- [ ] **A2 · Extend and close recruitment** (M)
+- [x] **A2 · Extend and close recruitment** (M)
   Host actions `extend_room` (+15 min, max 2 times, allowed until 10 min after
   `closes_at`) and `close_recruitment` (sets `closes_at = now`, keeps chat and
   receipts). Both checked inside the UPDATE with `databaseNow`. Invite expiry
@@ -36,14 +36,14 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
   *Accept:* harness tests for both actions and their limits; buttons in the
   room header; the "마감됨" state reflects the new deadline.
 
-- [ ] **A3 · Pending requests are visible and cancellable** (M)
+- [x] **A3 · Pending requests are visible and cancellable** (M)
   "신청 취소" in the pool modal calls `leave_room`. My Rooms lists `requested`
   rooms with a badge. Rejection is visible: the card shows "거절됨" instead of
   flipping back to "참여 신청".
   *Accept:* harness test that a requester can leave; `myRooms` includes
   requested rows; browser test for the three card states.
 
-- [ ] **A4 · Honest room-gone messages** (S)
+- [x] **A4 · Honest room-gone messages** (S)
   Room GET returns 404 with `code: "room_gone"` when the row is absent or in
   `deleting`, and 403 with `code: "removed"` when only the membership is
   absent. The room sheet closes itself with the matching toast.
@@ -58,7 +58,7 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
   *Accept:* script in repo; RUNBOOK release checklist runs it; its output for
   the final deploy is committed under `verification/`.
 
-- [ ] **B2 · Join-request rate limit** (S)
+- [x] **B2 · Join-request rate limit** (S)
   At most 10 `request_join` writes per user per 10 minutes, enforced inside
   the INSERT like the chat limiter.
   *Accept:* harness test with the limit crossed under concurrent requests.
@@ -69,7 +69,7 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
   actual response instead of regexes over `worker/index.ts`.
   *Accept:* the regex test is deleted; the runtime test passes in CI.
 
-- [ ] **B4 · In-app privacy notice** (S)
+- [x] **B4 · In-app privacy notice** (S)
   A visible 개인정보 notice: what is stored (masked name, email, messages,
   receipts), that rooms are readable 30 days and deleted best-effort after,
   and how to delete a room. Korean PIPA baseline for an app storing names.

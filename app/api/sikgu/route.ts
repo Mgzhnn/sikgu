@@ -69,6 +69,14 @@ const maxOpenRoomsPerHost = 5;
 const recentRoomWindowMs = 30 * 24 * 60 * 60 * 1000;
 const receiptUploadCooldownMs = 30 * 1000;
 const mutationLockTimeoutMs = 2 * 60 * 1000;
+const maxAmountWon = 10_000_000;
+/** Recruitment extensions: +15 minutes, at most twice, until 10 minutes after the deadline. */
+const maxExtensions = 2;
+const extensionMs = 15 * 60 * 1000;
+const extensionGraceMs = 10 * 60 * 1000;
+/** Join requests per user across all rooms, enforced inside the INSERT. */
+const maxJoinRequestsPerWindow = 10;
+const joinRequestWindowMs = 10 * 60 * 1000;
 const receiptTypes = new Set(["image/png"]);
 function uploadBucket() {
   const bucket = (env as unknown as { UPLOADS?: UploadBucket }).UPLOADS;
@@ -350,6 +358,22 @@ async function approvedCount(id: string) {
   return Number(row?.count || 0);
 }
 
+/**
+ * `rooms.total` is the sum of approved members' amounts. It is recomputed in
+ * the same batch as any write that changes an amount or the approved set, so
+ * the feed, the sort by remaining amount and the room all read one number.
+ */
+function syncRoomTotal(id: string) {
+  return env.DB.prepare(`
+    UPDATE rooms
+    SET total = (
+      SELECT COALESCE(SUM(amount), 0) FROM room_members
+      WHERE room_id = ? AND status = 'approved'
+    )
+    WHERE id = ?
+  `).bind(id, id);
+}
+
 function serializeRoom(row: Record<string, unknown>, includeOrderInfo = false) {
   let rawApps: unknown = [];
   try {
@@ -385,6 +409,7 @@ function serializeRoom(row: Record<string, unknown>, includeOrderInfo = false) {
       ? `/api/sikgu?action=receipt&roomId=${encodeURIComponent(String(row.id))}&v=${Number(row.receipt_uploaded_at || 0)}`
       : null,
     receiptUploadedAt: row.receipt_uploaded_at == null ? null : Number(row.receipt_uploaded_at),
+    extensions: Number(row.extensions || 0),
   };
 }
 
@@ -629,8 +654,12 @@ export async function GET(request: Request) {
           ? AS current_email,
           (SELECT COUNT(*) FROM room_members approved
             WHERE approved.room_id = r.id AND approved.status = 'approved') AS people,
-          (SELECT mine.status FROM room_members mine
-            WHERE mine.room_id = r.id AND mine.user_email = ?) AS my_status,
+          COALESCE(
+            (SELECT mine.status FROM room_members mine
+              WHERE mine.room_id = r.id AND mine.user_email = ?),
+            (SELECT 'rejected' FROM room_blocks blocked
+              WHERE blocked.room_id = r.id AND blocked.user_email = ?)
+          ) AS my_status,
           (SELECT COUNT(*) FROM room_members pending
             WHERE pending.room_id = r.id AND pending.status = 'requested') AS pending_count
         FROM rooms r
@@ -638,7 +667,7 @@ export async function GET(request: Request) {
           ${filterSql} ${cursor.sql}
         ORDER BY ${sortColumn} ${sortDirection}, r.id ${sortDirection}
         LIMIT 101
-      `).bind(email, email, now, ...filterValues, ...cursor.bind).all<Record<string, unknown>>());
+      `).bind(email, email, email, now, ...filterValues, ...cursor.bind).all<Record<string, unknown>>());
 
       let myRooms: ReturnType<typeof serializeRoom>[] = [];
       let nextMyRoomsCursor: string | null = null;
@@ -656,7 +685,7 @@ export async function GET(request: Request) {
           FROM rooms r
           JOIN room_members mine ON mine.room_id = r.id
           WHERE mine.user_email = ?
-            AND mine.status = 'approved'
+            AND mine.status IN ('approved', 'requested')
             AND r.status = 'open'
             AND r.closes_at > ?
             ${mineCursor.sql}
@@ -664,7 +693,8 @@ export async function GET(request: Request) {
           LIMIT 51
         `).bind(user.email, user.email, now - recentRoomWindowMs, ...mineCursor.bind).all<Record<string, unknown>>());
         nextMyRoomsCursor=mine.results.length>50?encodeCursor(mine.results[49]):null;
-        myRooms = mine.results.slice(0,50).map((row) => serializeRoom(row, true)).filter(isUsableRoom);
+        // Order details stay private to approved members; a pending request only sees the public shape.
+        myRooms = mine.results.slice(0,50).map((row) => serializeRoom(row, row.my_status === "approved")).filter(isUsableRoom);
       }
 
       after(() => purgeExpiredRooms(now).catch((error) => console.error("Retention sweep failed", error)));
@@ -685,18 +715,29 @@ export async function GET(request: Request) {
       const id = url.searchParams.get("roomId") || "";
       const room = await roomForUser(id, auth.email);
       if (!room || room.my_status !== "approved" || room.status !== "open") {
-        return json({ error: "초대되거나 승인된 구성원만 이 주문방을 볼 수 있습니다." }, 403);
+        // A member who was removed and a room that is gone need different
+        // messages: the sheet closes with the right one instead of offering
+        // a retry that fails identically. Room ids are random UUIDs, so
+        // confirming that one exists reveals nothing useful.
+        const existing = id ? await withD1ReadRetry(() => env.DB.prepare(
+          "SELECT status FROM rooms WHERE id = ?",
+        ).bind(id).first<{ status: string }>()) : null;
+        if (!existing || existing.status !== "open") {
+          return json({ error: "삭제되었거나 더 이상 없는 주문방입니다.", code: "room_gone" }, 404);
+        }
+        return json({ error: "초대되거나 승인된 구성원만 이 주문방을 볼 수 있습니다.", code: "removed" }, 403);
       }
       if (Number(room.closes_at) < Date.now() - recentRoomWindowMs) {
         return json({ error: "보관 기간이 지난 주문방입니다." }, 410);
       }
       const isHost = room.host_email === auth.email;
       const loadMembers = () => withD1ReadRetry(() => env.DB.prepare(`
-        SELECT review_token, display_name, role, status, created_at
+        SELECT review_token, display_name, role, status, created_at, amount,
+          CASE WHEN user_email = ? THEN 1 ELSE 0 END AS mine
         FROM room_members
         WHERE room_id = ? ${isHost ? "" : "AND status = 'approved'"}
         ORDER BY CASE status WHEN 'requested' THEN 0 ELSE 1 END, created_at ASC
-      `).bind(id).all());
+      `).bind(auth.email, id).all());
       let members = await loadMembers();
       if (isHost && members.results.some((member) => !member.review_token)) {
         await env.DB.prepare(`
@@ -727,6 +768,8 @@ export async function GET(request: Request) {
           role: member.role,
           status: member.status,
           created_at: member.created_at,
+          amount: member.amount == null ? null : Number(member.amount),
+          mine: Number(member.mine || 0),
         })),
         nextMessagesCursor,
         messages: messages.results.map((message) => ({
@@ -812,12 +855,6 @@ export async function PUT(request: Request) {
       && (!Number.isInteger(orderTotal) || orderTotal < 0 || orderTotal > 10_000_000)
     ) {
       return json({ error: "최종 결제 금액은 0원부터 10,000,000원까지 입력할 수 있습니다." }, 400);
-    }
-
-    const collectedTotalValue = String(form.get("collectedTotal") || "").trim();
-    const collectedTotal = collectedTotalValue === "" ? 0 : Number(collectedTotalValue);
-    if (!Number.isInteger(collectedTotal) || collectedTotal < 0 || collectedTotal > 10_000_000) {
-      return json({ error: "현재 모인 주문금액은 0원부터 10,000,000원까지 입력할 수 있습니다." }, 400);
     }
 
     const receipt = form.get("receipt");
@@ -913,12 +950,11 @@ export async function PUT(request: Request) {
       if (newReceiptKey) {
         updateResult = await env.DB.prepare(`
           UPDATE rooms
-          SET total = ?, estimated_arrival = ?, order_total = ?, receipt_key = ?,
+          SET estimated_arrival = ?, order_total = ?, receipt_key = ?,
               receipt_content_type = ?, receipt_uploaded_at = ?,
               mutation_token = NULL, mutation_started_at = NULL
           WHERE id = ? AND host_email = ? AND status = 'open' AND mutation_token = ?
         `).bind(
-          collectedTotal,
           estimatedArrival || null,
           orderTotal,
           newReceiptKey,
@@ -931,11 +967,10 @@ export async function PUT(request: Request) {
       } else {
         updateResult = await env.DB.prepare(`
           UPDATE rooms
-          SET total = ?, estimated_arrival = ?, order_total = ?,
+          SET estimated_arrival = ?, order_total = ?,
               mutation_token = NULL, mutation_started_at = NULL
           WHERE id = ? AND host_email = ? AND status = 'open' AND mutation_token = ?
         `).bind(
-          collectedTotal,
           estimatedArrival || null,
           orderTotal,
           id,
@@ -973,7 +1008,6 @@ export async function PUT(request: Request) {
       }
       const expectedOrderState = Boolean(
         persisted
-        && Number(persisted.total) === collectedTotal
         && (persisted.estimated_arrival || null) === (estimatedArrival || null)
         && (persisted.order_total == null ? null : Number(persisted.order_total)) === orderTotal
         && persisted.mutation_token === null
@@ -1238,19 +1272,34 @@ export async function POST(request: Request) {
             AND (SELECT COUNT(*) FROM room_members m
               WHERE m.room_id = r.id AND m.status = 'approved') < r.capacity
         )
+        AND (
+          SELECT COUNT(*) FROM room_members recent
+          WHERE recent.user_email = ? AND recent.created_at > ?
+        ) < ?
         ON CONFLICT(room_id, user_email) DO UPDATE SET
           display_name = excluded.display_name,
           review_token = COALESCE(room_members.review_token, excluded.review_token),
           status = CASE WHEN room_members.status = 'approved' THEN 'approved' ELSE 'requested' END
-      `).bind(id, auth.email, auth.displayName, token(), Date.now(), id).run();
-      if (!joined.meta.changes) return json({ error: "주문방이 마감되었거나 정원이 모두 찼습니다." }, 409);
+      `).bind(
+        id, auth.email, auth.displayName, token(), Date.now(), id,
+        auth.email, Date.now() - joinRequestWindowMs, maxJoinRequestsPerWindow,
+      ).run();
+      if (!joined.meta.changes) {
+        const recent = await withD1ReadRetry(() => env.DB.prepare(
+          "SELECT COUNT(*) AS count FROM room_members WHERE user_email = ? AND created_at > ?",
+        ).bind(auth.email, Date.now() - joinRequestWindowMs).first<{ count: number }>());
+        if (Number(recent?.count || 0) >= maxJoinRequestsPerWindow) {
+          return json({ error: "참여 신청이 너무 많아요. 잠시 후 다시 시도해주세요." }, 429, { "Retry-After": "600" });
+        }
+        return json({ error: "주문방이 마감되었거나 정원이 모두 찼습니다." }, 409);
+      }
       const membership = await roomForUser(id, auth.email);
       return json({ status: membership?.my_status || "requested" });
     }
 
     const room = await env.DB.prepare(
-      "SELECT host_email, capacity, status, closes_at FROM rooms WHERE id = ?",
-    ).bind(id).first<{ host_email: string; capacity: number; status: string; closes_at: number }>();
+      "SELECT host_email, capacity, status, closes_at, extensions FROM rooms WHERE id = ?",
+    ).bind(id).first<{ host_email: string; capacity: number; status: string; closes_at: number; extensions: number }>();
     if (!room) return json({ error: "주문방을 찾을 수 없습니다." }, 404);
 
     if (action === "review_member") {
@@ -1285,6 +1334,7 @@ export async function POST(request: Request) {
               SELECT user_email FROM room_members WHERE room_id = ? AND review_token = ?
             )
           `).bind(id, id, memberRef),
+          syncRoomTotal(id),
         ]);
         if (!result.meta.changes) {
           return json({ error: "신청을 찾을 수 없거나 주문방 정원이 모두 찼습니다." }, 409);
@@ -1302,6 +1352,7 @@ export async function POST(request: Request) {
           DELETE FROM room_members
           WHERE room_id = ? AND review_token = ? AND status = 'requested'
         `).bind(id, memberRef),
+          syncRoomTotal(id),
         ]);
         if (!result.meta.changes) return json({ error: "대기 중인 신청을 찾을 수 없습니다." }, 404);
       } else {
@@ -1328,6 +1379,7 @@ export async function POST(request: Request) {
         DELETE FROM room_members
         WHERE room_id = ? AND review_token = ? AND role = 'member'
       `).bind(id, memberRef),
+        syncRoomTotal(id),
       ]);
       if (!result.meta.changes) return json({ error: "참여자를 찾을 수 없습니다." }, 404);
       return json({ ok: true });
@@ -1339,11 +1391,112 @@ export async function POST(request: Request) {
       if (membership.my_role === "host") {
         return json({ error: "방장은 주문방 삭제를 이용해주세요." }, 409);
       }
-      await env.DB.prepare(`
-        DELETE FROM room_members
-        WHERE room_id = ? AND user_email = ? AND role = 'member'
-      `).bind(id, auth.email).run();
+      await env.DB.batch([
+        env.DB.prepare(`
+          DELETE FROM room_members
+          WHERE room_id = ? AND user_email = ? AND role = 'member'
+        `).bind(id, auth.email),
+        syncRoomTotal(id),
+      ]);
       return json({ ok: true });
+    }
+
+    if (action === "set_amount") {
+      // What one member will order. The pooled total is the sum of these, so
+      // the host never types it. The host may set a member's amount for them.
+      const raw = payload.amount;
+      const amount = raw === null || raw === undefined || raw === "" ? null : numberField(raw);
+      if (amount !== null && (!Number.isInteger(amount) || amount < 0 || amount > maxAmountWon)) {
+        return json({ error: "주문 금액은 0원부터 10,000,000원까지 입력할 수 있습니다." }, 400);
+      }
+      const memberRef = textField(payload.memberRef);
+      if (memberRef) {
+        if (room.host_email !== auth.email) return json({ error: "방장만 다른 참여자의 금액을 수정할 수 있습니다." }, 403);
+        if (!/^[a-f0-9]{32,48}$/.test(memberRef)) return json({ error: "참여자 정보를 확인해 주세요." }, 400);
+      }
+      if (Number(room.closes_at) < Date.now() - recentRoomWindowMs) {
+        return json({ error: "보관 기간이 지난 주문방은 수정할 수 없습니다." }, 410);
+      }
+      if (room.status !== "open") return json({ error: "다른 변경이 진행 중입니다. 잠시 후 다시 시도해주세요." }, 409);
+      const [updated] = await env.DB.batch([
+        env.DB.prepare(`
+          UPDATE room_members SET amount = ?
+          WHERE room_id = ? AND status = 'approved'
+            AND ${memberRef ? "review_token = ?" : "user_email = ?"}
+            AND EXISTS (
+              SELECT 1 FROM rooms r WHERE r.id = room_members.room_id
+                AND r.status = 'open' AND r.closes_at > ${databaseNow} - ?
+            )
+        `).bind(amount, id, memberRef || auth.email, recentRoomWindowMs),
+        syncRoomTotal(id),
+      ]);
+      if (!updated.meta.changes) {
+        return json(
+          { error: memberRef ? "참여 확정된 구성원을 찾을 수 없습니다." : "승인된 구성원만 주문 금액을 입력할 수 있습니다." },
+          memberRef ? 404 : 403,
+        );
+      }
+      const summed = await withD1ReadRetry(() => env.DB.prepare(
+        "SELECT total FROM rooms WHERE id = ?",
+      ).bind(id).first<{ total: number }>());
+      return json({ ok: true, amount, total: Number(summed?.total || 0) });
+    }
+
+    if (action === "extend_room") {
+      if (room.host_email !== auth.email) return json({ error: "방장만 모집 시간을 연장할 수 있습니다." }, 403);
+      // +15 minutes from the later of the current deadline and now, at most
+      // twice, and only until 10 minutes after the deadline. Every bound is
+      // inside the UPDATE with the database clock. Live invite links follow
+      // the new deadline.
+      const [extended] = await env.DB.batch([
+        env.DB.prepare(`
+          UPDATE rooms
+          SET closes_at = MAX(closes_at, ${databaseNow}) + ?, extensions = extensions + 1
+          WHERE id = ? AND host_email = ? AND status = 'open'
+            AND extensions < ? AND closes_at > ${databaseNow} - ?
+        `).bind(extensionMs, id, auth.email, maxExtensions, extensionGraceMs),
+        env.DB.prepare(`
+          UPDATE room_invites
+          SET expires_at = (SELECT closes_at FROM rooms WHERE id = ?)
+          WHERE room_id = ? AND changes() > 0 AND uses < max_uses
+        `).bind(id, id),
+      ]);
+      if (!extended.meta.changes) {
+        if (Number(room.extensions) >= maxExtensions) {
+          return json({ error: `모집 시간은 ${maxExtensions}번까지만 연장할 수 있습니다.` }, 409);
+        }
+        if (Number(room.closes_at) <= Date.now() - extensionGraceMs) {
+          return json({ error: "마감 후 10분이 지나 연장할 수 없습니다. 새 주문방을 열어주세요." }, 409);
+        }
+        return json({ error: "모집 시간을 연장하지 못했습니다. 잠시 후 다시 시도해주세요." }, 409);
+      }
+      const after = await withD1ReadRetry(() => env.DB.prepare(
+        "SELECT closes_at, extensions FROM rooms WHERE id = ?",
+      ).bind(id).first<{ closes_at: number; extensions: number }>());
+      return json({ ok: true, closesAt: Number(after?.closes_at), extensions: Number(after?.extensions || 0) });
+    }
+
+    if (action === "close_recruitment") {
+      if (room.host_email !== auth.email) return json({ error: "방장만 모집을 마감할 수 있습니다." }, 403);
+      // The deadline moves to now: the room leaves the feed and refuses new
+      // requests, approvals and invites, while chat, amounts and receipts stay
+      // open for the retention window as after any deadline.
+      const [closed] = await env.DB.batch([
+        env.DB.prepare(`
+          UPDATE rooms SET closes_at = ${databaseNow}
+          WHERE id = ? AND host_email = ? AND status = 'open' AND closes_at > ${databaseNow}
+        `).bind(id, auth.email),
+        env.DB.prepare(`
+          UPDATE room_invites
+          SET expires_at = (SELECT closes_at FROM rooms WHERE id = ?)
+          WHERE room_id = ? AND changes() > 0
+        `).bind(id, id),
+      ]);
+      if (!closed.meta.changes) return json({ error: "이미 마감된 주문방입니다." }, 409);
+      const after = await withD1ReadRetry(() => env.DB.prepare(
+        "SELECT closes_at FROM rooms WHERE id = ?",
+      ).bind(id).first<{ closes_at: number }>());
+      return json({ ok: true, closesAt: Number(after?.closes_at) });
     }
 
     if (action === "create_invite") {

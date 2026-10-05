@@ -133,7 +133,10 @@ test("server derives room data from allowlists and bounds every request before p
   assert.match(put, /initialRoom\.status !== "open"/);
   assert.match(put, /Number\(initialRoom\.closes_at\) < Date\.now\(\) - recentRoomWindowMs/);
   assert.match(put, /Number\.isInteger\(orderTotal\)[\s\S]*10_000_000/);
-  assert.match(put, /Number\.isInteger\(collectedTotal\)[\s\S]*10_000_000/);
+  // The pooled total is the sum of member amounts; the host no longer types it.
+  assert.doesNotMatch(put, /collectedTotal/);
+  assert.doesNotMatch(put, /SET total = \?/);
+  assert.match(api, /Number\.isInteger\(amount\)[\s\S]*maxAmountWon/);
 });
 
 test("member review uses opaque references and never serializes member email addresses", async () => {
@@ -150,8 +153,9 @@ test("member review uses opaque references and never serializes member email add
     /(?:ADD\s+`review_token`|`review_token`\s+text)/i,
     "a deployed migration must add room_members.review_token",
   );
-  assert.match(memberQuery, /SELECT review_token, display_name, role, status, created_at/);
-  assert.doesNotMatch(memberQuery, /user_email/);
+  assert.match(memberQuery, /SELECT review_token, display_name, role, status, created_at, amount,\s+CASE WHEN user_email = \? THEN 1 ELSE 0 END AS mine/);
+  // The address is compared to mark the viewer's own row; it is never selected.
+  assert.doesNotMatch(memberQuery, /SELECT[^\n]*user_email/);
   assert.match(memberQuery, /members\.results\.some\(\(member\) => !member\.review_token\)/);
   assert.match(memberQuery, /WHERE room_id = \? AND review_token IS NULL/);
   assert.match(memberQuery, /members = await loadMembers\(\)/);
@@ -216,7 +220,7 @@ test("approved users can reopen recent rooms and stale rooms are purged after re
 
   assert.match(bootstrap, /let myRooms:/);
   assert.match(bootstrap, /JOIN room_members mine ON mine\.room_id = r\.id/);
-  assert.match(bootstrap, /mine\.status = 'approved'/);
+  assert.match(bootstrap, /mine\.status IN \('approved', 'requested'\)/);
   assert.match(bootstrap, /r\.status = 'open'/);
   assert.match(bootstrap, /r\.closes_at > \?/);
   assert.match(bootstrap, /now - recentRoomWindowMs/);
@@ -228,7 +232,7 @@ test("approved users can reopen recent rooms and stale rooms are purged after re
   // Retained room pagination is covered by tests/pagination.test.mjs and browser flows.
   assert.match(page, /rooms=\{myRooms\}/);
   assert.match(page, /마감 후 30일 동안 다시 열 수 있어요/);
-  assert.match(page, /onClick=\{\(\) => onRoom\(room\.id\)\}/);
+  assert.match(page, /onClick=\{\(\) => \(room\.myStatus === "requested" \? onPending\(room\) : onRoom\(room\.id\)\)\}/);
 });
 
 test("mobile and desktop location pickers share behavior without overwriting stored state", async () => {
@@ -656,7 +660,7 @@ test("a receipt upload without an R2 binding fails cleanly and releases the room
 
   const response = await api.call("PUT", host, {
     query: `?action=update_order_info&roomId=${roomId}`,
-    form: { estimatedArrival: "", orderTotal: "12000", collectedTotal: "0", receipt },
+    form: { estimatedArrival: "", orderTotal: "12000", receipt },
   });
   assert.equal(response.status, 500);
   assert.equal(typeof response.data.reference, "string", "the failure must be a JSON server error with a reference");
@@ -922,7 +926,7 @@ test("the estimated arrival must be a real calendar time, not one that Date.pars
   })).data;
   const put = (estimatedArrival) => api.call("PUT", host, {
     query: `?action=update_order_info&roomId=${roomId}`,
-    form: { estimatedArrival, orderTotal: "", collectedTotal: "0" },
+    form: { estimatedArrival, orderTotal: "" },
   });
   for (const invalid of ["2024-02-30T10:00", "2023-02-29T10:00", "2024-04-31T10:00", "2024-01-01T24:00", "2024-13-01T10:00"]) {
     assert.equal((await put(invalid)).status, 400, `${invalid} is not a real time`);

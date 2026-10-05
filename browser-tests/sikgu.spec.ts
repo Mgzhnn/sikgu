@@ -156,3 +156,71 @@ test('a failed chat send preserves the Korean draft and focus',async({page})=>{
   await expect(page.getByText('잠시 후 다시 시도해주세요.',{exact:true})).toBeVisible();
   await expect(composer).toHaveValue('한글 초안은 보존되어야 해요');await expect(composer).toBeFocused();
 });
+
+test('A1: a member enters an order amount and the room total is the sum',async({page})=>{
+  const memberRoom={...room,isHost:false,myStatus:'approved',total:8000};
+  const members=[{display_name:'테*트',role:'host',status:'approved',created_at:0,amount:8000,mine:0},{member_ref:'b'.repeat(32),display_name:'나*',role:'member',status:'approved',created_at:1,amount:null as number|null,mine:1}];
+  let saved:unknown=null;
+  await page.route('**/api/sikgu**',async route=>{
+    const req=route.request(),url=new URL(req.url());
+    if(req.method()==='POST'){
+      const body=req.postDataJSON();
+      if(body.action==='set_amount'){saved=body.amount;members[1].amount=body.amount;memberRoom.total=8000+(body.amount??0);return route.fulfill({json:{ok:true,amount:body.amount,total:memberRoom.total}});}
+      return route.fulfill({json:{ok:true}});
+    }
+    if(url.searchParams.get('action')==='room')return route.fulfill({json:{room:memberRoom,members,messages:[],nextMessagesCursor:null}});
+    return route.fulfill({json:{user:{displayName:'나*'},serverNow:Date.now(),rooms:[memberRoom],myRooms:[memberRoom],nextRoomsCursor:null,nextMyRoomsCursor:null}});
+  });
+  await page.goto('/');
+  await page.locator('.pool-card').first().click();
+  await page.getByRole('button',{name:'채팅방 열기'}).click();
+  const dialog=page.getByRole('dialog',{name:'비공개 주문방 채팅'});
+  await expect(dialog).toContainText('금액 미입력');
+  await expect(dialog.locator('.order-info-summary')).toContainText('8,000원');
+  const input=dialog.getByRole('spinbutton',{name:'내 주문 금액'});
+  await input.fill('7000');
+  await dialog.getByRole('button',{name:'저장',exact:true}).click();
+  await expect.poll(()=>saved).toBe(7000);
+  await expect(dialog.locator('.member-list')).toContainText('7,000원');
+  await expect(dialog.locator('.order-info-summary')).toContainText('15,000원');
+  // The host's order form has no pooled-total field any more.
+  await expect(dialog.getByText('현재 모인 주문금액')).toHaveCount(0);
+});
+
+test('A3: a pending request can be cancelled and a rejection is visible',async({page})=>{
+  const pending={...room,id:'room_pending',isHost:false,myStatus:'requested' as string|null,pendingCount:0};
+  const rejected={...room,id:'room_rejected',restaurantId:'mom',isHost:false,myStatus:'rejected',pendingCount:0};
+  let left=0;
+  await page.route('**/api/sikgu**',async route=>{
+    const req=route.request();
+    if(req.method()==='POST'){
+      const body=req.postDataJSON();
+      if(body.action==='leave_room'&&body.roomId==='room_pending'){left++;pending.myStatus=null;}
+      return route.fulfill({json:{ok:true}});
+    }
+    return route.fulfill({json:{user:{displayName:'나*'},serverNow:Date.now(),rooms:[pending,rejected],myRooms:[pending],nextRoomsCursor:null,nextMyRoomsCursor:null}});
+  });
+  await page.goto('/');
+  const cards=page.locator('.pool-card');
+  await expect(cards.nth(0)).toContainText('승인 대기');
+  await expect(cards.nth(1)).toContainText('거절됨');
+  await cards.nth(0).click();
+  const dialog=page.getByRole('dialog',{name:'신전떡볶이 공동주문'});
+  await expect(dialog).toContainText('방장 승인을 기다리고 있어요');
+  await dialog.getByRole('button',{name:'신청 취소',exact:true}).click();
+  await expect.poll(()=>left).toBe(1);
+  await expect(page.locator('.toast')).toContainText('참여 신청을 취소했어요.');
+  await expect(cards.nth(0)).not.toContainText('승인 대기');
+  await cards.nth(1).click();
+  await expect(page.getByRole('button',{name:'거절됨 · 다시 신청',exact:true})).toBeEnabled();
+});
+
+test('A4: the room sheet closes itself with the right message when the room is gone',async({page})=>{
+  await mockApi(page);
+  await page.route('**/api/sikgu?action=room**',async route=>route.fulfill({status:404,json:{error:'삭제되었거나 더 이상 없는 주문방입니다.',code:'room_gone'}}));
+  await page.goto('/');
+  await page.locator('.pool-card').first().click();
+  await page.getByRole('button',{name:/참여자 관리/}).click();
+  await expect(page.locator('.toast')).toContainText('방장이 주문방을 삭제했어요.');
+  await expect(page.getByRole('dialog',{name:'비공개 주문방 채팅'})).toHaveCount(0);
+});

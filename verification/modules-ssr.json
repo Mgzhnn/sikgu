@@ -8,7 +8,7 @@
     "dynamicImports": [
       "assets/layout-segment-context-g_xbg_h0.js",
       "assets/error-boundary-CrL44Ynz.js",
-      "assets/page-DFIetx9z.js",
+      "assets/page-ZM5xydW2.js",
       "index.js"
     ],
     "modules": [
@@ -80,7 +80,7 @@
     ]
   },
   {
-    "file": "assets/page-DFIetx9z.js",
+    "file": "assets/page-ZM5xydW2.js",
     "imports": [
       "index.js"
     ],

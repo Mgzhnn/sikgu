@@ -56,5 +56,8 @@
       "version": ">=22.18.0",
       "onFail": "warn"
     }
+  },
+  "overrides": {
+    "fflate": "0.7.5"
   }
 }

@@ -13,6 +13,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "test-results/**",
     "playwright-report/**",
+    // Agent worktrees live under .claude/ and carry their own dist/node_modules.
+    ".claude/**",
     "next-env.d.ts",
     "!build/**",
   ]),

@@ -95,7 +95,7 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
   it, redeploy current. Record the exact steps and elapsed time.
   *Accept:* RUNBOOK rollback section is a numbered procedure with a date.
 
-- [ ] **C4 · Error reference lookup documented** (S)
+- [x] **C4 · Error reference lookup documented** (S)
   How to find a server log line by the 8-character reference a user quotes.
   *Accept:* RUNBOOK section with a worked example.
 
@@ -126,7 +126,7 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
   *Accept:* `npm audit` lists only vinext-rooted entries; build and all tests
   pass.
 
-- [ ] **E2 · vinext 1.x decision** (L or S)
+- [x] **E2 · vinext 1.x decision** (L or S)
   Either migrate to vinext 1.x with build, Node and browser tests passing,
   or write a dated decision note in REPAIRS stating the pin stays and why.
   *Accept:* one of the two, recorded.

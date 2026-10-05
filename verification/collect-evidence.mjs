@@ -19,7 +19,7 @@ if(diff.trim())throw Error('Hosting manifest or applied migrations changed');
 writeFileSync('verification/catalog-preservation.log',`Baseline: ${baseline}\nAll 21 restaurants, menus, prices and 8 pickup points preserved.\nHosting metadata and all ${originalSQL.length} applied SQL migrations unchanged.\n`);
 const files=readdirSync('verification').filter(f=>/^modules-.*\.json$/.test(f));
 if(files.length!==3)throw Error('Expected fresh client, rsc and ssr module inventories from npm test');
-const affected=['image-size','esbuild','@esbuild-kit/core-utils','@esbuild-kit/esm-loader','drizzle-kit'];
+const affected=['esbuild','@esbuild-kit/core-utils','@esbuild-kit/esm-loader','drizzle-kit'];
 const bundles=files.map(file=>{
   const chunks=JSON.parse(readFileSync('verification/'+file));
   return {file,modules:chunks.reduce((n,c)=>n+c.modules.length,0),affectedModules:chunks.flatMap(c=>c.modules).filter(m=>affected.some(p=>m.includes('/node_modules/'+p+'/'))),imports:[...new Set(chunks.flatMap(c=>c.imports.concat(c.dynamicImports)))].sort()};

@@ -2,7 +2,6 @@ import { inflateSync } from "node:zlib";
 
 const maxReceiptDimension = 2400;
 const maxReceiptPixels = 5_760_000;
-const maxJpegSegments = 4096;
 const maxPngChunks = 4096;
 const maxPngImageDataChunks = 1024;
 
@@ -88,140 +87,6 @@ function pngCrc32(bytes, start, end) {
     crc = pngCrcTable[(crc ^ bytes[offset]) & 0xff] ^ (crc >>> 8);
   }
   return (crc ^ 0xffffffff) >>> 0;
-}
-
-/**
- * Removes JPEG APP/COM metadata and enforces bounded dimensions.
- *
- * @param {Uint8Array} bytes
- */
-function sanitizeJpeg(bytes) {
-  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) {
-    throw new Error("Invalid JPEG receipt.");
-  }
-  /** @type {Uint8Array[]} */
-  const chunks = [bytes.slice(0, 2)];
-  let offset = 2;
-  let foundDimensions = false;
-  let foundScan = false;
-  let foundEnd = false;
-  let segmentCount = 0;
-
-  while (offset < bytes.length) {
-    segmentCount += 1;
-    if (segmentCount > maxJpegSegments) throw new Error("JPEG has too many segments.");
-    const markerStart = offset;
-    if (bytes[offset] !== 0xff) throw new Error("Invalid JPEG marker.");
-    while (offset < bytes.length && bytes[offset] === 0xff) offset += 1;
-    if (offset >= bytes.length) throw new Error("Truncated JPEG marker.");
-    const marker = bytes[offset];
-    offset += 1;
-    if (marker === 0x00 || marker === 0xff) throw new Error("Invalid JPEG marker.");
-    if (marker === 0xd9) {
-      if (!foundScan) throw new Error("JPEG scan is missing.");
-      chunks.push(bytes.slice(markerStart, offset));
-      if (offset !== bytes.length) throw new Error("Unexpected JPEG trailing data.");
-      foundEnd = true;
-      break;
-    }
-    if (marker === 0xd8) throw new Error("Unexpected JPEG start marker.");
-    if (marker >= 0xd0 && marker <= 0xd7) {
-      throw new Error("Unexpected JPEG restart marker.");
-    }
-    if (marker === 0x01) {
-      chunks.push(bytes.slice(markerStart, offset));
-      continue;
-    }
-    if (marker < 0xc0) throw new Error("Unsupported JPEG marker.");
-    if (offset + 2 > bytes.length) throw new Error("Truncated JPEG segment.");
-    const segmentLength = (bytes[offset] << 8) | bytes[offset + 1];
-    const segmentEnd = offset + segmentLength;
-    if (segmentLength < 2 || segmentEnd > bytes.length) {
-      throw new Error("Invalid JPEG segment length.");
-    }
-
-    const isStartOfFrame = marker >= 0xc0
-      && marker <= 0xcf
-      && marker !== 0xc4
-      && marker !== 0xc8
-      && marker !== 0xcc;
-    if (isStartOfFrame) {
-      if (foundDimensions || segmentLength < 8) throw new Error("Invalid JPEG frame.");
-      const dataStart = offset + 2;
-      const height = (bytes[dataStart + 1] << 8) | bytes[dataStart + 2];
-      const width = (bytes[dataStart + 3] << 8) | bytes[dataStart + 4];
-      const componentCount = bytes[dataStart + 5];
-      if (
-        componentCount < 1
-        || componentCount > 4
-        || segmentLength !== 8 + (3 * componentCount)
-      ) {
-        throw new Error("Invalid JPEG frame.");
-      }
-      validateReceiptDimensions(width, height);
-      foundDimensions = true;
-    }
-
-    if (marker === 0xdd && segmentLength !== 4) {
-      throw new Error("Invalid JPEG restart interval.");
-    }
-    if (marker === 0xda) {
-      if (!foundDimensions || segmentLength < 8) {
-        throw new Error("Invalid JPEG scan header.");
-      }
-      const dataStart = offset + 2;
-      const componentCount = bytes[dataStart];
-      if (
-        componentCount < 1
-        || componentCount > 4
-        || segmentLength !== 6 + (2 * componentCount)
-      ) {
-        throw new Error("Invalid JPEG scan header.");
-      }
-    }
-
-    const isMetadata = (marker >= 0xe0 && marker <= 0xef) || marker === 0xfe;
-    if (!isMetadata) chunks.push(bytes.slice(markerStart, segmentEnd));
-    offset = segmentEnd;
-
-    if (marker === 0xda) {
-      const scanStart = offset;
-      let nextMarker = -1;
-      let foundEntropyData = false;
-      while (offset < bytes.length) {
-        if (bytes[offset] !== 0xff) {
-          foundEntropyData = true;
-          offset += 1;
-          continue;
-        }
-        let markerOffset = offset + 1;
-        while (markerOffset < bytes.length && bytes[markerOffset] === 0xff) markerOffset += 1;
-        if (markerOffset >= bytes.length) throw new Error("Truncated JPEG scan.");
-        const scanMarker = bytes[markerOffset];
-        if (scanMarker === 0x00) {
-          foundEntropyData = true;
-          offset = markerOffset + 1;
-          continue;
-        }
-        if (scanMarker >= 0xd0 && scanMarker <= 0xd7) {
-          offset = markerOffset + 1;
-          continue;
-        }
-        nextMarker = offset;
-        break;
-      }
-      if (nextMarker < 0) throw new Error("JPEG end marker is missing.");
-      if (!foundEntropyData) throw new Error("JPEG scan data is missing.");
-      chunks.push(bytes.slice(scanStart, nextMarker));
-      foundScan = true;
-      offset = nextMarker;
-    }
-  }
-
-  if (!foundDimensions || !foundScan || !foundEnd) {
-    throw new Error("Incomplete JPEG receipt.");
-  }
-  return joinByteChunks(chunks);
 }
 
 /**
@@ -449,7 +314,6 @@ async function validatePngImageData(buffer) {
  */
 export function sanitizeReceiptImage(buffer, contentType) {
   const bytes = new Uint8Array(buffer);
-  if (contentType === "image/jpeg") return sanitizeJpeg(bytes);
   if (contentType === "image/png") return sanitizePng(bytes);
   throw new Error("Unsupported receipt image type.");
 }

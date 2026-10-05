@@ -62,7 +62,14 @@ app/
   invite-continuation.mjs   # URL scrubbing and pending invitation validation
   order-estimates.mjs      # per-app minimum and delivery calculations
   api/sikgu/
-    route.ts               # request validation, room/member/chat/receipt actions
+    route.ts               # dispatcher: parses the action and delegates
+    shared.ts              # identity, limits, D1 retry, room serialization
+    feed.ts                # bootstrap feed and private room read
+    rooms.ts               # room creation, membership, amounts, deadline changes
+    chat.ts                # rate-limited message insert
+    receipts.ts            # order-info PUT, room DELETE, receipt GET and R2 cleanup
+    lock.ts                # fenced room mutation token
+    retention.ts           # 30-day sweep of expired rooms
     invites.ts             # host-only invite creation and recovery
     pagination.ts          # bounded cursor validation and ordering
     responses.ts           # private responses, tokens, SQL clock expression

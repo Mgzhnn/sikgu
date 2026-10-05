@@ -20,48 +20,6 @@ function bytes(...parts) {
   return result;
 }
 
-function jpegSegment(marker, payload = []) {
-  const length = payload.length + 2;
-  return [0xff, marker, length >> 8, length & 0xff, ...payload];
-}
-
-const jpegQuantizationTable = jpegSegment(0xdb, [
-  0,
-  ...new Array(64).fill(1),
-]);
-const jpegHuffmanTables = jpegSegment(0xc4, [
-  0x00,
-  1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  0,
-  0x10,
-  1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  0,
-]);
-
-function jpegFixture(width, height, metadata = [], postScanSegments = []) {
-  return bytes(
-    [0xff, 0xd8],
-    ...metadata,
-    jpegQuantizationTable,
-    jpegSegment(0xc0, [
-      8,
-      height >> 8,
-      height & 0xff,
-      width >> 8,
-      width & 0xff,
-      1,
-      1,
-      0x11,
-      0,
-    ]),
-    jpegHuffmanTables,
-    jpegSegment(0xda, [1, 1, 0, 0, 63, 0]),
-    [0x3f],
-    ...postScanSegments,
-    [0xff, 0xd9],
-  );
-}
-
 function uint32(value) {
   return [
     (value >>> 24) & 0xff,
@@ -125,58 +83,6 @@ function pngChunkTypes(buffer) {
   }
   return types;
 }
-
-test("JPEG sanitization strips APP and comment metadata", () => {
-  const app1 = jpegSegment(0xe1, [...new TextEncoder().encode("Exif secret")]);
-  const comment = jpegSegment(0xfe, [...new TextEncoder().encode("private note")]);
-  const input = jpegFixture(640, 480, [app1, comment]);
-
-  assert.equal(detectReceiptType(input), "image/jpeg");
-  const sanitized = sanitizeReceiptImage(input.buffer, "image/jpeg");
-  const expected = jpegFixture(640, 480);
-
-  assert.deepEqual(new Uint8Array(sanitized), expected);
-  assert.ok(sanitized.byteLength < input.byteLength);
-});
-
-test("JPEG sanitization also strips metadata placed after scan data", () => {
-  const postScanMetadata = jpegSegment(0xe1, [...new TextEncoder().encode("late Exif secret")]);
-  const input = jpegFixture(20, 20, [], [postScanMetadata]);
-  const expected = jpegFixture(20, 20);
-
-  assert.deepEqual(
-    new Uint8Array(sanitizeReceiptImage(input.buffer, "image/jpeg")),
-    expected,
-  );
-});
-
-test("JPEG sanitization rejects a scan without an EOI marker", () => {
-  const complete = jpegFixture(32, 32);
-  const input = complete.slice(0, -2);
-
-  assert.throws(
-    () => sanitizeReceiptImage(input.buffer, "image/jpeg"),
-    /JPEG end marker is missing/,
-  );
-});
-
-test("JPEG sanitization rejects truncated segments and scans", () => {
-  const truncatedSegment = bytes(
-    [0xff, 0xd8],
-    [0xff, 0xdb, 0, 67, 0, 1],
-  );
-  assert.throws(
-    () => sanitizeReceiptImage(truncatedSegment.buffer, "image/jpeg"),
-    /Invalid JPEG segment length/,
-  );
-
-  const complete = jpegFixture(32, 32);
-  const truncatedScan = complete.slice(0, -1);
-  assert.throws(
-    () => sanitizeReceiptImage(truncatedScan.buffer, "image/jpeg"),
-    /Truncated JPEG scan/,
-  );
-});
 
 test("PNG sanitization strips text and EXIF chunks while retaining safe transparency", () => {
   const input = pngFixture(320, 240, [
@@ -267,14 +173,6 @@ test("PNG sanitization rejects nonconsecutive image data chunks", () => {
   assert.throws(
     () => sanitizeReceiptImage(input.buffer, "image/png"),
     /Invalid PNG image data order/,
-  );
-});
-
-test("JPEG sanitization rejects dimensions above the configured bound", () => {
-  const input = jpegFixture(2401, 1);
-  assert.throws(
-    () => sanitizeReceiptImage(input.buffer, "image/jpeg"),
-    /Receipt image dimensions are unsupported/,
   );
 });
 

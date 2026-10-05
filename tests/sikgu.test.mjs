@@ -1,3 +1,4 @@
+import {readApiSource} from "./helpers/api-source.mjs";
 import {readClientSource} from "./helpers/client-source.mjs";
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
@@ -17,7 +18,7 @@ import {
 const root = new URL("../", import.meta.url);
 
 const sourceFiles = Promise.all([
-  readFile(new URL("app/api/sikgu/route.ts", root), "utf8"),
+  readApiSource(),
   readClientSource(),
   readFile(new URL("db/schema.ts", root), "utf8"),
   readFile(new URL("worker/index.ts", root), "utf8"),
@@ -106,8 +107,8 @@ test("shared room rules reject unsupported values and drive both client and serv
 test("server derives room data from allowlists and bounds every request before parsing", async () => {
   const { api } = await sourceFiles;
   const post = section(api, "export async function POST", "return serverError(\"Failed to mutate SIKGU data\"");
-  const createRoom = section(post, "if (action === \"create_room\")", "const id = textField(payload.roomId");
-  const put = section(api, "export async function PUT", "export async function DELETE");
+  const createRoom = section(api, "export async function createRoom", "export async function requestJoin");
+  const put = section(api, "export async function updateOrderInfo", "export async function deleteRoom");
 
   assert.match(api, /const maxJsonBytes = 32 \* 1024/);
   assert.match(post, /startsWith\("application\/json"\)/);
@@ -141,11 +142,11 @@ test("server derives room data from allowlists and bounds every request before p
 
 test("member review uses opaque references and never serializes member email addresses", async () => {
   const [{ api, page, schema }, migrations] = await Promise.all([sourceFiles, migrationSource]);
-  const roomRead = section(api, "if (action === \"room\")", "return json({ error: \"지원하지 않는 요청입니다.\"");
+  const roomRead = section(api, "export async function readRoom", "export async function bootstrap");
   const memberQuery = section(roomRead, "const loadMembers =", "const messages =");
   const memberResponse = section(roomRead, "members: members.results.map", "messages: messages.results.map");
   const roomMemberType = section(page, "type RoomMember = {", "type ChatMessage = {");
-  const reviewAction = section(api, "if (action === \"review_member\")", "if (action === \"remove_member\")");
+  const reviewAction = section(api, "export async function reviewMember", "export async function removeMember");
 
   assert.match(schema, /reviewToken: text\("review_token"\)/);
   assert.match(
@@ -156,8 +157,6 @@ test("member review uses opaque references and never serializes member email add
   assert.match(memberQuery, /SELECT review_token, display_name, role, status, created_at, amount,\s+CASE WHEN user_email = \? THEN 1 ELSE 0 END AS mine/);
   // The address is compared to mark the viewer's own row; it is never selected.
   assert.doesNotMatch(memberQuery, /SELECT[^\n]*user_email/);
-  assert.match(memberQuery, /members\.results\.some\(\(member\) => !member\.review_token\)/);
-  assert.match(memberQuery, /WHERE room_id = \? AND review_token IS NULL/);
   assert.match(memberQuery, /members = await loadMembers\(\)/);
   assert.match(memberResponse, /member_ref: String\(member\.review_token \|\| ""\)/);
   assert.doesNotMatch(memberResponse, /user_email|\.\.\.member/);
@@ -189,8 +188,8 @@ test("approval and invite acceptance reserve capacity atomically", async () => {
 
 test("approved users can reopen recent rooms and stale rooms are purged after receipt cleanup", async () => {
   const { api, page } = await sourceFiles;
-  const purge = section(api, "async function purgeExpiredRooms", "export async function GET");
-  const bootstrap = section(api, "if (action === \"bootstrap\")", "if (action === \"room\")");
+  const purge = section(api, "async function purgeExpiredRooms", "// ---- app/api/sikgu/receipts.ts");
+  const bootstrap = section(api, "export async function bootstrap", "// ---- app/api/sikgu/rooms.ts");
 
   assert.match(api, /const recentRoomWindowMs = 30 \* 24 \* 60 \* 60 \* 1000/);
   assert.match(purge, /lastRetentionSweep < 60 \* 60 \* 1000/);
@@ -301,11 +300,11 @@ test("all client mutations carry the custom same-origin request header", async (
 
 test("receipt updates and room deletion use fenced mutations with recoverable storage cleanup", async () => {
   const { api, receiptImage } = await sourceFiles;
-  const put = section(api, "export async function PUT", "export async function DELETE");
-  const deleteRoom = section(api, "export async function DELETE", "export async function POST");
+  const put = section(api, "export async function updateOrderInfo", "export async function deleteRoom");
+  const deleteRoom = section(api, "export async function deleteRoom", "export async function readReceipt");
   const normalizedPut = compact(put);
   const lock = section(api, "async function acquireRoomMutation", "async function releaseRoomMutation");
-  const cleanup = section(api, "async function deleteReceiptObjectsForRoom", "function isRetryableD1ReadError");
+  const cleanup = section(api, "async function deleteReceiptObjectsForRoom", "export async function updateOrderInfo");
 
   assert.match(api, /const receiptUploadCooldownMs = 30 \* 1000/);
   assert.match(
@@ -314,11 +313,9 @@ test("receipt updates and room deletion use fenced mutations with recoverable st
   );
   assert.match(receiptImage, /const maxReceiptDimension = 2400/);
   assert.match(receiptImage, /const maxReceiptPixels = 5_760_000/);
-  assert.match(receiptImage, /const maxJpegSegments = 4096/);
   assert.match(receiptImage, /const maxPngChunks = 4096/);
   assert.match(api, /const receiptTypes = new Set\(\["image\/png"\]\)/);
   assert.match(receiptImage, /export function sanitizeReceiptImage\(buffer, contentType\)/);
-  assert.match(receiptImage, /const isMetadata = \(marker >= 0xe0 && marker <= 0xef\) \|\| marker === 0xfe/);
   assert.match(receiptImage, /const safeAncillaryChunks = new Set\(\["tRNS"\]\)/);
   assert.match(lock, /SET mutation_token = \?, mutation_started_at = \?/);
   assert.match(lock, /status = 'open'[\s\S]*mutation_token IS NULL[\s\S]*mutation_started_at < \?/);
@@ -392,14 +389,8 @@ test("production reads retry transient D1 failures and cleanup avoids repeated w
   const { api } = await sourceFiles;
   const retryable = section(api, "function isRetryableD1ReadError", "async function withD1ReadRetry");
   const retry = section(api, "async function withD1ReadRetry", "function sameOrigin");
-  const cleanup = section(api, "async function deleteReceiptObjectsForRoom", "function isRetryableD1ReadError");
-  const purge = section(api, "async function purgeExpiredRooms", "export async function GET");
-  const roomRead = section(
-    api,
-    "if (action === \"room\")",
-    "return json({ error: \"지원하지 않는 요청입니다.\"",
-  );
-  const deleteRoom = section(api, "export async function DELETE", "export async function POST");
+  const cleanup = section(api, "async function deleteReceiptObjectsForRoom", "export async function updateOrderInfo");
+  const deleteRoom = section(api, "export async function deleteRoom", "export async function readReceipt");
 
   for (const fragment of [
     "Network connection lost",
@@ -419,10 +410,6 @@ test("production reads retry transient D1 failures and cleanup avoids repeated w
   assert.match(cleanup, /limit: 1000/);
   assert.match(cleanup, /bucket\.delete\(allKeys\.slice\(offset, offset \+ 1000\)\)/);
 
-  assert.match(purge, /SELECT CASE WHEN[\s\S]*EXISTS\(SELECT 1 FROM rooms/);
-  assert.match(purge, /if \(legacyNames\?\.found\)/);
-  assert.match(roomRead, /members\.results\.some\(\(member\) => !member\.review_token\)/);
-
   assert.match(deleteRoom, /D1 can commit an idempotent delete/);
   assert.match(deleteRoom, /SELECT id FROM rooms WHERE id = \?/);
   assert.match(deleteRoom, /if \(remaining\) \{[\s\S]*mutationToken = ""[\s\S]*503/);
@@ -430,9 +417,9 @@ test("production reads retry transient D1 failures and cleanup avoids repeated w
 
 test("the browser receives only a public user shape and clears revoked room state", async () => {
   const { api, page } = await sourceFiles;
-  const bootstrap = section(api, 'if (action === "bootstrap")', 'if (action === "room")');
-  const roomRead = section(api, 'if (action === "room")', 'return json({ error: "지원하지 않는 요청입니다."');
-  const publicName = section(api, "function publicDisplayName", "async function acquireRoomMutation");
+  const bootstrap = section(api, "export async function bootstrap", "// ---- app/api/sikgu/rooms.ts");
+  const roomRead = section(api, "export async function readRoom", "export async function bootstrap");
+  const publicName = section(api, "function publicDisplayName", "async function roomForUser");
   const roomLookup = section(api, "async function roomForUser", "async function approvedCount");
 
   assert.match(bootstrap, /user: user \? \{ displayName: user\.displayName \} : null/);

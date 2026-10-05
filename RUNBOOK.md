@@ -17,12 +17,12 @@ architecture are described in `README.md`; the current repair record is `REPAIRS
 ## Health
 
 `GET /api/sikgu?action=health` needs no sign-in and returns
-`{"ok":true,"database":"ok"}` after a one-row D1 round trip, or HTTP 503 with
-`{"ok":false,"database":"unavailable"}` and `Retry-After: 30` when D1 does
-not answer. Probe it after every deploy and from an uptime monitor. This is a
-connectivity/liveness probe (`SELECT 1`), not a schema, authentication or
-end-to-end readiness check. A missing migration can coexist with a green
-health response.
+`{"ok":true,"database":"ok","storage":"ok"}` after a one-row D1 round trip
+and a one-key R2 listing, or HTTP 503 with `Retry-After: 30` and the failing
+dependency marked `"unavailable"`. Probe it after every deploy and from an
+uptime monitor. This is a connectivity probe (`SELECT 1` plus `list`), not a
+schema, authentication or end-to-end readiness check. A missing migration can
+coexist with a green health response.
 
 External monitor (COMPLETION.md item C2): _not yet configured_. When set up,
 record here the monitor service, the probe URL, the interval and the alert

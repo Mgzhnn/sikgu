@@ -51,7 +51,19 @@ function tinyPng() {
 test("D2: the health check reports a database outage as 503 with Retry-After", async () => {
   const api = await createApi();
   const working = await api.get(undefined, "?action=health");
-  assert.deepEqual(working.data, { ok: true, database: "ok" });
+  assert.deepEqual(working.data, { ok: true, database: "ok", storage: "ok" });
+
+  // A broken receipt bucket is a 503 too (COMPLETION.md item C2).
+  const realUploads = globalThis.__sikguEnv.UPLOADS;
+  globalThis.__sikguEnv.UPLOADS = { async list() { throw new Error("R2 unavailable"); } };
+  try {
+    const noStorage = await api.get(undefined, "?action=health");
+    assert.equal(noStorage.status, 503);
+    assert.deepEqual(noStorage.data, { ok: false, database: "ok", storage: "unavailable" });
+    assert.equal(noStorage.headers.get("retry-after"), "30");
+  } finally {
+    globalThis.__sikguEnv.UPLOADS = realUploads;
+  }
 
   const realDb = globalThis.__sikguEnv.DB;
   globalThis.__sikguEnv.DB = {
@@ -62,7 +74,7 @@ test("D2: the health check reports a database outage as 503 with Retry-After", a
   try {
     const down = await api.get(undefined, "?action=health");
     assert.equal(down.status, 503);
-    assert.deepEqual(down.data, { ok: false, database: "unavailable" });
+    assert.deepEqual(down.data, { ok: false, database: "unavailable", storage: "ok" });
     assert.equal(down.headers.get("retry-after"), "30");
     assert.equal(down.headers.get("cache-control"), "private, no-store");
   } finally {

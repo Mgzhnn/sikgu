@@ -983,7 +983,7 @@ test("a health check answers without identity and server errors are logged as on
   const api = await createApi();
   const health = await api.get(undefined, "?action=health");
   assert.equal(health.status, 200);
-  assert.deepEqual(health.data, { ok: true, database: "ok" });
+  assert.deepEqual(health.data, { ok: true, database: "ok", storage: "ok" });
   assert.equal(health.headers.get("cache-control"), "private, no-store");
 
   const lines = [];

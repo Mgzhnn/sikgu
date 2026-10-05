@@ -1,0 +1,25 @@
+# Production probe, 2026-10-05T13:27:52Z
+# Target: https://sikgu-dgist.ugrp44group.chatgpt.site (Sites version 26, commit e5e77d7). Synthetic identity only; no real user's identity or session was sent.
+
+## GET /api/sikgu?action=health
+{"ok":true,"database":"ok"}
+HTTP 200
+
+## GET /api/sikgu?action=bootstrap (anonymous)
+{"user":null,"serverNow":<redacted>,"nextRoomsCursor":null,"nextMyRoomsCursor":null,"rooms":[],"myRooms":[]}
+HTTP 200
+
+## GET /api/sikgu?action=bootstrap with forged oai-authenticated-user-email and -full-name headers
+{"user":null,"serverNow":<redacted>,"nextRoomsCursor":null,"nextMyRoomsCursor":null,"rooms":[],"myRooms":[]}
+HTTP 200
+
+## POST /api/sikgu create_room with forged identity, same-origin and x-sikgu-request headers
+{"error":"로그인이 필요합니다.","signInPath":"/signin-with-chatgpt?return_to=/"}
+HTTP 401
+
+## GET / response security headers
+HTTP/2 200 
+content-security-policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; frame-src 'none'; form-action 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; media-src 'self' blob:; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests
+referrer-policy: strict-origin-when-cross-origin
+x-content-type-options: nosniff
+x-frame-options: DENY

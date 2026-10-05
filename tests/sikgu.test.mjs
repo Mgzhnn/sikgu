@@ -96,7 +96,7 @@ test("shared room rules reject unsupported values and drive both client and serv
   assert.equal(Object.isFrozen(deliveryAppIds), true);
   assert.equal(Object.isFrozen(restaurantMinimums), true);
   assert.equal(Object.isFrozen(pickupFullNames), true);
-  assert.match(page, /import \{[^}]*\broomCapacities,[^}]*\broomDurations,?[^}]*\} from "\.\/sikgu-rules\.mjs"/);
+  assert.match(page, /import \{[^}]*\broomCapacities,[^}]*\broomDurations,?[^}]*\} from "\.\.?\/sikgu-rules\.mjs"/);
   assert.match(api, /from "\.\.\/\.\.\/sikgu-rules\.mjs"/);
   assert.match(page, /const \[apps, setApps\] = useState<DeliveryApp\[\]>\(\[\]\)/);
   assert.doesNotMatch(page, /useState<DeliveryApp\[\]>\(\["baemin"\]\)/);
@@ -236,7 +236,7 @@ test("approved users can reopen recent rooms and stale rooms are purged after re
 
 test("mobile and desktop location pickers share behavior without overwriting stored state", async () => {
   const { page } = await sourceFiles;
-  const picker = section(page, "function LocationPicker", "function CampusMapPreview");
+  const picker = section(page, "function LocationPicker", "function PoolCard");
 
   assert.match(picker, /compact = false/);
   assert.match(picker, /mobile-location-options/);
@@ -252,21 +252,24 @@ test("mobile and desktop location pickers share behavior without overwriting sto
 
 test("dialogs, Korean IME input, request ordering, and bootstrap states have explicit safeguards", async () => {
   const { page } = await sourceFiles;
-  const dialogHook = section(page, "function useDialogLifecycle", "const appLabels");
+  const dialogHook = section(page, "function useDialogLifecycle", "export function timeLeft");
 
   assert.match(dialogHook, /event\.key === "Escape"/);
   assert.match(dialogHook, /event\.key !== "Tab"/);
   assert.match(dialogHook, /document\.body\.style\.overflow = "hidden"/);
   assert.match(dialogHook, /previouslyFocused\?\.focus\(\)/);
+  // Each dialog in the order the client source is concatenated: room-hub.tsx
+  // at the app root, then app/modals/* by file name.
   for (const [component, nextComponent] of [
-    ["function CampusMapModal", "function FeedbackModal"],
-    ["function FeedbackModal", "function PoolModal"],
-    ["function PoolModal", "function RoomHubModal"],
-    ["function RoomHubModal", "function CreateModal"],
-    ["function CreateModal", "export default function Home"],
+    ["function RoomHubModal", "export const money"],
+    ["function CampusMapModal", "function CreateModal"],
+    ["function CreateModal", "function FeedbackModal"],
+    ["function FeedbackModal", "function InviteConfirmation"],
+    ["function InviteConfirmation", "function PoolModal"],
   ]) {
     assert.match(section(page, component, nextComponent), /useDialogLifecycle\(/);
   }
+  assert.match(page.slice(page.indexOf("function PoolModal")), /useDialogLifecycle\(/);
 
   assert.match(page, /!event\.nativeEvent\.isComposing/);
   assert.match(page, /event\.nativeEvent\.keyCode !== 229/);
@@ -283,18 +286,22 @@ test("dialogs, Korean IME input, request ordering, and bootstrap states have exp
 test("all client mutations carry the custom same-origin request header", async () => {
   const { api, page } = await sourceFiles;
   const sameOrigin = section(api, "function sameOrigin", "function contentLength");
+  // The room sheet and the feed actions post through lib/api.ts; the
+  // multipart PUT and the DELETE build their own requests.
+  const sharedPost = section(page, "export async function apiPost", "export async function apiGet");
   const roomPost = section(page, "const post = async", "const review = async");
   const saveOrder = section(page, "const saveOrderInfo = async", "const deleteRoom = async");
   const deleteRoom = section(page, "const deleteRoom = async", "const leaveRoom = async");
-  const globalPost = section(page, "const postAction = useCallback", "const loadRooms = useCallback");
 
   assert.match(sameOrigin, /request\.headers\.get\("x-sikgu-request"\) !== "1"/);
   assert.match(sameOrigin, /origin === expectedOrigin/);
   assert.match(sameOrigin, /new URL\(referer\)\.origin === expectedOrigin/);
   assert.equal(occurrences(api, "if (!sameOrigin(request))"), 3);
-  for (const mutation of [roomPost, saveOrder, deleteRoom, globalPost]) {
+  for (const mutation of [sharedPost, saveOrder, deleteRoom]) {
     assert.match(mutation, /"x-sikgu-request": "1"/);
   }
+  assert.match(roomPost, /apiPost\(/);
+  assert.equal(occurrences(page, 'method: "POST"'), 1, "every POST goes through apiPost");
   assert.match(deleteRoom, /response\.status === 404[\s\S]*onDeleted\(\)/);
 });
 

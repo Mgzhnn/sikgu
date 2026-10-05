@@ -18,8 +18,23 @@ architecture are described in `README.md`; the current repair record is `REPAIRS
 
 `GET /api/sikgu?action=health` needs no sign-in and returns
 `{"ok":true,"database":"ok"}` after a one-row D1 round trip, or HTTP 503 with
-`{"ok":false,"database":"unavailable"}` when D1 does not answer. Probe it
-after every deploy and from any uptime monitor. This is a connectivity/liveness probe (`SELECT 1`), not a schema, R2, authentication or end-to-end readiness check. A missing migration or broken receipt bucket can coexist with a green health response.
+`{"ok":false,"database":"unavailable"}` and `Retry-After: 30` when D1 does
+not answer. Probe it after every deploy and from an uptime monitor. This is a
+connectivity/liveness probe (`SELECT 1`), not a schema, authentication or
+end-to-end readiness check. A missing migration can coexist with a green
+health response.
+
+External monitor (COMPLETION.md item C2): _not yet configured_. When set up,
+record here the monitor service, the probe URL, the interval and the alert
+recipient, so the next operator knows where alerts go.
+
+## Repository protection (COMPLETION.md item D3)
+
+`main` must require a pull request with a green CI run before merge, and no
+direct pushes. GitHub → repository Settings → Branches → Add rule for `main`:
+"Require a pull request before merging", "Require status checks to pass"
+(select the `verify` job), "Do not allow bypassing the above settings".
+Record the date it was enabled here: _not yet enabled_.
 
 ## Deploy
 
@@ -47,9 +62,31 @@ Last deploy: 2026-10-05, commit `e5e77d7` as Sites version 26, saved and deploye
 
 ## Rollback
 
-- Redeploy the previous known-good commit. Migration 0004 adds `room_blocks`; 0005 adds history/rate-window indexes and replaces the message-order index with one that adds an ID tie-breaker. It does not rewrite rows or remove columns, so earlier code can use the newer schema. Check the migration result before a rollback; do not undo the index migration by editing history.
-- If a bad migration was applied, write a new forward migration that undoes
-  it; do not edit or delete the applied file.
+Every migration so far is additive (0004 adds `room_blocks`, 0005 adds
+indexes, 0006 adds the nullable `room_members.amount` and
+`rooms.extensions` columns), so earlier code runs against the newer schema.
+Never undo a migration by editing history; if a migration itself is bad,
+write a new forward migration that reverses it.
+
+Procedure (rehearse once and record the date and elapsed time below):
+
+1. Note the current live version number from the Sites project view and the
+   commit it was built from (README "Production" line).
+2. On the server, open Codex in the project folder, signed in as the owning
+   account (the UG account; a wrong account reports "project not found").
+3. Ask Codex to list the saved Sites versions and deploy the previous
+   known-good version number publicly. Do not rebuild: redeploying a saved
+   version is the rollback.
+4. Probe `GET /api/sikgu?action=health` on the public origin and run
+   `npm run probe -- https://<origin>`; both must pass.
+5. In a test room, create, join from a second account, approve, chat, and
+   delete. Confirm the deleted receipt object is gone.
+6. Record the rollback in REPAIRS.md: from version, to version, reason, time.
+7. When the fix is ready, deploy forward as a new version; never leave the
+   rolled-back version undocumented.
+
+Rehearsal record: _not yet rehearsed_ (COMPLETION.md item C3; fill in the
+date, the from/to versions and the elapsed time here after the rehearsal).
 
 ## Logs
 
@@ -58,6 +95,28 @@ Last deploy: 2026-10-05, commit `e5e77d7` as Sites version 26, saved and deploye
   The user's error message ends with `(오류 코드 XXXXXXXX)`, the first eight
   characters of that `reference`; ask them for it and search the platform
   log viewer for that prefix.
+
+### Finding a failure from the code a user quotes
+
+Worked example. A student reports: "저장이 안 돼요. 서버 오류가 발생했습니다.
+(오류 코드 225af8ad)".
+
+1. The eight characters are the prefix of the `reference` UUID in exactly
+   one log line. In the Sites project, open Logs, set the time range to the
+   hour the student reported, and search for `225af8ad`.
+2. The matching line looks like
+   `{"level":"error","reference":"225af8ad-3f7a-4d2f-831d-5f2c7f60b84e","context":"Failed to update private order information","error":{"name":"Error","message":"영수증 저장소가 연결되지 않았습니다.","stack":"..."}}`.
+   `context` names the handler (here the order-info PUT); `error.message` is
+   the cause (here the R2 binding was missing). The stack shows the file and
+   line in the deployed build.
+3. There is no email, name, room id or request body in the line by design.
+   If you need the room, ask the student which room and when; do not add
+   identities to the log.
+4. Deferred-cleanup lines ("Deferred …") and the `retention_sweep` event are
+   not keyed by a reference; search by the prefix text instead.
+5. Reply to the student with what happened in plain words and, if it was a
+   platform fault, when it was fixed. Record platform faults in REPAIRS.md
+   with the reference so repeat reports can be matched.
 - Log lines never contain emails, names, or request bodies. Keep it that
   way: log identifiers (room id, reference), not people.
 - Deferred cleanups log with a fixed prefix: "Deferred stale receipt

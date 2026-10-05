@@ -77,8 +77,10 @@ tests/, browser-tests/     # behavioral and supplementary structural checks
 
 ## Hosting and operations
 
-`.openai/hosting.json` declares `DB` and `UPLOADS`; the Sites platform provides authentication routes and bindings. This repair changes source and adds migration `0005_history_indexes.sql`. It has not been deployed or applied to production. A GitHub push alone is not evidence of a Sites release.
+`.openai/hosting.json` declares `DB` and `UPLOADS`; the Sites platform provides authentication routes and bindings. A GitHub push alone is not evidence of a Sites release.
 
-**Before a release:** verify that the platform strips forged identity headers and that no direct Worker/alternate origin bypasses it, apply and check migrations, and verify receipt storage. The anonymous production probe in this repair received a non-JSON 403, which is inconclusive about the app's identity boundary. The health endpoint checks database connectivity only.
+**Production (2026-10-05):** commit `e5e77d7` is live as Sites version 26 at `https://sikgu-dgist.ugrp44group.chatgpt.site`. Migrations `0004_room_blocks` and `0005_history_indexes` were applied to tables that were empty at the time. On the public origin, forged `oai-authenticated-user-*` headers are stripped: bootstrap returns `user: null` and a forged mutation gets 401 (`verification/production-probe-2026-10-05.log`). A manual room test on a physical iPhone was reported working. See the deployment section of [REPAIRS.md](REPAIRS.md) for what remains unverified.
+
+**Before each release:** re-run the identity probe, confirm no alternate origin bypasses Sites, check migrations through the Sites Database view, and verify receipt storage. The health endpoint checks database connectivity only.
 
 [RUNBOOK.md](RUNBOOK.md) covers release, rollback and cleanup. [REPAIRS.md](REPAIRS.md) is the current repair record; [AUDIT.md](AUDIT.md) preserves the earlier audit as history rather than certifying the present deployment.

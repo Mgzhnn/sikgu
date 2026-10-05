@@ -28,6 +28,7 @@ An audit exit code of 1 is expected until the residual advisories in REPAIRS.md 
 | `mobile-*.png` | Actual Chromium screenshots at 360/390px, including 200% root text size |
 | `dependency-*.json`, `dependency-paths.log`, `modules-*.json` | Dated npm snapshots and exact production-module provenance |
 | `hosting-probe.json` | Anonymous plain/spoofed requests to the known public URL; HTTP 403 is inconclusive |
+| `production-probe-2026-10-05.log` | Health, anonymous and spoofed requests against deployed version 26; spoofed identity is stripped (`user: null`, 401 on mutation) |
 | `catalog-preservation.log` | Exact catalog comparison and untouched hosting/applied SQL migration check |
 
 Focused regression commands:

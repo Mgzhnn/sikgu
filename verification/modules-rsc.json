@@ -147,7 +147,7 @@
       "rolldown/runtime.js",
       "virtual:cloudflare/worker-entry",
       "virtual:vinext-rsc-entry",
-      "virtual:vite-rsc/css?type=rsc&id=%2Fhome%2Fmagzhan%2Fprojects%2Fsikgu%2Fapp%2Flayout.tsx&lang.js",
+      "virtual:vite-rsc/css?type=rsc&id=%2Fhome%2Fmagzhan%2Fprojects%2Fsikgu%2F.claude%2Fworktrees%2Fagent-a76e829acd71d7db6%2Fapp%2Flayout.tsx&lang.js",
       "virtual:vite-rsc/server-references"
     ]
   }

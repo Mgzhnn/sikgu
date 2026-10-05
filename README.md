@@ -98,7 +98,7 @@ tests/, browser-tests/     # behavioral and supplementary structural checks
 
 `.openai/hosting.json` declares `DB` and `UPLOADS`; the Sites platform provides authentication routes and bindings. A GitHub push alone is not evidence of a Sites release.
 
-**Production (2026-10-05):** commit `e5e77d7` is live as Sites version 26 at `https://sikgu-dgist.ugrp44group.chatgpt.site`. Migrations `0004_room_blocks` and `0005_history_indexes` were applied to tables that were empty at the time. On the public origin, forged `oai-authenticated-user-*` headers are stripped: bootstrap returns `user: null` and a forged mutation gets 401 (`verification/production-probe-2026-10-05.log`). A manual room test on a physical iPhone was reported working. See the deployment section of [REPAIRS.md](REPAIRS.md) for what remains unverified.
+**Production (2026-10-06):** commit `e42a53c` (merge of the completion-plan branch) is live as Sites version 28 at `https://sikgu-dgist.ugrp44group.chatgpt.site`. Migration `0006_member_amounts_and_extensions` was applied; `room_members.amount` and `rooms.extensions` exist in production. The health endpoint reports `database: "ok"` and `storage: "ok"`, and the scripted identity probe passed all three checks (`verification/identity-probe-2026-10-06.log`). Previous: `e5e77d7` as version 26 on 2026-10-05 (`verification/production-probe-2026-10-05.log`). See [COMPLETION.md](COMPLETION.md) for the owner steps that remain before `v1.0.0`.
 
 **Before each release:** re-run the identity probe, confirm no alternate origin bypasses Sites, check migrations through the Sites Database view, and verify receipt storage. The health endpoint checks database connectivity only.
 

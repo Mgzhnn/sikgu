@@ -44,7 +44,7 @@ Record the date it was enabled here: _not yet enabled_.
 4. Check migration/schema readiness through the platform's database tools (expected tables, columns and indexes), then probe health. In an authorized test room verify create, join, approve, chat, upload/read a receipt as a member, and delete. Verify the deleted receipt object is gone from R2.
 5. Old tabs should reload after a contract change. This repair returns absolute `expiresAt` for invitation creation instead of `expiresInHours`; stale clients must not continue advertising 24 hours. New pagination fields are additive and optional cursor parameters preserve first-page behavior. Do not claim compatibility of stale cached UI just because the API still responds.
 
-Last deploy: 2026-10-05, commit `e5e77d7` as Sites version 26, saved and deployed by Codex on the server with the Sites tools. Sites applied migrations 0004 and 0005; all tables were empty beforehand, so migration 0001's row deletion could not lose data. The owning ChatGPT account must be the one Codex is logged in as, or Sites reports the project as not found.
+Last deploy: 2026-10-06, commit `e42a53c` as Sites version 28, saved and deployed by Codex on the server with the Sites tools from a clean clone of `main`. Sites applied migration 0006 (two additive columns). Health answered `database: "ok"`, `storage: "ok"` and the identity probe passed. Previous: 2026-10-05, `e5e77d7` as version 26 (migrations 0004 and 0005 on empty tables). The owning ChatGPT account must be the one Codex is logged in as, or Sites reports the project as not found.
 
 ## Catalog: adding or updating a restaurant or pickup point
 

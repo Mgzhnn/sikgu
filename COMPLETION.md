@@ -51,7 +51,7 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
 
 ## B. Security and privacy
 
-- [ ] **B1 · Scripted identity probe** (S)
+- [x] **B1 · Scripted identity probe** (S)
   `verification/identity-probe.mjs` sends anonymous and forged-header
   requests to a given origin and exits nonzero unless bootstrap returns
   `user: null` and `create_room` returns 401.
@@ -101,7 +101,7 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
 
 ## D. Quality gates
 
-- [ ] **D1 · CI runs the full gate** (S)
+- [x] **D1 · CI runs the full gate** (S)
   CI adds `npx playwright install --with-deps chromium && npm run
   test:browser` and `npm audit --omit=dev --audit-level=high`.
   *Accept:* both steps green on `main`.
@@ -120,7 +120,7 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
 
 ## E. Dependencies and maintenance
 
-- [ ] **E1 · Dev-dependency advisories cleared where fixable** (S)
+- [x] **E1 · Dev-dependency advisories cleared where fixable** (S)
   Bump `@cloudflare/vite-plugin` and `wrangler` to current; `npm audit fix`
   for `brace-expansion` and `fast-uri`. REPAIRS dependency table re-dated.
   *Accept:* `npm audit` lists only vinext-rooted entries; build and all tests
@@ -131,7 +131,7 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
   or write a dated decision note in REPAIRS stating the pin stays and why.
   *Accept:* one of the two, recorded.
 
-- [ ] **E3 · Package hygiene** (S)
+- [x] **E3 · Package hygiene** (S)
   Package renamed from `site-creator-vinext-starter` to `sikgu`;
   `.npmrc` sets `strict-allow-scripts=true`; `npm ci` succeeds.
   *Accept:* `npm ci` clean in CI with strict scripts.

@@ -42,6 +42,10 @@ The audit changed from **16 package entries (11 high / 5 moderate)** to **6 (2 h
 
 The Vite build hook records exact chunk module provenance in `verification/modules-{client,rsc,ssr}.json`, outside published assets. `dependency-reachability.json` records the aggregate findings and explicit imports; `dependency-paths.log` records installed paths. This is evidence for this build, not an exploit-proof guarantee for future dependency changes. Re-run `npm audit` and `node verification/collect-evidence.mjs` after updates.
 
+### Dependency update — 2026-10-05
+
+`@cloudflare/vite-plugin` 1.54.4 → 1.62.5 and `wrangler` 4.129.0 → 4.147.0 (not semver-major), plus `npm audit fix` for `brace-expansion` and `fast-uri`. The audit went from **20 entries (15 high / 5 moderate)** to **13**, all development-only; `npm audit --omit=dev` stays at 0 and CI now fails on a high or critical production advisory. The 13 residual entries have no non-major fix: nine are rooted in `vinext@0.0.50` (resolved by the 1.x migration, item E2 in COMPLETION.md), three in `drizzle-kit@0.31.10`'s bundled esbuild loader (build-time only, absent from emitted chunks), and one in `eslint-config-next`'s `fast-glob` (lint-time only). `workerd` moved to 1.20261001.1 and is listed in `allowScripts`; `.npmrc` now sets `strict-allow-scripts=true`, so an unlisted install script fails `npm ci` instead of running. The identity probe is scripted as `verification/identity-probe.mjs` (`npm run probe -- <origin>`); its run against version 26 is in `verification/identity-probe-2026-10-05.log` and passed all three checks.
+
 ## Verification and honest limits
 
 - Baseline: 95 Node tests passed. Current local suite: **108 passed**, with production build, TypeScript and lint successful. Chromium: **9 passed**. Exact outputs are retained in `verification/final-local.log`, `final-node.log`, `final-lint.log` and `browser-final.log`.

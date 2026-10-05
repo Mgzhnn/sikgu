@@ -1,3 +1,4 @@
+import {readApiSource} from "./helpers/api-source.mjs";
 import {readClientSource} from "./helpers/client-source.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -230,7 +231,7 @@ test("persists rooms, approvals, invitations, and private chat in D1", async () 
   const [hosting, schema, api, page] = await Promise.all([
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
-    readFile(new URL("../app/api/sikgu/route.ts", import.meta.url), "utf8"),
+    readApiSource(),
     readClientSource(),
   ]);
 
@@ -286,7 +287,7 @@ test("opens an accessible campus order map with guarded join actions", async () 
   const [page, css, api] = await Promise.all([
     readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
-    readFile(new URL("../app/api/sikgu/route.ts", import.meta.url), "utf8"),
+    readApiSource(),
   ]);
 
   assert.doesNotMatch(page, /function MapView/);
@@ -373,7 +374,7 @@ test("lets hosts manage private order receipts and delete their rooms", async ()
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0001_glossy_prodigy.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0003_mutation_locks.sql", import.meta.url), "utf8"),
-    readFile(new URL("../app/api/sikgu/route.ts", import.meta.url), "utf8"),
+    readApiSource(),
     readFile(new URL("../app/receipt-image.mjs", import.meta.url), "utf8"),
     readClientSource(),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
@@ -442,7 +443,7 @@ test("lets hosts manage private order receipts and delete their rooms", async ()
 test("masks Korean and English display names consistently", async () => {
   const [page, api] = await Promise.all([
     readClientSource(),
-    readFile(new URL("../app/api/sikgu/route.ts", import.meta.url), "utf8"),
+    readApiSource(),
   ]);
 
   assert.equal(maskDisplayName("Ugrp"), "Ugrp");

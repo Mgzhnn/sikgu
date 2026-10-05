@@ -1,5 +1,5 @@
 {
-  "name": "site-creator-vinext-starter",
+  "name": "sikgu",
   "version": "0.1.0",
   "private": true,
   "engines": {
@@ -13,7 +13,8 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "probe": "node verification/identity-probe.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
@@ -22,7 +23,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "1.54.4",
+    "@cloudflare/vite-plugin": "1.62.5",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
@@ -38,7 +39,7 @@
     "typescript": "5.9.3",
     "vinext": "0.0.50",
     "vite": "8.2.2",
-    "wrangler": "4.129.0"
+    "wrangler": "4.147.0"
   },
   "type": "module",
   "allowScripts": {
@@ -47,7 +48,7 @@
     "esbuild@0.28.1": true,
     "esbuild@0.28.2": true,
     "unrs-resolver@1.11.1": true,
-    "workerd@1.20260903.1": true
+    "workerd@1.20261001.1": true
   },
   "devEngines": {
     "runtime": {

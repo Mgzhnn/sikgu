@@ -15,6 +15,7 @@ export function RoomHubModal({
   onChanged,
   onDeleted,
   onLeft,
+  onGone,
 }: {
   roomId: string;
   now: number;
@@ -22,6 +23,8 @@ export function RoomHubModal({
   onChanged: () => void;
   onDeleted: () => void;
   onLeft: () => void;
+  /** The room is gone or the viewer was removed: close with this message. */
+  onGone: (message: string) => void;
 }) {
   const [room, setRoom] = useState<Pool | null>(null);
   const [members, setMembers] = useState<RoomMember[]>([]);
@@ -39,7 +42,9 @@ export function RoomHubModal({
   const [editingOrderInfo, setEditingOrderInfo] = useState(false);
   const [estimatedArrival, setEstimatedArrival] = useState("");
   const [orderTotal, setOrderTotal] = useState("");
-  const [collectedTotal, setCollectedTotal] = useState("");
+  const [amountDrafts, setAmountDrafts] = useState<Record<string, string>>({});
+  const [savingAmount, setSavingAmount] = useState("");
+  const [busyDeadline, setBusyDeadline] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [savingOrderInfo, setSavingOrderInfo] = useState(false);
   const [orderInfoStatus, setOrderInfoStatus] = useState("");
@@ -79,6 +84,7 @@ export function RoomHubModal({
         members?: RoomMember[];
         messages?: ChatMessage[];
         nextMessagesCursor?: string | null;
+        code?: string;
       }>(response);
       if (signal?.aborted || requestId !== loadRoomRequestRef.current) return null;
       if (!response.ok || !data.room) {
@@ -87,6 +93,16 @@ export function RoomHubModal({
           setMembers([]);
           setMessages([]);
           setReceiptFile(null);
+        }
+        // The server tells a deleted room apart from a removed member; both
+        // end the session in this sheet, with the matching message.
+        if (data.code === "room_gone") {
+          onGone("방장이 주문방을 삭제했어요.");
+          return false;
+        }
+        if (data.code === "removed") {
+          onGone("주문방에서 내보내졌어요.");
+          return false;
         }
         if (response.status === 401) {
           // The mutation path already redirects on 401; a poll that finds the
@@ -117,7 +133,7 @@ export function RoomHubModal({
       setLoading(false);
       return false;
     }
-  }, [roomId]);
+  }, [roomId, onGone]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -198,6 +214,60 @@ export function RoomHubModal({
     }
   };
 
+  const saveAmount = async (key: string, memberRef?: string) => {
+    if (savingAmount) return;
+    const draft = (amountDrafts[key] ?? "").trim();
+    const amount = draft === "" ? null : Number(draft);
+    if (amount !== null && (!Number.isInteger(amount) || amount < 0 || amount > 10_000_000)) {
+      setError("주문 금액은 0원부터 10,000,000원까지 입력할 수 있어요.");
+      return;
+    }
+    setSavingAmount(key);
+    setError("");
+    try {
+      await post({ action: "set_amount", amount, ...(memberRef ? { memberRef } : {}) });
+      setAmountDrafts((drafts) => { const next = { ...drafts }; delete next[key]; return next; });
+      await loadRoom(true);
+      onChanged();
+    } catch (amountError) {
+      setError(amountError instanceof Error ? amountError.message : "주문 금액을 저장하지 못했어요.");
+    } finally {
+      setSavingAmount("");
+    }
+  };
+
+  const extendRoom = async () => {
+    if (busyDeadline) return;
+    setBusyDeadline(true);
+    setError("");
+    try {
+      await post({ action: "extend_room" });
+      setChatStatus("모집 시간을 15분 연장했어요.");
+      await loadRoom(true);
+      onChanged();
+    } catch (extendError) {
+      setError(extendError instanceof Error ? extendError.message : "모집 시간을 연장하지 못했어요.");
+    } finally {
+      setBusyDeadline(false);
+    }
+  };
+
+  const closeRecruitment = async () => {
+    if (busyDeadline) return;
+    setBusyDeadline(true);
+    setError("");
+    try {
+      await post({ action: "close_recruitment" });
+      setChatStatus("모집을 마감했어요. 채팅과 영수증은 그대로 쓸 수 있어요.");
+      await loadRoom(true);
+      onChanged();
+    } catch (closeError) {
+      setError(closeError instanceof Error ? closeError.message : "모집을 마감하지 못했어요.");
+    } finally {
+      setBusyDeadline(false);
+    }
+  };
+
   const createInvite = async () => {
     if (creatingInvite) return;
     setCreatingInvite(true);
@@ -258,7 +328,6 @@ export function RoomHubModal({
   const openOrderEditor = () => {
     setEstimatedArrival(room?.estimatedArrival || "");
     setOrderTotal(room?.orderTotal == null ? "" : String(room.orderTotal));
-    setCollectedTotal(room ? String(room.total) : "");
     setReceiptFile(null);
     setOrderInfoStatus("");
     setError("");
@@ -288,7 +357,6 @@ export function RoomHubModal({
       form.set("roomId", roomId);
       form.set("estimatedArrival", estimatedArrival);
       form.set("orderTotal", orderTotal);
-      form.set("collectedTotal", collectedTotal);
       if (preparedReceipt) form.set("receipt", preparedReceipt);
       const response = await fetch(
         `/api/sikgu?action=update_order_info&roomId=${encodeURIComponent(roomId)}`,
@@ -369,6 +437,25 @@ export function RoomHubModal({
             <button className="room-hub-close" onClick={onClose} aria-label="주문방 채팅 닫기">×</button>
           </div>
         </div>
+        {room?.isHost && (
+          <div className="room-deadline-actions">
+            {!isClosed && (
+              <button type="button" onClick={() => void closeRecruitment()} disabled={busyDeadline}>
+                모집 마감
+              </button>
+            )}
+            {(room.extensions ?? 0) < 2 && room.closesAt > now - 10 * 60 * 1000 && (
+              <button type="button" onClick={() => void extendRoom()} disabled={busyDeadline}>
+                15분 연장{(room.extensions ?? 0) ? ` · ${2 - (room.extensions ?? 0)}회 남음` : ""}
+              </button>
+            )}
+            <small>
+              {isClosed
+                ? "모집이 마감됐어요. 채팅·금액·영수증은 30일 동안 쓸 수 있어요."
+                : "마감 전에 모집을 끝내거나, 마감 후 10분 안에 연장할 수 있어요."}
+            </small>
+          </div>
+        )}
         {room?.isHost && confirmDelete && (
           <div className="room-delete-confirm" role="alert">
             <div>
@@ -430,10 +517,19 @@ export function RoomHubModal({
               <div className="member-list">
                 {members.map((member) => {
                   const maskedMemberName = maskDisplayName(member.display_name);
+                  const canEditAmount = member.status === "approved" && Boolean(member.mine || (room.isHost && member.member_ref));
+                  const amountKey = member.mine ? "me" : member.member_ref || "";
+                  const amountDraft = amountDrafts[amountKey] ?? (member.amount == null ? "" : String(member.amount));
                   return (
                     <div className={member.status === "requested" ? "pending" : ""} key={`${member.member_ref || member.display_name}-${member.created_at}`}>
                       <span className="avatar">{maskedMemberName.slice(0, 1).toUpperCase()}</span>
-                      <span><strong>{maskedMemberName}</strong><small>{member.role === "host" ? "방장" : member.status === "approved" ? "참여 확정" : "참여 신청"}</small></span>
+                      <span>
+                        <strong>{maskedMemberName}{member.mine ? " (나)" : ""}</strong>
+                        <small>
+                          {member.role === "host" ? "방장" : member.status === "approved" ? "참여 확정" : "참여 신청"}
+                          {member.status === "approved" && (member.amount == null ? " · 금액 미입력" : ` · ${money(member.amount)}`)}
+                        </small>
+                      </span>
                       {room.isHost && member.status === "requested" && member.member_ref ? (
                         <span className="member-actions">
                           <button
@@ -462,6 +558,27 @@ export function RoomHubModal({
                       ) : (
                         <b>{member.status === "approved" ? "✓" : ""}</b>
                       )}
+                      {canEditAmount && (
+                        <form
+                          className="amount-editor"
+                          onSubmit={(event) => { event.preventDefault(); void saveAmount(amountKey, member.mine ? undefined : member.member_ref); }}
+                        >
+                          <label>
+                            <span className="sr-only">{member.mine ? "내 주문 금액" : `${maskedMemberName} 주문 금액`}</span>
+                            <input
+                              type="number"
+                              inputMode="numeric"
+                              min="0"
+                              max="10000000"
+                              step="1"
+                              placeholder={member.mine ? "내 주문 금액" : "주문 금액"}
+                              value={amountDraft}
+                              onChange={(event) => setAmountDrafts((drafts) => ({ ...drafts, [amountKey]: event.target.value }))}
+                            />
+                          </label>
+                          <button type="submit" disabled={Boolean(savingAmount)}>{savingAmount === amountKey ? "저장 중" : "저장"}</button>
+                        </form>
+                      )}
                     </div>
                   );
                 })}
@@ -486,7 +603,7 @@ export function RoomHubModal({
                 <div className="order-info-summary">
                   <div>
                     <span className="order-info-icon" aria-hidden="true">Σ</span>
-                    <p><small>현재 모인 주문금액</small><strong>{money(room.total)}</strong></p>
+                    <p><small>모인 주문 금액 · 참여자 합계</small><strong>{money(room.total)}</strong></p>
                   </div>
                   <div>
                     <span className="order-info-icon" aria-hidden="true">◷</span>
@@ -522,22 +639,6 @@ export function RoomHubModal({
                 {room.isHost && editingOrderInfo && (
                   <form className="order-info-form" onSubmit={saveOrderInfo}>
                     <div className="order-info-fields">
-                      <label>
-                        <span>현재 모인 주문금액</span>
-                        <span className="price-input">
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            min="0"
-                            max="10000000"
-                            step="1"
-                            value={collectedTotal}
-                            onChange={(event) => setCollectedTotal(event.target.value)}
-                            placeholder="예: 15000"
-                          />
-                          <b>원</b>
-                        </span>
-                      </label>
                       <label>
                         <span>도착 예상 시각</span>
                         <input

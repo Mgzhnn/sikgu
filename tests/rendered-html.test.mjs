@@ -485,9 +485,13 @@ test("money inputs accept any whole won amount instead of only multiples of 100"
     page.indexOf('className="receipt-upload"'),
   );
 
-  assert.equal((orderForm.match(/type="number"/g) || []).length, 2);
+  // Only the final paid total remains here; the pooled total is summed from member amounts.
+  assert.equal((orderForm.match(/type="number"/g) || []).length, 1);
   assert.doesNotMatch(orderForm, /step="100"/);
-  assert.equal((orderForm.match(/step="1"/g) || []).length, 2);
+  assert.equal((orderForm.match(/step="1"/g) || []).length, 1);
+  const amountEditor = page.slice(page.indexOf('className="amount-editor"'), page.indexOf('className="chat-panel"'));
+  assert.match(amountEditor, /step="1"/);
+  assert.doesNotMatch(amountEditor, /step="100"/);
 });
 
 test("the chat composer keeps focus while a message is sending and never discards text typed meanwhile", async () => {
@@ -587,7 +591,9 @@ test("the pool dialog disables joining a full room and Escape is ignored mid-IME
   const homeView = page.slice(page.indexOf("function HomeView"), page.indexOf("function RestaurantsView"));
 
   assert.match(poolModal, /const isFull = !pool\.isHost && pool\.myStatus !== "approved" && pool\.people >= pool\.capacity/);
-  assert.match(poolModal, /disabled=\{pool\.myStatus === "requested" \|\| joining \|\| isFull \|\| unavailable\}/);
+  assert.match(poolModal, /disabled=\{joining \|\| isFull \|\| unavailable\}/);
+  // A pending requester gets a cancel control instead of a disabled join button.
+  assert.match(poolModal, /awaitingApproval \? \([\s\S]*신청 취소/);
   assert.match(poolModal, /isFull[\s\S]{0,40}"정원 마감"/);
   for (const [name, source] of [["dialog hook", dialogHook], ["location picker", locationPicker], ["home filter", homeView]]) {
     assert.match(source, /event\.isComposing \|\| event\.keyCode === 229/, `${name} must ignore Escape during composition`);
@@ -670,7 +676,9 @@ test("the pool dialog explains a room that closed or was deleted instead of vani
 
   assert.match(poolModal, /unavailable\?: boolean;/);
   assert.match(poolModal, /마감되었거나 삭제된 주문방이에요/);
-  assert.match(poolModal, /disabled=\{pool\.myStatus === "requested" \|\| joining \|\| isFull \|\| unavailable\}/);
+  assert.match(poolModal, /disabled=\{joining \|\| isFull \|\| unavailable\}/);
+  // A pending requester gets a cancel control instead of a disabled join button.
+  assert.match(poolModal, /awaitingApproval \? \([\s\S]*신청 취소/);
   assert.match(home, /<PoolModal[\s\S]{0,200}pool=\{latestSelectedPool \?\? selectedPool\}[\s\S]{0,200}unavailable=\{!latestSelectedPool\}/);
   assert.match(css, /\.pool-unavailable/);
 });

@@ -1,65 +1,64 @@
 [
   {
-    "file": "assets/index-BDaDUzQ1.js",
+    "file": "_next/static/chunks/index-BopWPG-V.js",
     "imports": [
-      "assets/rolldown-runtime-hePW80VL.js",
-      "assets/framework-C-kvl5Nm.js"
+      "_next/static/chunks/rolldown-runtime-hePW80VL.js",
+      "_next/static/chunks/framework-DTZGTDtF.js",
+      "_next/static/chunks/vinext-D4sFnvny.js"
     ],
     "dynamicImports": [
-      "assets/layout-segment-context-OIZXF7JP.js",
-      "assets/index-BDaDUzQ1.js",
-      "assets/page-CnmEcH12.js"
+      "_next/static/chunks/vinext-D4sFnvny.js",
+      "_next/static/chunks/layout-segment-context-KQWHoSk-.js",
+      "_next/static/chunks/page-DU-28ARa.js"
     ],
     "modules": [
       "<project>/node_modules/@vitejs/plugin-rsc/dist/browser.js",
       "<project>/node_modules/@vitejs/plugin-rsc/dist/core/browser.js",
-      "<project>/node_modules/@vitejs/plugin-rsc/dist/dist-rz-Bnebz.js",
       "<project>/node_modules/@vitejs/plugin-rsc/dist/react/browser.js",
-      "<project>/node_modules/@vitejs/plugin-rsc/dist/shared-BViDMJTQ.js",
+      "<project>/node_modules/@vitejs/plugin-rsc/dist/shared-BWJvctW6.js",
+      "<project>/node_modules/@vitejs/plugin-rsc/dist/shared-Y4B6DJ99.js",
       "<project>/node_modules/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.production.js",
       "<project>/node_modules/react-server-dom-webpack/client.browser.js",
       "<project>/node_modules/vinext/dist/client/empty-module.js",
-      "<project>/node_modules/vinext/dist/client/instrumentation-client-state.js",
       "<project>/node_modules/vinext/dist/client/instrumentation-client.js",
-      "<project>/node_modules/vinext/dist/client/window-next.js",
+      "<project>/node_modules/vinext/dist/client/react-instance-bootstrap.js",
+      "<project>/node_modules/vinext/dist/client/react-instance.js",
+      "<project>/node_modules/vinext/dist/server/app-bfcache-identity.js",
       "<project>/node_modules/vinext/dist/server/app-browser-action-result.js",
+      "<project>/node_modules/vinext/dist/server/app-browser-client-reuse-manifest.js",
       "<project>/node_modules/vinext/dist/server/app-browser-entry.js",
       "<project>/node_modules/vinext/dist/server/app-browser-error.js",
+      "<project>/node_modules/vinext/dist/server/app-browser-history-controller.js",
       "<project>/node_modules/vinext/dist/server/app-browser-hydration.js",
+      "<project>/node_modules/vinext/dist/server/app-browser-navigation-abort.js",
       "<project>/node_modules/vinext/dist/server/app-browser-navigation-controller.js",
+      "<project>/node_modules/vinext/dist/server/app-browser-navigation-response.js",
+      "<project>/node_modules/vinext/dist/server/app-browser-popstate.js",
+      "<project>/node_modules/vinext/dist/server/app-browser-prefetch-response.js",
       "<project>/node_modules/vinext/dist/server/app-browser-state.js",
       "<project>/node_modules/vinext/dist/server/app-browser-stream.js",
+      "<project>/node_modules/vinext/dist/server/app-browser-supplemental-refresh.js",
       "<project>/node_modules/vinext/dist/server/app-browser-visible-commit.js",
-      "<project>/node_modules/vinext/dist/server/app-elements-wire.js",
-      "<project>/node_modules/vinext/dist/server/app-elements.js",
-      "<project>/node_modules/vinext/dist/server/app-mounted-slots-header.js",
-      "<project>/node_modules/vinext/dist/server/app-rsc-cache-busting.js",
-      "<project>/node_modules/vinext/dist/server/app-rsc-render-mode.js",
-      "<project>/node_modules/vinext/dist/server/artifact-compatibility.js",
-      "<project>/node_modules/vinext/dist/server/dev-error-overlay-store.js",
-      "<project>/node_modules/vinext/dist/server/dev-error-overlay.js",
-      "<project>/node_modules/vinext/dist/server/headers.js",
-      "<project>/node_modules/vinext/dist/server/navigation-planner.js",
-      "<project>/node_modules/vinext/dist/server/navigation-trace.js",
-      "<project>/node_modules/vinext/dist/server/server-action-not-found.js",
-      "<project>/node_modules/vinext/dist/shims/error-boundary.js",
-      "<project>/node_modules/vinext/dist/shims/navigation.js",
-      "<project>/node_modules/vinext/dist/shims/readonly-url-search-params.js",
-      "<project>/node_modules/vinext/dist/shims/slot.js",
-      "<project>/node_modules/vinext/dist/shims/url-safety.js",
-      "<project>/node_modules/vinext/dist/shims/url-utils.js",
-      "<project>/node_modules/vinext/dist/utils/base-path.js",
-      "<project>/node_modules/vinext/dist/utils/hash.js",
-      "<project>/node_modules/vinext/dist/utils/navigation-signal.js",
+      "<project>/node_modules/vinext/dist/server/app-hydration-cache-publication.js",
+      "<project>/node_modules/vinext/dist/server/app-inline-css-client.js",
+      "<project>/node_modules/vinext/dist/server/app-optimistic-routing.js",
+      "<project>/node_modules/vinext/dist/server/app-page-segment-state.js",
+      "<project>/node_modules/vinext/dist/server/app-rsc-embedded-chunks.js",
+      "<project>/node_modules/vinext/dist/server/app-visited-response-cache.js",
+      "<project>/node_modules/vinext/dist/server/cache-proof.js",
+      "<project>/node_modules/vinext/dist/server/client-reuse-manifest.js",
+      "<project>/node_modules/vinext/dist/server/html.js",
+      "<project>/node_modules/vinext/dist/server/static-layout-client-reuse-proof.js",
+      "<project>/node_modules/vinext/dist/utils/sorted-array.js",
       "virtual:vinext-app-browser-entry",
-      "virtual:vite-rsc/client-references",
-      "vite/preload-helper.js"
+      "virtual:vinext-app-capabilities",
+      "virtual:vite-rsc/client-references"
     ]
   },
   {
-    "file": "assets/framework-C-kvl5Nm.js",
+    "file": "_next/static/chunks/framework-DTZGTDtF.js",
     "imports": [
-      "assets/rolldown-runtime-hePW80VL.js"
+      "_next/static/chunks/rolldown-runtime-hePW80VL.js"
     ],
     "dynamicImports": [],
     "modules": [
@@ -76,11 +75,11 @@
     ]
   },
   {
-    "file": "assets/layout-segment-context-OIZXF7JP.js",
+    "file": "_next/static/chunks/layout-segment-context-KQWHoSk-.js",
     "imports": [
-      "assets/rolldown-runtime-hePW80VL.js",
-      "assets/framework-C-kvl5Nm.js",
-      "assets/index-BDaDUzQ1.js"
+      "_next/static/chunks/rolldown-runtime-hePW80VL.js",
+      "_next/static/chunks/framework-DTZGTDtF.js",
+      "_next/static/chunks/vinext-D4sFnvny.js"
     ],
     "dynamicImports": [],
     "modules": [
@@ -88,10 +87,10 @@
     ]
   },
   {
-    "file": "assets/page-CnmEcH12.js",
+    "file": "_next/static/chunks/page-DU-28ARa.js",
     "imports": [
-      "assets/rolldown-runtime-hePW80VL.js",
-      "assets/framework-C-kvl5Nm.js"
+      "_next/static/chunks/rolldown-runtime-hePW80VL.js",
+      "_next/static/chunks/framework-DTZGTDtF.js"
     ],
     "dynamicImports": [],
     "modules": [
@@ -109,11 +108,98 @@
     ]
   },
   {
-    "file": "assets/rolldown-runtime-hePW80VL.js",
+    "file": "_next/static/chunks/rolldown-runtime-hePW80VL.js",
     "imports": [],
     "dynamicImports": [],
     "modules": [
       "rolldown/runtime.js"
+    ]
+  },
+  {
+    "file": "_next/static/chunks/vinext-D4sFnvny.js",
+    "imports": [
+      "_next/static/chunks/rolldown-runtime-hePW80VL.js",
+      "_next/static/chunks/framework-DTZGTDtF.js"
+    ],
+    "dynamicImports": [
+      "_next/static/chunks/vinext-D4sFnvny.js"
+    ],
+    "modules": [
+      "<project>/node_modules/vinext/dist/client/app-nav-failure-handler.js",
+      "<project>/node_modules/vinext/dist/client/browser-globals.js",
+      "<project>/node_modules/vinext/dist/client/instrumentation-client-state.js",
+      "<project>/node_modules/vinext/dist/client/navigation-runtime.js",
+      "<project>/node_modules/vinext/dist/client/window-next.js",
+      "<project>/node_modules/vinext/dist/routing/route-matching.js",
+      "<project>/node_modules/vinext/dist/routing/route-pattern.js",
+      "<project>/node_modules/vinext/dist/routing/route-trie.js",
+      "<project>/node_modules/vinext/dist/routing/utils.js",
+      "<project>/node_modules/vinext/dist/server/app-bfcache-id.js",
+      "<project>/node_modules/vinext/dist/server/app-browser-interception-context.js",
+      "<project>/node_modules/vinext/dist/server/app-browser-mpa-navigation.js",
+      "<project>/node_modules/vinext/dist/server/app-browser-rsc-redirect.js",
+      "<project>/node_modules/vinext/dist/server/app-elements-wire-key.js",
+      "<project>/node_modules/vinext/dist/server/app-elements-wire.js",
+      "<project>/node_modules/vinext/dist/server/app-elements.js",
+      "<project>/node_modules/vinext/dist/server/app-history-state.js",
+      "<project>/node_modules/vinext/dist/server/app-mounted-slots-header.js",
+      "<project>/node_modules/vinext/dist/server/app-render-dependency.js",
+      "<project>/node_modules/vinext/dist/server/app-rsc-cache-busting.js",
+      "<project>/node_modules/vinext/dist/server/app-rsc-render-mode.js",
+      "<project>/node_modules/vinext/dist/server/app-rsc-state-fingerprint.js",
+      "<project>/node_modules/vinext/dist/server/app-rsc-vary.js",
+      "<project>/node_modules/vinext/dist/server/artifact-compatibility.js",
+      "<project>/node_modules/vinext/dist/server/bfcache-identity.js",
+      "<project>/node_modules/vinext/dist/server/headers.js",
+      "<project>/node_modules/vinext/dist/server/navigation-planner.js",
+      "<project>/node_modules/vinext/dist/server/navigation-trace.js",
+      "<project>/node_modules/vinext/dist/server/normalize-path.js",
+      "<project>/node_modules/vinext/dist/server/operation-token.js",
+      "<project>/node_modules/vinext/dist/server/rsc-completion-metadata.js",
+      "<project>/node_modules/vinext/dist/shims/app-router-scroll-state.js",
+      "<project>/node_modules/vinext/dist/shims/app-router-scroll.js",
+      "<project>/node_modules/vinext/dist/shims/client-page-root.js",
+      "<project>/node_modules/vinext/dist/shims/default-global-error.js",
+      "<project>/node_modules/vinext/dist/shims/error-boundary-navigation.js",
+      "<project>/node_modules/vinext/dist/shims/error-boundary.js",
+      "<project>/node_modules/vinext/dist/shims/hash-scroll.js",
+      "<project>/node_modules/vinext/dist/shims/internal/als-registry.js",
+      "<project>/node_modules/vinext/dist/shims/internal/app-prefetch-fetch-queue.js",
+      "<project>/node_modules/vinext/dist/shims/internal/app-prefetch-rsc-request.js",
+      "<project>/node_modules/vinext/dist/shims/internal/app-route-prefetch-policy.js",
+      "<project>/node_modules/vinext/dist/shims/internal/app-router-context.js",
+      "<project>/node_modules/vinext/dist/shims/internal/hybrid-client-route-owner-direct.js",
+      "<project>/node_modules/vinext/dist/shims/internal/make-hanging-promise.js",
+      "<project>/node_modules/vinext/dist/shims/internal/pages-router-accessor.js",
+      "<project>/node_modules/vinext/dist/shims/internal/thenable-well-known-properties.js",
+      "<project>/node_modules/vinext/dist/shims/navigation-context-state.js",
+      "<project>/node_modules/vinext/dist/shims/navigation-errors.js",
+      "<project>/node_modules/vinext/dist/shims/navigation-server.js",
+      "<project>/node_modules/vinext/dist/shims/navigation.js",
+      "<project>/node_modules/vinext/dist/shims/ppr-fallback-shell.js",
+      "<project>/node_modules/vinext/dist/shims/readonly-url-search-params.js",
+      "<project>/node_modules/vinext/dist/shims/slot.js",
+      "<project>/node_modules/vinext/dist/shims/streamed-icons.js",
+      "<project>/node_modules/vinext/dist/shims/unrecognized-action-error.js",
+      "<project>/node_modules/vinext/dist/shims/url-safety.js",
+      "<project>/node_modules/vinext/dist/shims/url-utils.js",
+      "<project>/node_modules/vinext/dist/utils/base-path.js",
+      "<project>/node_modules/vinext/dist/utils/compare.js",
+      "<project>/node_modules/vinext/dist/utils/deployment-id.js",
+      "<project>/node_modules/vinext/dist/utils/dev-error-recovery-event.js",
+      "<project>/node_modules/vinext/dist/utils/domain-locale.js",
+      "<project>/node_modules/vinext/dist/utils/external-url.js",
+      "<project>/node_modules/vinext/dist/utils/hash.js",
+      "<project>/node_modules/vinext/dist/utils/html-limited-bots.js",
+      "<project>/node_modules/vinext/dist/utils/navigation-signal.js",
+      "<project>/node_modules/vinext/dist/utils/number.js",
+      "<project>/node_modules/vinext/dist/utils/promise.js",
+      "<project>/node_modules/vinext/dist/utils/protocol-headers.js",
+      "<project>/node_modules/vinext/dist/utils/query.js",
+      "<project>/node_modules/vinext/dist/utils/record.js",
+      "<project>/node_modules/vinext/dist/utils/redirect-digest.js",
+      "vinext:async-hooks-stub",
+      "vite/preload-helper.js"
     ]
   }
 ]

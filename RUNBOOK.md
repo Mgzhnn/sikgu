@@ -46,6 +46,33 @@ Record the date it was enabled here: _not yet enabled_.
 
 Last deploy: 2026-10-05, commit `e5e77d7` as Sites version 26, saved and deployed by Codex on the server with the Sites tools. Sites applied migrations 0004 and 0005; all tables were empty beforehand, so migration 0001's row deletion could not lose data. The owning ChatGPT account must be the one Codex is logged in as, or Sites reports the project as not found.
 
+## Catalog: adding or updating a restaurant or pickup point
+
+The catalog is code, deployed with the app (no admin UI by decision; see
+COMPLETION.md). Minimums and fees change on Baemin and Coupang Eats, so
+review them on a fixed cadence (once per semester) and record the date in
+the header comment of `app/catalog.ts`.
+
+1. Minimum order amounts per app live in `app/sikgu-rules.mjs`
+   (`restaurantMinimums`); the restaurant's name, cuisine, address, delivery
+   fees and menu live in `app/catalog.ts` (`restaurants`). Both keys must
+   match exactly; the server validates room creation against
+   `restaurantMinimums` and the client renders from `catalog.ts`.
+2. To add a restaurant: add its id and both minimums to `restaurantMinimums`,
+   then its entry to `restaurants` in `catalog.ts` with `verified: true` only
+   after checking the address on the map link. To update prices: edit the
+   numbers only.
+3. Pickup points: `pickupFullNames` in `app/sikgu-rules.mjs` and
+   `pickupPoints` in `app/catalog.ts` (with map coordinates) must stay in
+   step.
+4. Never remove or rename an id that existing rooms may use: rooms with an
+   unknown id are hidden from every list, including My Rooms. Retire a
+   restaurant by leaving its id in place and setting a note in the catalog
+   entry; remove it only after the 30-day retention window has passed.
+5. Run `node --test` (the catalog preservation test checks the 21/8 counts
+   and the id correspondence; update its expectations when the set
+   deliberately changes), then deploy as a normal release.
+
 ## Migrations
 
 - Schema lives in `db/schema.ts`. Never hand-edit files under `drizzle/` or

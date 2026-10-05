@@ -1,6 +1,6 @@
 # Sikgu repair record — 2026-09-05
 
-Scope: repair the ranked review of baseline `25804ae3bac5be6aa74b0ad39186fc3df10b7013`, preserve the campus catalog and hosting contract, verify on the local machine and server, and deliver through GitHub. This record concerns the repaired source. No production deployment, production migration or destructive storage cleanup was performed.
+Scope: repair the ranked review of baseline `25804ae3bac5be6aa74b0ad39186fc3df10b7013`, preserve the campus catalog and hosting contract, verify on the local machine and server, and deliver through GitHub. This record concerns the repaired source. No production deployment, production migration or destructive storage cleanup was performed. These repairs were deployed later, on 2026-10-05; see [Production deployment](#production-deployment--2026-10-05).
 
 ## Ranked findings and repairs
 
@@ -60,3 +60,13 @@ These are described follow-ups, not prerequisites or silently added features:
 - **Close recruitment early while keeping chat/receipts:** lets a host place an order before the timer ends without deleting its coordination/history. This needs an explicit state transition and invite behavior.
 - **Per-person order accounting:** distinguishes the host's collected aggregate from what each member ordered and owes. It requires an agreed editing/confirmation model.
 - **Settlement records:** records who paid and what remains due. This needs correction/privacy/retention decisions and does not imply integrating payment processing.
+
+## Production deployment — 2026-10-05
+
+Before this date production ran a build older than `77183f3` (2026-09-03): `?action=health` was rejected as an unsupported request, so neither the 2026-09-03 audit fixes nor the repairs above were live.
+
+- **Dependency:** `e5e77d7` raised `next` and `eslint-config-next` from 16.3.4 to 16.3.8 for [GHSA-vcvr-r3jv-pc5j](https://github.com/advisories/GHSA-vcvr-r3jv-pc5j) (critical, `next/og` `ImageResponse`). The app does not import `next/og`, so the code was not reachable. `npm audit --omit=dev` reports 0 vulnerabilities after the bump.
+- **Release:** `e5e77d7` was saved as Sites version 26 and deployed publicly with the `DB` and `UPLOADS` bindings. Before deploying, the Sites Database view showed four tables (`rooms`, `room_members`, `room_messages`, `room_invites`), all empty, and no `room_blocks`. Sites applied `0004_room_blocks` and `0005_history_indexes`, and `room_blocks` exists afterwards. With no rows present, `0001`'s `DELETE` statements could not lose data whether or not the platform re-ran them.
+- **Identity gate, public origin: passed.** Forged `oai-authenticated-user-*` headers produce `user: null` on bootstrap and 401 on `create_room` (`verification/production-probe-2026-10-05.log`). The same day, the LineageGuard Site on the same platform accepted a genuine signed-in request and rejected a forged header.
+- **Device check:** the owner ran a room test on a physical iPhone against version 26 and reported it working. No itemized results were recorded.
+- **Still unverified:** alternate origins (direct Worker, custom domain, preview) beyond the public `chatgpt.site` URL; live D1 concurrency; R2 object removal after room deletion, which Sites' Database view cannot show; retention sweep behavior in production.

@@ -29,7 +29,7 @@ after every deploy and from any uptime monitor. This is a connectivity/liveness 
 4. Check migration/schema readiness through the platform's database tools (expected tables, columns and indexes), then probe health. In an authorized test room verify create, join, approve, chat, upload/read a receipt as a member, and delete. Verify the deleted receipt object is gone from R2.
 5. Old tabs should reload after a contract change. This repair returns absolute `expiresAt` for invitation creation instead of `expiresInHours`; stale clients must not continue advertising 24 hours. New pagination fields are additive and optional cursor parameters preserve first-page behavior. Do not claim compatibility of stale cached UI just because the API still responds.
 
-The current repair was verified as source; no production deployment or migration was performed by this work.
+Last deploy: 2026-10-05, commit `e5e77d7` as Sites version 26, saved and deployed by Codex on the server with the Sites tools. Sites applied migrations 0004 and 0005; all tables were empty beforehand, so migration 0001's row deletion could not lose data. The owning ChatGPT account must be the one Codex is logged in as, or Sites reports the project as not found.
 
 ## Migrations
 
@@ -96,6 +96,7 @@ A receipt key whose room row has already vanished cannot be found by the room sw
 
 - Anonymous spoof-header test: request the public bootstrap endpoint with synthetic `oai-authenticated-user-*` headers and verify an actual app response has `user: null`. Verify a legitimate signed-in request separately. Never send a real user's identity or publish session cookies/tokens in evidence.
 - A 403/HTML response from the edge is **inconclusive**, not a pass. Both plain and spoofed requests received that result on 2026-09-05; see `verification/hosting-probe.json`.
+- On 2026-10-05 against version 26, the public origin returned real app responses: spoofed bootstrap gave `user: null` and a spoofed `create_room` got 401. This passes the spoof-header test for `sikgu-dgist.ugrp44group.chatgpt.site`; see `verification/production-probe-2026-10-05.log`. On the same day a separate Sites project (LineageGuard) accepted a genuine signed-in request and rejected the same spoofed header, so the platform injects identity only for real sessions.
 - Check any reachable Worker, preview, custom-domain and alternate origins. They must either reject direct access or enforce the same trusted-proxy boundary. Sites returned no current preview URL and did not expose Worker routing/header-stripping configuration, so these checks remain unverified. Keep this as a release gate; local header stubs do not prove it.
-- The browser suite uses Chromium with synthetic local API responses. Verify physical iOS Safari IME, keyboard/scroll behavior and receipt selection from the photo library before claiming iOS support was tested.
+- The browser suite uses Chromium with synthetic local API responses. Verify physical iOS Safari IME, keyboard/scroll behavior and receipt selection from the photo library before claiming iOS support was tested. On 2026-10-05 the owner ran a room test (create, Korean chat, receipt, delete) on an iPhone against version 26 and reported it working; no itemized results were recorded.
 - Bootstrap history cursors use `(created_at, id)`; chat uses the same tie-breaker. Keep filters/sort fixed while paging. Feed amount sorting can change while totals change; it is a live view, not a transactionally frozen snapshot. Refresh if ordering changes during browsing.

@@ -29,12 +29,14 @@ Requires Node.js ≥22.13 to run and ≥22.18 to run the tests (the API harness 
 
 ```bash
 npm ci
-npm run dev -- --host 127.0.0.1
+npm run dev -- --host 127.0.0.1 --port 3000
 npm test                    # production build, TypeScript, Node/SQLite tests
 npm run lint
 npx playwright install chromium
-npm run test:browser        # real UI, local synthetic API responses
-npm audit --json            # review residual entries; not currently a zero-audit gate
+npm run test:browser        # real UI, local synthetic API responses (starts the dev server on port 3000)
+npm audit --omit=dev        # production dependencies: CI fails on high or critical
+npm audit --json            # development entries are reviewed in REPAIRS.md
+npm run probe -- https://<origin>   # identity boundary probe against a deployed origin
 npm run db:generate -- --name descriptive_change
 ```
 
@@ -54,9 +56,18 @@ The latest repair results, before/after reproductions, package audit and deploym
 
 ```text
 app/
-  page.tsx                 # feed, directory, creation and page coordination
-  room-hub.tsx             # private room, membership, chat and receipt UI
-  room-ui.tsx              # dialog lifecycle, API reads, uploads and polling adapter
+  page.tsx                 # Home: composes hooks, views and modals (under 300 lines)
+  hooks/                   # use-feed (pools, cursors, poll, server clock), use-session,
+                           # use-room-actions (join, cancel, create, invite), use-current-pickup
+  views/                   # home, restaurants, profile (with privacy notice), right rail
+  modals/                  # pool, create, campus map, feedback, invite confirmation
+  components/              # brand, header, location picker, pool card, progress, map preview
+  lib/api.ts               # apiGet/apiPost with the same-origin header and 401 → sign-in
+  lib/pool-status.ts       # join-status labels, full/closed checks, merge by id
+  continuations.ts         # pending join and pending invitation resumption after sign-in
+  room-hub.tsx             # private room: members and amounts, deadline actions, chat, receipt
+  room-ui.tsx              # dialog lifecycle, receipt re-encoding, polling adapter, readJson
+  name-mask.mjs            # display-name masking (Korean middle, Latin initials, placeholders)
   catalog.ts, types.ts      # preserved restaurant/pickup data and shared UI types
   polling.mjs              # cancellable scheduler shared by feed and room
   message-history.mjs      # message identity and history merging
@@ -91,4 +102,4 @@ tests/, browser-tests/     # behavioral and supplementary structural checks
 
 **Before each release:** re-run the identity probe, confirm no alternate origin bypasses Sites, check migrations through the Sites Database view, and verify receipt storage. The health endpoint checks database connectivity only.
 
-[RUNBOOK.md](RUNBOOK.md) covers release, rollback and cleanup. [REPAIRS.md](REPAIRS.md) is the current repair record; [AUDIT.md](AUDIT.md) preserves the earlier audit as history rather than certifying the present deployment.
+[RUNBOOK.md](RUNBOOK.md) covers release, rollback, catalog updates and cleanup. [REPAIRS.md](REPAIRS.md) is the repair record, closed on 2026-10-06; [COMPLETION.md](COMPLETION.md) is the fixed completion plan with its remaining owner steps; [AUDIT.md](AUDIT.md) preserves the earlier audit as history rather than certifying the present deployment.

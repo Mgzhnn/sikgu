@@ -157,7 +157,7 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
 
 ## G. Documentation and handover
 
-- [ ] **G1 · Docs match the final code** (S)
+- [x] **G1 · Docs match the final code** (S)
   README feature list and file tree, RUNBOOK release checklist as numbered
   steps, REPAIRS closed with a final date. A "how to add or update a
   restaurant" procedure (edit `sikgu-rules.mjs` and `catalog.ts`, run the
@@ -182,3 +182,11 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
 
 Progress is tracked by ticking boxes in this file in the same PR that
 completes the item.
+
+## Status on 2026-10-06
+
+18 of 24 items done (every code and documentation item). The six open items
+are owner actions that need production access or GitHub settings: C1, C2
+(monitor half), C3, D3, G2, plus the closing deploy, probe, README version
+line and the `v1.0.0` tag. Nothing has been added to this list since it was
+written; nothing will be.

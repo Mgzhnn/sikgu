@@ -63,7 +63,7 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
   the INSERT like the chat limiter.
   *Accept:* harness test with the limit crossed under concurrent requests.
 
-- [ ] **B3 · Runtime security headers** (S)
+- [x] **B3 · Runtime security headers** (S)
   One test fetches the built worker (or a Playwright request) and asserts
   CSP, `X-Content-Type-Options`, `Referrer-Policy` and frame headers from the
   actual response instead of regexes over `worker/index.ts`.
@@ -106,7 +106,7 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
   test:browser` and `npm audit --omit=dev --audit-level=high`.
   *Accept:* both steps green on `main`.
 
-- [ ] **D2 · Behaviour tests replace source regexes for the risky paths** (M)
+- [x] **D2 · Behaviour tests replace source regexes for the risky paths** (M)
   New tests for: room GET 401 redirect, load-more racing a poll, host
   approve / reject / remove round trip, order-info PUT round trip, DELETE
   round trip, health 503. Source-regex assertions that lock implementation

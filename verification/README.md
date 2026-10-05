@@ -1,6 +1,6 @@
 # Verification evidence
 
-Run commands from the repository root with Node ≥22.13. Tests use synthetic data; no production database or bucket was modified.
+Run commands from the repository root with Node ≥22.18. Tests use synthetic data; no production database or bucket was modified.
 
 ```bash
 npm ci

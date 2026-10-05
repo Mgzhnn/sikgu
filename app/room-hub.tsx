@@ -88,6 +88,13 @@ export function RoomHubModal({
           setMessages([]);
           setReceiptFile(null);
         }
+        if (response.status === 401) {
+          // The mutation path already redirects on 401; a poll that finds the
+          // session gone must do the same instead of showing a retry that
+          // fails identically.
+          redirectToSignIn();
+          return false;
+        }
         setError(data.error || "주문방을 불러오지 못했어요.");
         setLoading(false);
         return false;

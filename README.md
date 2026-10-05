@@ -24,11 +24,11 @@ This app coordinates orders; it does not place delivery orders, collect payments
 
 ## Development and verification
 
-Requires Node.js ≥22.13. Use the versions pinned by `package-lock.json`.
+Requires Node.js ≥22.13 to run and ≥22.18 to run the tests (the API harness imports TypeScript directly). Use the versions pinned by `package-lock.json`.
 
 ```bash
 npm ci
-npm run dev -- --host 127.0.0.1
+npm run dev -- --hostname 127.0.0.1
 npm test                    # production build, TypeScript, Node/SQLite tests
 npm run lint
 npx playwright install chromium

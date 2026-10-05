@@ -185,6 +185,9 @@ completes the item.
 
 ## Status on 2026-10-06
 
+Deployed: Sites version 28 from `e42a53c` on 2026-10-06, migration 0006 applied,
+probe passed. Open: C1, C2 (monitor), C3, D3, G2, then the tag.
+
 18 of 24 items done (every code and documentation item). The six open items
 are owner actions that need production access or GitHub settings: C1, C2
 (monitor half), C3, D3, G2, plus the closing deploy, probe, README version

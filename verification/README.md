@@ -4,16 +4,16 @@ Run commands from the repository root with Node ≥22.18. Tests use synthetic da
 
 ```bash
 npm ci
-npm test > verification/final-local.log 2>&1
+SIKGU_EVIDENCE=1 npm test > verification/final-local.log 2>&1
 npm run lint > verification/final-lint.log 2>&1
 npx playwright install chromium
-npm run test:browser > verification/browser-final.log 2>&1
+SIKGU_EVIDENCE=1 npm run test:browser > verification/browser-final.log 2>&1
 npm ls vinext image-size drizzle-kit @esbuild-kit/esm-loader @esbuild-kit/core-utils esbuild fflate --all
 npm audit --json > verification/dependency-final.json
 node verification/collect-evidence.mjs
 ```
 
-An audit exit code of 1 is expected until the residual advisories in REPAIRS.md are addressed. It is not a test/build success. The evidence collector requires all three fresh module inventories from the build and checks catalog, hosting manifest and applied migration preservation against `25804ae`.
+An audit exit code of 1 is expected until the residual advisories in REPAIRS.md are addressed. It is not a test/build success. `SIKGU_EVIDENCE=1` is what makes the build write `modules-*.json` and the browser tests write `mobile-*.png` here; without it they are skipped or go to `test-results/`, so ordinary builds leave the tree clean. The evidence collector requires all three fresh module inventories from the build and checks catalog, hosting manifest and applied migration preservation against `25804ae`.
 
 | Evidence | Meaning |
 | --- | --- |

@@ -28,12 +28,22 @@ export function sites(): Plugin {
       // Exact module provenance for each emitted chunk, including explicit
       // external imports. This is stronger dependency evidence than grepping
       // minified function names, which can change or disappear.
+      //
+      // Written only when evidence is being collected (SIKGU_EVIDENCE=1). The
+      // inventories are committed, and chunk hashes differ between builds of
+      // the same source, so every build, test run and Codex deploy clone left
+      // them modified (2026-10-22 review).
+      if (process.env.SIKGU_EVIDENCE !== "1") return;
+      const encodedRoot = encodeURIComponent(root);
       const chunks = Object.values(bundle).filter(item => item.type === "chunk").map(chunk => ({
         file: chunk.fileName,
-        imports: chunk.imports,
-        dynamicImports: chunk.dynamicImports,
-        modules: Object.keys(chunk.modules).map(id => id.replaceAll(root, "<project>").replaceAll("\u0000", "")).sort(),
-      }));
+        imports: [...chunk.imports].sort(),
+        dynamicImports: [...chunk.dynamicImports].sort(),
+        modules: Object.keys(chunk.modules).map(id => id
+          .replaceAll(root, "<project>")
+          .replaceAll(encodedRoot, "<project>")
+          .replaceAll("\u0000", "")).sort(),
+      })).sort((a, b) => a.file.localeCompare(b.file));
       const evidence = resolve(root, "verification");
       await mkdir(evidence, {recursive:true});
       await writeFile(resolve(evidence, `modules-${this.environment.name}.json`), JSON.stringify(chunks,null,2)+"\n");

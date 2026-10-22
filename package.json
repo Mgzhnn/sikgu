@@ -8,7 +8,6 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
-    "start": "vinext start",
     "test": "npm run build && npm run typecheck && node --test",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "typecheck": "tsc --noEmit",
@@ -47,6 +46,7 @@
     "esbuild@0.25.12": true,
     "esbuild@0.28.1": true,
     "esbuild@0.28.2": true,
+    "fsevents@2.3.3": false,
     "unrs-resolver@1.11.1": true,
     "workerd@1.20261001.1": true
   },
@@ -54,6 +54,11 @@
     "runtime": {
       "name": "node",
       "version": ">=22.18.0",
+      "onFail": "warn"
+    },
+    "packageManager": {
+      "name": "npm",
+      "version": ">=11.19.0",
       "onFail": "warn"
     }
   },

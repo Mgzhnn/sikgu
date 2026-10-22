@@ -2,6 +2,8 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './browser-tests',
   workers: 1,
+  // A committed test.only would otherwise let CI pass after running one test.
+  forbidOnly: !!process.env.CI,
   fullyParallel: false,
   use: { baseURL: 'http://localhost:3000', viewport: {width:390,height:844}, trace: 'retain-on-failure' },
   reporter: 'list',

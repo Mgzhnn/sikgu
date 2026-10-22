@@ -1,4 +1,4 @@
-// Run from the repository root after npm test. No network or production access.
+// Run from the repository root after SIKGU_EVIDENCE=1 npm test. No network or production access.
 import ts from 'typescript';
 import {readFileSync, readdirSync, writeFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
@@ -18,7 +18,7 @@ const diff=execFileSync('git',['diff',baseline,'--','.openai',...originalSQL],{e
 if(diff.trim())throw Error('Hosting manifest or applied migrations changed');
 writeFileSync('verification/catalog-preservation.log',`Baseline: ${baseline}\nAll 21 restaurants, menus, prices and 8 pickup points preserved.\nHosting metadata and all ${originalSQL.length} applied SQL migrations unchanged.\n`);
 const files=readdirSync('verification').filter(f=>/^modules-.*\.json$/.test(f));
-if(files.length!==3)throw Error('Expected fresh client, rsc and ssr module inventories from npm test');
+if(files.length!==3)throw Error('Expected fresh client, rsc and ssr module inventories from SIKGU_EVIDENCE=1 npm test');
 const affected=['esbuild','@esbuild-kit/core-utils','@esbuild-kit/esm-loader','drizzle-kit'];
 const bundles=files.map(file=>{
   const chunks=JSON.parse(readFileSync('verification/'+file));

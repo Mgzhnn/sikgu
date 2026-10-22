@@ -277,3 +277,94 @@ test('D2: a feed poll that lands first does not discard a load-more page',async(
   await expect(page.locator('.pool-card')).toHaveCount(2);
   await expect(page.locator('.pool-card').nth(1)).toContainText('맘스터치');
 });
+
+// 2026-10-22 review: the room sheet, amounts, pending rooms and the phone layout.
+const reviewRoom = () => ({id:'room_browser',restaurantId:'sinjeon',host:'테*트',pickup:'E3',pickupFull:'E3 택배보관함',closesAt:Date.now()+20*60000,total:15000,target:15000,people:2,capacity:4,apps:['baemin','coupang'],membership:'coupang',note:'테스트 주문방',myStatus:'approved',isHost:true,pendingCount:0});
+
+test('a feed refresh behind the open room sheet does not reload it or steal focus',async({page})=>{
+  const room=reviewRoom();
+  let roomGets=0,boots=0;
+  await page.route('**/api/sikgu**',async route=>{
+    const req=route.request(),url=new URL(req.url());
+    if(req.method()==='POST')return route.fulfill({json:{ok:true}});
+    if(url.searchParams.get('action')==='room'){roomGets++;return route.fulfill({json:{room,members:[{display_name:'테*트',role:'host',status:'approved',created_at:0,mine:1,amount:5000}],messages:[],nextMessagesCursor:null}});}
+    boots++;
+    return route.fulfill({json:{user:{displayName:'테*트'},serverNow:Date.now(),rooms:[room],myRooms:[room],nextRoomsCursor:null,nextMyRoomsCursor:null}});
+  });
+  await page.goto('/');
+  await page.locator('.pool-card').first().click();
+  await page.getByRole('button',{name:/참여자 관리/}).click();
+  const composer=page.getByRole('textbox',{name:'채팅 메시지'});
+  await composer.click();await composer.fill('입력 중');
+  await expect.poll(()=>roomGets).toBeGreaterThan(0);
+  const gets=roomGets,feeds=boots;
+  await page.evaluate(()=>{(window as unknown as {flashes:number}).flashes=0;new MutationObserver(()=>{if(document.querySelector('.room-hub-loading'))(window as unknown as {flashes:number}).flashes++;}).observe(document.body,{subtree:true,childList:true});});
+  await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+  await expect.poll(()=>boots).toBeGreaterThan(feeds);
+  await page.waitForTimeout(1000);
+  expect(await page.evaluate(()=>(window as unknown as {flashes:number}).flashes)).toBe(0);
+  expect(roomGets-gets).toBeLessThanOrEqual(1); // the sheet's own poll also answers visibilitychange
+  await expect(composer).toBeFocused();
+  await expect(composer).toHaveValue('입력 중');
+});
+
+test('saving an amount field that was not edited keeps the amount',async({page})=>{
+  const room={...reviewRoom(),isHost:false,total:8000};
+  const members=[{display_name:'테*트',role:'host',status:'approved',created_at:0,amount:1000,mine:0},{member_ref:'b'.repeat(32),display_name:'나*',role:'member',status:'approved',created_at:1,amount:7000 as number|null,mine:1}];
+  const posted:unknown[]=[];
+  await page.route('**/api/sikgu**',async route=>{
+    const req=route.request(),url=new URL(req.url());
+    if(req.method()==='POST'){const b=req.postDataJSON();if(b.action==='set_amount'){posted.push(b.amount);members[1].amount=b.amount;}return route.fulfill({json:{ok:true}});}
+    if(url.searchParams.get('action')==='room')return route.fulfill({json:{room,members,messages:[],nextMessagesCursor:null}});
+    return route.fulfill({json:{user:{displayName:'나*'},serverNow:Date.now(),rooms:[room],myRooms:[room],nextRoomsCursor:null,nextMyRoomsCursor:null}});
+  });
+  await page.goto('/');
+  await page.locator('.pool-card').first().click();
+  await page.getByRole('button',{name:'채팅방 열기'}).click();
+  const dialog=page.getByRole('dialog',{name:'비공개 주문방 채팅'});
+  await expect(dialog.getByRole('spinbutton',{name:'내 주문 금액'})).toHaveValue('7000');
+  await dialog.getByRole('button',{name:'저장',exact:true}).click();
+  await expect.poll(()=>posted.length).toBe(1);
+  expect(posted[0]).toBe(7000);
+  await expect(dialog.locator('.member-list')).not.toContainText('금액 미입력');
+});
+
+test('a pending room opened from 내 정보 is shown open while a home search hides it',async({page})=>{
+  const pending={...reviewRoom(),id:'room_pending',isHost:false,myStatus:'requested'};
+  await page.route('**/api/sikgu**',async route=>{
+    const url=new URL(route.request().url());
+    const rooms=url.searchParams.has('searchRestaurants')?[]:[pending];
+    return route.fulfill({json:{user:{displayName:'나*'},serverNow:Date.now(),rooms,myRooms:[pending],nextRoomsCursor:null,nextMyRoomsCursor:null}});
+  });
+  await page.goto('/');
+  await expect(page.locator('.pool-card')).toHaveCount(1);
+  // Wait for the SERVER's filtered feed, not just the client-side filter: the
+  // bug needs the room to be missing from the feed the app holds.
+  const filtered=page.waitForResponse(r=>new URL(r.url()).searchParams.has('searchRestaurants'));
+  await page.getByRole('textbox',{name:'주문방 검색'}).fill('맘스터치');
+  await filtered;
+  await expect(page.locator('.pool-card')).toHaveCount(0);
+  await page.getByRole('navigation',{name:'모바일 주 메뉴'}).getByRole('button').last().click();
+  await page.locator('.my-room-list > button').first().click();
+  const dialog=page.getByRole('dialog',{name:'신전떡볶이 공동주문'});
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('.pool-unavailable')).toHaveCount(0);
+});
+
+for (const [width,height] of [[360,740],[390,844]]) {
+  test(`the member panel is not squeezed into a tiny scroll box at ${width}x${height}`,async({page})=>{
+    await page.setViewportSize({width,height});
+    const room={...reviewRoom(),pendingCount:1};
+    await page.route('**/api/sikgu**',async route=>{
+      const url=new URL(route.request().url());
+      if(url.searchParams.get('action')==='room')return route.fulfill({json:{room,members:[{display_name:'테*트',role:'host',status:'approved',created_at:0,mine:1,amount:8000},{member_ref:'c'.repeat(32),display_name:'김*수',role:'member',status:'approved',created_at:1,mine:0,amount:7000}],messages:[{id:'a',sender_name:'김*수',body:'안녕',created_at:Date.now(),mine:0}],nextMessagesCursor:null}});
+      return route.fulfill({json:{user:{displayName:'테*트'},serverNow:Date.now(),rooms:[room],myRooms:[room],nextRoomsCursor:null,nextMyRoomsCursor:null}});
+    });
+    await page.goto('/');
+    await page.locator('.pool-card').first().click();
+    await page.getByRole('button',{name:/참여자 관리/}).click();
+    await page.locator('.chat-messages article').first().waitFor();
+    const panel=await page.locator('.member-panel').evaluate(p=>({client:p.clientHeight,scroll:p.scrollHeight}));
+    expect(panel.client).toBeGreaterThanOrEqual(panel.scroll);
+  });
+}

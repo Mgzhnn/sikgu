@@ -3657,8 +3657,11 @@ button:disabled { cursor: not-allowed; opacity: 0.56; }
     max-height: calc(100dvh - 12px);
     border-radius: 24px 24px 0 0;
   }
-  .room-hub-body { grid-template-columns: 1fr; overflow-y: auto; }
-  .member-panel { max-height: 230px; border-right: 0; border-bottom: 1px solid var(--line); }
+  /* One column, one scroll area: the body. A capped, separately scrolling
+     member panel collapsed to 68-119px on phones (an auto row of a min-height:0
+     scroller shrinks), hiding 승인/거절 and the amount fields. */
+  .room-hub-body { grid-template-columns: 1fr; grid-template-rows: auto auto; overflow-y: auto; }
+  .member-panel { min-height: auto; max-height: none; overflow: visible; border-right: 0; border-bottom: 1px solid var(--line); }
   .chat-panel { min-height: 430px; }
   .room-hub-head-actions button { height: 44px; }
   .room-hub-close { width: 44px; }

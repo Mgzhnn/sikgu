@@ -64,6 +64,12 @@ export function RoomHubModal({
   const [loadingOlder,setLoadingOlder] = useState(false);
   const historyLoadedRef = useRef(false);
   const loadRoomRequestRef = useRef(0);
+  // The parent passes a fresh onGone arrow on every render. As a loadRoom
+  // dependency it restarted the room poll and reloaded the sheet whenever Home
+  // re-rendered (every feed poll and clock tick): the body blanked, the chat
+  // jumped to the top and the keyboard closed. Read it through a ref instead.
+  const onGoneRef = useRef(onGone);
+  useEffect(() => { onGoneRef.current = onGone; }, [onGone]);
   const restaurant = room
     ? restaurants.find((item) => item.id === room.restaurantId)
     : undefined;
@@ -95,11 +101,11 @@ export function RoomHubModal({
         // The server tells a deleted room apart from a removed member; both
         // end the session in this sheet, with the matching message.
         if (data.code === "room_gone") {
-          onGone("방장이 주문방을 삭제했어요.");
+          onGoneRef.current("방장이 주문방을 삭제했어요.");
           return false;
         }
         if (data.code === "removed") {
-          onGone("주문방에서 내보내졌어요.");
+          onGoneRef.current("주문방에서 내보내졌어요.");
           return false;
         }
         if (response.status === 401) {
@@ -131,7 +137,7 @@ export function RoomHubModal({
       setLoading(false);
       return false;
     }
-  }, [roomId, onGone]);
+  }, [roomId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -198,9 +204,12 @@ export function RoomHubModal({
     }
   };
 
-  const saveAmount = async (key: string, memberRef?: string) => {
+  // `shown` is what the field displays: the draft, or the saved amount when the
+  // field was not edited. Reading the draft alone sent null for an untouched
+  // field, so 저장 on "7000" erased the amount and dropped the room total.
+  const saveAmount = async (key: string, shown: string, memberRef?: string) => {
     if (savingAmount) return;
-    const draft = (amountDrafts[key] ?? "").trim();
+    const draft = shown.trim();
     const amount = draft === "" ? null : Number(draft);
     if (amount !== null && (!Number.isInteger(amount) || amount < 0 || amount > 10_000_000)) {
       setError("주문 금액은 0원부터 10,000,000원까지 입력할 수 있어요.");
@@ -545,7 +554,7 @@ export function RoomHubModal({
                       {canEditAmount && (
                         <form
                           className="amount-editor"
-                          onSubmit={(event) => { event.preventDefault(); void saveAmount(amountKey, member.mine ? undefined : member.member_ref); }}
+                          onSubmit={(event) => { event.preventDefault(); void saveAmount(amountKey, amountDraft, member.mine ? undefined : member.member_ref); }}
                         >
                           <label>
                             <span className="sr-only">{member.mine ? "내 주문 금액" : `${maskedMemberName} 주문 금액`}</span>

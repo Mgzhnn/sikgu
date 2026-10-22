@@ -87,3 +87,18 @@ export const roomMessages = sqliteTable("room_messages", {
   index("room_messages_room_created_idx").on(table.roomId, table.createdAt, table.id),
   index("room_messages_sender_created_idx").on(table.roomId, table.senderEmail, table.createdAt),
 ]);
+
+/**
+ * One row per request_join write, kept for the rate-limit window only. The
+ * limit used to count room_members rows instead, so cancelling (which deletes
+ * the row) reset it, and rooms a user hosts or joined by invite used it up.
+ * Rows older than the window are deleted on every join request.
+ */
+export const joinRequests = sqliteTable("join_requests", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userEmail: text("user_email").notNull(),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [
+  index("join_requests_user_created_idx").on(table.userEmail, table.createdAt),
+  index("join_requests_created_idx").on(table.createdAt),
+]);

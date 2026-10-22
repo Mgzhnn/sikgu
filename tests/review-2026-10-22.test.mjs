@@ -96,3 +96,11 @@ test("a new invite link takes the room's deadline at the moment it is written", 
     db.batch = realBatch;
   }
 });
+
+test("the social preview image is declared at its real size", async () => {
+  const { readFileSync } = await import("node:fs");
+  const png = readFileSync(new URL("../public/og.png", import.meta.url));
+  const width = png.readUInt32BE(16), height = png.readUInt32BE(20);
+  const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
+  assert.match(layout, new RegExp(`width: ${width},\\s*height: ${height},`));
+});

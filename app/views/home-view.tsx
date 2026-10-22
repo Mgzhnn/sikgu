@@ -165,7 +165,7 @@ export function HomeView({
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="가게, 메뉴, 픽업 장소 검색"
+            placeholder="가게, 픽업 장소 검색"
             aria-label="주문방 검색"
           />
           {search && <button onClick={() => setSearch("")} aria-label="검색어 지우기">×</button>}

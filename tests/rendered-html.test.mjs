@@ -729,7 +729,7 @@ test("small controls get phone-sized hit areas and sheets do not scroll the page
   assert.match(dialogHook, /document\.body\.style\.overflow = "hidden"/);
   assert.match(dialogHook, /document\.body\.style\.position = "fixed"/);
   assert.match(dialogHook, /document\.body\.style\.top = `-\$\{scrollY\}px`/);
-  assert.match(dialogHook, /window\.scrollTo\(0, scrollY\)/);
+  assert.match(dialogHook, /window\.scrollTo\(\{ top: scrollY, behavior: "instant" \}\)/);
 });
 
 test("JavaScript-driven scrolling respects the reduced-motion preference", async () => {

@@ -372,3 +372,56 @@ for (const [width,height] of [[360,740],[390,844]]) {
     expect(panel.client).toBeGreaterThanOrEqual(panel.scroll);
   });
 }
+
+const listRoom=(i:number)=>({...reviewRoom(),id:`room_${i}`,apps:['baemin'],membership:'',myStatus:null,isHost:false});
+
+test('closing a dialog returns to the same place without scrolling from the top',async({page})=>{
+  const rooms=Array.from({length:12},(_,i)=>listRoom(i));
+  await page.route('**/api/sikgu**',route=>route.fulfill({json:{user:{displayName:'테*트'},serverNow:Date.now(),rooms,myRooms:[],nextRoomsCursor:null,nextMyRoomsCursor:null}}));
+  await page.goto('/');
+  await page.locator('.pool-card').nth(8).scrollIntoViewIfNeeded();
+  await page.waitForTimeout(800);
+  const before=await page.evaluate(()=>scrollY);
+  expect(before).toBeGreaterThan(200);
+  await page.locator('.pool-card').nth(8).click();
+  await expect(page.getByRole('button',{name:'공동주문 닫기'})).toBeVisible();
+  const frames=await page.evaluate(async()=>{const out:number[]=[];document.querySelector<HTMLButtonElement>('[aria-label="공동주문 닫기"]')!.click();for(let i=0;i<12;i++){await new Promise(r=>requestAnimationFrame(r));out.push(Math.round(scrollY));}return out;});
+  expect(Math.min(...frames)).toBe(before);
+});
+
+test('a long link in chat wraps instead of scrolling the chat sideways',async({page})=>{
+  const room={...listRoom(0),myStatus:'approved',isHost:true};
+  const link='https://web.coupangeats.com/share?storeId=123456&dishId=7890123&key=abcdefghijklmnopqrstu';
+  await page.route('**/api/sikgu**',route=>{const u=new URL(route.request().url());if(u.searchParams.get('action')==='room')return route.fulfill({json:{room,members:[],messages:[{id:'a',sender_name:'김*수',body:link,created_at:Date.now(),mine:0}],nextMessagesCursor:null}});return route.fulfill({json:{user:{displayName:'테*트'},serverNow:Date.now(),rooms:[room],myRooms:[],nextRoomsCursor:null,nextMyRoomsCursor:null}});});
+  await page.goto('/');await page.locator('.pool-card').first().click();await page.getByRole('button',{name:/참여자 관리/}).click();
+  await page.locator('.chat-messages article').first().waitFor();
+  const list=await page.locator('.chat-messages').evaluate(l=>({client:l.clientWidth,scroll:l.scrollWidth}));
+  expect(list.scroll).toBeLessThanOrEqual(list.client);
+});
+
+for (const width of [390,1280]) {
+  test(`fixed text colours pass contrast at ${width}px`,async({page})=>{
+    await page.setViewportSize({width,height:900});
+    const room={...reviewRoom(),total:9000,pendingCount:1};
+    await page.route('**/api/sikgu**',async route=>{
+      const url=new URL(route.request().url());
+      if(url.searchParams.get('action')==='room')return route.fulfill({json:{room:{...room,orderTotal:null,estimatedArrival:null,receiptUrl:null,extensions:0},members:[{display_name:'테*트',role:'host',status:'approved',created_at:0,mine:1,amount:5000}],messages:[],nextMessagesCursor:null}});
+      return route.fulfill({json:{user:{displayName:'테*트'},serverNow:Date.now(),rooms:[room],myRooms:[room],nextRoomsCursor:null,nextMyRoomsCursor:null}});
+    });
+    await page.goto('/');
+    await page.locator('.pool-card').first().waitFor();
+    await page.addScriptTag({path:'node_modules/axe-core/axe.min.js'});
+    const check=()=>page.evaluate(async()=>{
+      const axe=(window as unknown as {axe:{run:(c:unknown,o:unknown)=>Promise<{violations:{nodes:{target:string[]}[]}[]}>}}).axe;
+      const res=await axe.run(document,{runOnly:['color-contrast']});
+      return res.violations.flatMap(v=>v.nodes.map(n=>n.target.join(' '))).filter(t=>/host-note small|delete-room-trigger|smart-saving b/.test(t));
+    });
+    expect(await check()).toEqual([]);
+    await page.locator('.pool-card').first().click();
+    await page.waitForTimeout(500);
+    expect(await check()).toEqual([]);
+    await page.getByRole('button',{name:/참여자 관리/}).click();
+    await page.waitForTimeout(500);
+    expect(await check()).toEqual([]);
+  });
+}

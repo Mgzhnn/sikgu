@@ -81,7 +81,7 @@ app/
     chat.ts                # rate-limited message insert
     receipts.ts            # order-info PUT, room DELETE, receipt GET and R2 cleanup
     lock.ts                # fenced room mutation token
-    retention.ts           # 30-day sweep of expired rooms
+    retention.ts           # hourly sweep: expired rooms after 30 days, join-request log after 10 minutes
     invites.ts             # host-only invite creation and recovery
     pagination.ts          # bounded cursor validation and ordering
     responses.ts           # private responses, tokens, SQL clock expression

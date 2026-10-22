@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { token } from "./responses";
 import { listReceiptKeysForRoom } from "./receipts";
-import { mutationLockTimeoutMs, recentRoomWindowMs, uploadBucket, withD1ReadRetry } from "./shared";
+import { joinRequestWindowMs, mutationLockTimeoutMs, recentRoomWindowMs, uploadBucket, withD1ReadRetry } from "./shared";
 
 let lastRetentionSweep = 0;
 let retentionSweepInFlight: Promise<void> | null = null;
@@ -10,9 +10,16 @@ export async function purgeExpiredRooms(now: number) {
   if (now - lastRetentionSweep < 60 * 60 * 1000) return;
   if (retentionSweepInFlight) return retentionSweepInFlight;
   retentionSweepInFlight = (async () => {
-    const metrics = {event:"retention_sweep", selected:0, claimed:0, deleted:0, failed:0};
+    const metrics = {event:"retention_sweep", selected:0, claimed:0, deleted:0, failed:0, joinRequestsDeleted:0};
     const started = Date.now();
     try {
+      // The join-request log (email and time) only backs the per-user rate limit.
+      // requestJoin trims it lazily, but a user who never asks again would leave
+      // rows behind, so the sweep removes everything outside the window.
+      const trimmed = await env.DB.prepare("DELETE FROM join_requests WHERE created_at <= ?")
+        .bind(now - joinRequestWindowMs).run();
+      metrics.joinRequestsDeleted = trimmed.meta.changes;
+
       const staleBefore = now - mutationLockTimeoutMs;
       const candidates = await withD1ReadRetry(() => env.DB.prepare(`
         SELECT id

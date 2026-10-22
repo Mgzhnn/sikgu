@@ -49,6 +49,25 @@ test("the join-request log keeps only the rate-limit window", async () => {
   assert.deepEqual(rows.map((row) => row.user_email), ["alice@dgist.ac.kr"]);
 });
 
+test("the retention sweep clears join-request rows older than the window, not only the next request", async () => {
+  const api = await createApi();
+  api.sql("INSERT INTO join_requests (user_email, created_at) VALUES (?, ?)", "old@dgist.ac.kr", Date.now() - 11 * 60 * 1000);
+  api.sql("INSERT INTO join_requests (user_email, created_at) VALUES (?, ?)", "recent@dgist.ac.kr", Date.now() - 1 * 60 * 1000);
+  const originalInfo = console.info;
+  const metrics = [];
+  console.info = (line) => metrics.push(JSON.parse(line));
+  try {
+    assert.equal((await api.get(undefined, "?action=bootstrap")).status, 200);
+    await api.runAfterTasks();
+  } finally {
+    console.info = originalInfo;
+  }
+  assert.equal(metrics.length, 1);
+  assert.equal(metrics[0].joinRequestsDeleted, 1);
+  const rows = api.sql("SELECT user_email FROM join_requests");
+  assert.deepEqual(rows.map((row) => row.user_email), ["recent@dgist.ac.kr"]);
+});
+
 test("reopening closed rooms cannot take a host past five open rooms", async () => {
   const api = await createApi();
   const first = [];

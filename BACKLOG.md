@@ -25,6 +25,11 @@ Fixed:
   contrast failures; search placeholder offered menu search; wrong og.png size.
 - Browser storage that throws is now tested in a real browser, and the catalog
   count test RUNBOOK describes exists.
+- Two production advisories published on 2026-10-22 failed CI's audit:
+  `sharp` <0.35.5 (GHSA-wq5f-xc86-pv6w, via next) and `source-map-js` 1.2.1
+  (GHSA-68fv-2mgg-jv7q, via postcss). `source-map-js` moved to 1.2.2 within its
+  range; `sharp` is overridden to 0.35.5 because miniflare pins 0.35.4 exactly
+  and npm shares that copy with next. Drop the override once miniflare allows it.
 
 Open:
 

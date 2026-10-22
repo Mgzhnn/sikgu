@@ -91,7 +91,8 @@ the header comment of `app/catalog.ts`.
 
 Every migration so far is additive (0004 adds `room_blocks`, 0005 adds
 indexes, 0006 adds the nullable `room_members.amount` and
-`rooms.extensions` columns), so earlier code runs against the newer schema.
+`rooms.extensions` columns, 0007 adds the `join_requests` rate-limit log),
+so earlier code runs against the newer schema.
 Never undo a migration by editing history; if a migration itself is bad,
 write a new forward migration that reverses it.
 

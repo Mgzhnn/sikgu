@@ -127,7 +127,14 @@ export async function requestJoin(auth: AuthUser, id: string) {
   if (await approvedCount(id) >= room.capacity) {
     return json({ error: "주문방 정원이 모두 찼습니다." }, 409);
   }
-  const joined = await env.DB.prepare(`
+  // The limit counts join_requests, one row per request_join write. It used to
+  // count room_members rows: cancelling deleted the row and reset it, and rooms
+  // the user hosts or joined by invite used it up (2026-10-22 review). All three
+  // statements run in one batch, so the log row exists only if the request did.
+  const now = Date.now();
+  const windowStart = now - joinRequestWindowMs;
+  const [joined] = await env.DB.batch([
+    env.DB.prepare(`
         INSERT INTO room_members (
           room_id, user_email, display_name, role, status, review_token, created_at
         )
@@ -139,7 +146,7 @@ export async function requestJoin(auth: AuthUser, id: string) {
               WHERE m.room_id = r.id AND m.status = 'approved') < r.capacity
         )
         AND (
-          SELECT COUNT(*) FROM room_members recent
+          SELECT COUNT(*) FROM join_requests recent
           WHERE recent.user_email = ? AND recent.created_at > ?
         ) < ?
         ON CONFLICT(room_id, user_email) DO UPDATE SET
@@ -147,13 +154,18 @@ export async function requestJoin(auth: AuthUser, id: string) {
           review_token = COALESCE(room_members.review_token, excluded.review_token),
           status = CASE WHEN room_members.status = 'approved' THEN 'approved' ELSE 'requested' END
       `).bind(
-    id, auth.email, auth.displayName, token(), Date.now(), id,
-    auth.email, Date.now() - joinRequestWindowMs, maxJoinRequestsPerWindow,
-  ).run();
+      id, auth.email, auth.displayName, token(), now, id,
+      auth.email, windowStart, maxJoinRequestsPerWindow,
+    ),
+    env.DB.prepare(
+      "INSERT INTO join_requests (user_email, created_at) SELECT ?, ? WHERE changes() > 0",
+    ).bind(auth.email, now),
+    env.DB.prepare("DELETE FROM join_requests WHERE created_at <= ?").bind(windowStart),
+  ]);
   if (!joined.meta.changes) {
     const recent = await withD1ReadRetry(() => env.DB.prepare(
-      "SELECT COUNT(*) AS count FROM room_members WHERE user_email = ? AND created_at > ?",
-    ).bind(auth.email, Date.now() - joinRequestWindowMs).first<{ count: number }>());
+      "SELECT COUNT(*) AS count FROM join_requests WHERE user_email = ? AND created_at > ?",
+    ).bind(auth.email, windowStart).first<{ count: number }>());
     if (Number(recent?.count || 0) >= maxJoinRequestsPerWindow) {
       return json({ error: "참여 신청이 너무 많아요. 잠시 후 다시 시도해주세요." }, 429, { "Retry-After": "600" });
     }
@@ -316,13 +328,22 @@ export async function extendRoom(auth: AuthUser, id: string, room: RoomSummary) 
   // twice, and only until 10 minutes after the deadline. Every bound is
   // inside the UPDATE with the database clock. Live invite links follow
   // the new deadline.
+  //
+  // Reopening a room whose deadline has passed also counts against the
+  // per-host open-room cap: closing rooms, opening new ones and extending the
+  // closed ones put fifteen rooms in the feed for one host (2026-10-22 review).
   const [extended] = await env.DB.batch([
     env.DB.prepare(`
           UPDATE rooms
           SET closes_at = MAX(closes_at, ${databaseNow}) + ?, extensions = extensions + 1
           WHERE id = ? AND host_email = ? AND status = 'open'
             AND extensions < ? AND closes_at > ${databaseNow} - ?
-        `).bind(extensionMs, id, auth.email, maxExtensions, extensionGraceMs),
+            AND (closes_at > ${databaseNow} OR (
+              SELECT COUNT(*) FROM rooms o
+              WHERE o.host_email = rooms.host_email AND o.status = 'open'
+                AND o.closes_at > ${databaseNow}
+            ) < ?)
+        `).bind(extensionMs, id, auth.email, maxExtensions, extensionGraceMs, maxOpenRoomsPerHost),
     env.DB.prepare(`
           UPDATE room_invites
           SET expires_at = (SELECT closes_at FROM rooms WHERE id = ?)
@@ -335,6 +356,18 @@ export async function extendRoom(auth: AuthUser, id: string, room: RoomSummary) 
     }
     if (Number(room.closes_at) <= Date.now() - extensionGraceMs) {
       return json({ error: "마감 후 10분이 지나 연장할 수 없습니다. 새 주문방을 열어주세요." }, 409);
+    }
+    if (Number(room.closes_at) <= Date.now()) {
+      const open = await withD1ReadRetry(() => env.DB.prepare(
+        "SELECT COUNT(*) AS count FROM rooms WHERE host_email = ? AND status = 'open' AND closes_at > ?",
+      ).bind(auth.email, Date.now()).first<{ count: number }>());
+      if (Number(open?.count || 0) >= maxOpenRoomsPerHost) {
+        return json(
+          { error: `동시에 운영할 수 있는 주문방은 ${maxOpenRoomsPerHost}개까지입니다.` },
+          429,
+          { "Retry-After": "300" },
+        );
+      }
     }
     return json({ error: "모집 시간을 연장하지 못했습니다. 잠시 후 다시 시도해주세요." }, 409);
   }

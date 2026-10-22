@@ -53,13 +53,10 @@ for (const transition of ['deleting','expired']) {
 for (const action of ['request_join','create_invite']) {
   test(`${action} cannot succeed after concurrent room deletion`,async()=>{
     const {api,roomId}=await fixture();
-    const binding=globalThis.__sikguEnv.DB,prepare=binding.prepare.bind(binding),batch=binding.batch.bind(binding);
-    if(action==='request_join')binding.prepare=sql=>{
-      const s=prepare(sql);
-      if(/INSERT INTO room_members/.test(sql)){const run=s.run.bind(s);s.run=async()=>{api.db.prepare('DELETE FROM rooms WHERE id=?').run(roomId);return run();};}
-      return s;
-    };
-    else binding.batch=async statements=>{api.db.prepare('DELETE FROM rooms WHERE id=?').run(roomId);return batch(statements);};
+    // Both writes are batches (request_join since its request log, 2026-10-22):
+    // the room disappears between the handler's read and its guarded write.
+    const binding=globalThis.__sikguEnv.DB,batch=binding.batch.bind(binding);
+    binding.batch=async statements=>{api.db.prepare('DELETE FROM rooms WHERE id=?').run(roomId);return batch(statements);};
     const response=await api.post(action==='create_invite'?host:outsider,{action,roomId});
     assert.ok([404,409].includes(response.status),`received ${response.status}`);
     api.db.close();

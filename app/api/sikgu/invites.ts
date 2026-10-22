@@ -18,19 +18,21 @@ export async function createRoomInvite({db,id,hostEmail,room,approvedCount}: {
   const inviteToken = token();
   const remaining = room.capacity - approved;
   // The active-invite cap lives inside the INSERT so parallel requests
-  // cannot all pass a separate COUNT check.
+  // cannot all pass a separate COUNT check. The expiry is the room's deadline
+  // at INSERT time, not the one read above: an extension committed in between
+  // left the new link expiring 15 minutes early (2026-10-22 review).
   const [, inserted] = await db.batch([
     db.prepare("DELETE FROM room_invites WHERE room_id = ? AND (expires_at <= ? OR uses >= max_uses)").bind(id, now),
     db.prepare(`
       INSERT INTO room_invites (
         token, room_id, created_by_email, max_uses, uses, expires_at, created_at
       )
-      SELECT ?, ?, ?, ?, 0, ?, ?
+      SELECT ?, ?, ?, ?, 0, (SELECT closes_at FROM rooms WHERE id = ?), ?
       WHERE (SELECT COUNT(*) FROM room_invites WHERE room_id = ? AND expires_at > ?) < 5
         AND EXISTS (SELECT 1 FROM rooms r WHERE r.id = ? AND r.host_email = ?
           AND r.status = 'open' AND r.closes_at > ${databaseNow}
           AND (SELECT COUNT(*) FROM room_members m WHERE m.room_id = r.id AND m.status = 'approved') < r.capacity)
-    `).bind(inviteToken, id, hostEmail, remaining, room.closes_at, now, id, now, id, hostEmail),
+    `).bind(inviteToken, id, hostEmail, remaining, id, now, id, now, id, hostEmail),
   ]);
   if (!inserted.meta.changes) {
     // At the bounded cap, recover a usable link instead of stranding a
@@ -48,5 +50,7 @@ export async function createRoomInvite({db,id,hostEmail,room,approvedCount}: {
     if (existing) return json({ ...existing, reused: true });
     return json({ error: "사용 가능한 초대 링크가 없거나 정원이 모두 찼습니다." }, 409);
   }
-  return json({ token: inviteToken, expiresAt: room.closes_at, reused: false });
+  const stored = await db.prepare("SELECT expires_at FROM room_invites WHERE token = ?")
+    .bind(inviteToken).first<{expires_at: number}>();
+  return json({ token: inviteToken, expiresAt: Number(stored?.expires_at ?? room.closes_at), reused: false });
 }

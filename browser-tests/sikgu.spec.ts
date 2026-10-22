@@ -1,5 +1,9 @@
 import {test,expect, type Page} from '@playwright/test';
 
+// The committed screenshots in verification/ change only when evidence is being
+// collected (SIKGU_EVIDENCE=1); an ordinary run writes them under test-results/.
+const shotDir=process.env.SIKGU_EVIDENCE==='1'?'verification':'test-results';
+
 const room = {id:'room_browser',restaurantId:'sinjeon',host:'테*트',pickup:'E3',pickupFull:'E3 택배보관함',closesAt:Date.now()+20*60000,total:15000,target:15000,people:2,capacity:4,apps:['baemin','coupang'],membership:'coupang',note:'테스트 주문방',myStatus:'approved',isHost:true,pendingCount:0};
 async function mockApi(page: Page, options: {failFirst?:boolean;messages?:number}={}) {
   let boots=0,accepted=0,sent=0;
@@ -83,11 +87,11 @@ for(const width of [360,390])test(`restaurant choices remain readable at ${width
   await expect(dialog).toBeVisible();
   await expect.poll(()=>page.locator('.restaurant-picker-copy strong').first().evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(14);
   await expect.poll(()=>page.locator('.restaurant-picker-copy small').first().evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(12);
-  await page.screenshot({path:`verification/mobile-${width}.png`,fullPage:true});
+  await page.screenshot({path:`${shotDir}/mobile-${width}.png`,fullPage:true});
   await page.evaluate(()=>{document.documentElement.style.fontSize='200%';});
   await expect.poll(()=>dialog.evaluate(el=>el.scrollWidth-el.clientWidth)).toBeLessThan(3);
   expect(await page.locator('.restaurant-picker-search input').evaluate(el=>el.getBoundingClientRect().bottom <= el.parentElement!.getBoundingClientRect().bottom)).toBe(true);
-  await page.screenshot({path:`verification/mobile-${width}-text-200.png`,fullPage:true});
+  await page.screenshot({path:`${shotDir}/mobile-${width}-text-200.png`,fullPage:true});
   const search=page.locator('.restaurant-picker-search input');
   await search.focus();await search.fill('신전');
   await search.dispatchEvent('keydown',{key:'Escape',code:'Escape',isComposing:true,keyCode:229});

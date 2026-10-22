@@ -36,6 +36,11 @@ jobs:
 
       # .npmrc sets strict-allow-scripts, so an install script from a package
       # not listed in package.json allowScripts fails here instead of running.
+      # Only npm 11 knows that setting; the npm 10.9 bundled with Node 22.18
+      # ignores it and runs every install script, so pin npm first.
+      - name: Use npm 11
+        run: npm install -g npm@11.19.0
+
       - name: Install locked dependencies
         run: npm ci
 

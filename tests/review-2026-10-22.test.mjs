@@ -104,3 +104,17 @@ test("the social preview image is declared at its real size", async () => {
   const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
   assert.match(layout, new RegExp(`width: ${width},\\s*height: ${height},`));
 });
+
+// RUNBOOK's catalog procedure promises this check: 21 restaurants, 8 pickup
+// points, and every restaurant id matched by a minimum-order entry and back.
+// Update the counts here when the catalog deliberately changes.
+test("catalog preservation: 21 restaurants and 8 pickup points, ids matched both ways", async () => {
+  const { restaurants, pickupPoints } = await import("../app/catalog.ts");
+  const { restaurantMinimums, pickupFullNames } = await import("../app/sikgu-rules.mjs");
+  assert.equal(restaurants.length, 21);
+  assert.equal(pickupPoints.length, 8);
+  const ids = restaurants.map((r) => r.id);
+  assert.equal(new Set(ids).size, ids.length, "duplicate restaurant id");
+  assert.deepEqual([...ids].sort(), Object.keys(restaurantMinimums).sort());
+  assert.deepEqual(pickupPoints.map((p) => p.id).sort(), Object.keys(pickupFullNames).sort());
+});

@@ -1321,7 +1321,7 @@ button:disabled { cursor: not-allowed; opacity: 0.56; }
 }
 
 .smart-saving span { color: var(--muted); font-size: 8px; }
-.smart-saving b { margin-left: auto; color: #47866b; font-size: 9px; }
+.smart-saving b { margin-left: auto; color: #3c7259; font-size: 9px; }
 .smart-saving i { margin-left: 5px; color: var(--orange); font-size: 12px; font-style: normal; }
 
 .campus-glance { min-width: 0; }
@@ -2419,7 +2419,7 @@ button:disabled { cursor: not-allowed; opacity: 0.56; }
 
 .host-note > span { color: var(--gold); font-family: Georgia, serif; font-size: 22px; }
 .host-note p { margin: 0; color: #6e634f; font-size: 8px; font-weight: 650; }
-.host-note small { margin-left: auto; color: #9c9078; font-size: 6.5px; }
+.host-note small { margin-left: auto; color: #6e634f; font-size: 6.5px; }
 
 .modal-footer {
   position: sticky;
@@ -2832,7 +2832,7 @@ button:disabled { cursor: not-allowed; opacity: 0.56; }
   padding: 0 11px;
   border: 1px solid #f1cfc4;
   background: #fff4ef;
-  color: #c64a32;
+  color: #b23f29;
   font-size: 11.5px;
 }
 
@@ -3311,7 +3311,7 @@ button:disabled { cursor: not-allowed; opacity: 0.56; }
 .chat-messages article.mine { align-self: flex-end; }
 .chat-messages article > small { margin: 0 0 3px 4px; color: var(--muted); font-size: 10.5px; }
 .chat-messages article > div { display: flex; align-items: flex-end; gap: 6px; }
-.chat-messages article p { margin: 0; padding: 10px 12px; border-radius: 12px 12px 12px 4px; background: #f0eee8; color: var(--deep); font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+.chat-messages article p { margin: 0; padding: 10px 12px; border-radius: 12px 12px 12px 4px; background: #f0eee8; color: var(--deep); font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .chat-messages article.mine p { order: 2; border-radius: 12px 12px 4px; background: var(--deep); color: white; }
 .chat-messages article time { color: var(--faint); font-size: 9.5px; white-space: nowrap; }
 .chat-messages article.mine time { order: 1; }

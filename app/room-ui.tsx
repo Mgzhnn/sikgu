@@ -205,7 +205,9 @@ export function useDialogLifecycle(
       document.body.style.position = previousPosition;
       document.body.style.top = previousTop;
       document.body.style.width = previousWidth;
-      window.scrollTo(0, scrollY);
+      // Instant: html has scroll-behavior:smooth, so a plain scrollTo animated
+      // the page down from the top after every dialog closed.
+      window.scrollTo({ top: scrollY, behavior: "instant" });
       previouslyFocused?.focus();
     };
   }, [dialogRef]);

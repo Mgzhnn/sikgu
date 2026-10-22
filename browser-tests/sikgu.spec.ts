@@ -425,3 +425,28 @@ for (const width of [390,1280]) {
     expect(await check()).toEqual([]);
   });
 }
+
+test('browser storage that throws (private mode, blocked site data) never breaks loading, picking a location or joining',async({page})=>{
+  await page.addInitScript(()=>{
+    const fail=()=>{throw new DOMException('blocked','SecurityError');};
+    Storage.prototype.getItem=fail;Storage.prototype.setItem=fail;Storage.prototype.removeItem=fail;
+  });
+  const errors:string[]=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  const room={...listRoom(0)};
+  const joins:string[]=[];
+  await page.route('**/api/sikgu**',async route=>{
+    const req=route.request();
+    if(req.method()==='POST'){const body=req.postDataJSON();if(body.action==='request_join')joins.push(body.roomId);return route.fulfill({json:{status:'requested'}});}
+    return route.fulfill({json:{user:{displayName:'나*'},serverNow:Date.now(),rooms:[room],myRooms:[],nextRoomsCursor:null,nextMyRoomsCursor:null}});
+  });
+  await page.goto('/');
+  await expect(page.locator('.pool-card')).toHaveCount(1);
+  const trigger=page.locator('.location-trigger:visible').first();
+  await trigger.click();
+  await page.locator('.location-option:visible').nth(1).click();
+  await page.locator('.pool-card').first().click();
+  await page.getByRole('button',{name:/참여 신청/}).first().click();
+  await expect.poll(()=>joins.length).toBe(1);
+  expect(errors).toEqual([]);
+});

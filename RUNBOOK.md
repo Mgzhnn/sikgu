@@ -90,8 +90,10 @@ the header comment of `app/catalog.ts`.
 ## Rollback
 
 Every migration so far is additive (0004 adds `room_blocks`, 0005 adds
-indexes, 0006 adds the nullable `room_members.amount` and
-`rooms.extensions` columns), so earlier code runs against the newer schema.
+indexes, 0006 adds the nullable `room_members.amount` column and
+`rooms.extensions` with a default of 0, 0007 adds the `join_requests`
+rate-limit log),
+so earlier code runs against the newer schema.
 Never undo a migration by editing history; if a migration itself is bad,
 write a new forward migration that reverses it.
 
@@ -152,7 +154,8 @@ Worked example. A student reports: "저장이 안 돼요. 서버 오류가 발�
   deletion", "Receipt deletion must succeed before room deletion", and
   "Retention sweep failed". They are retried automatically (see below); a
   steady stream of them means R2 or D1 is unhealthy. A failed health probe
-  logs `{"level":"error","context":"Health check database probe failed",...}`.
+  logs `{"level":"error","context":"Health check database probe failed",...}`
+  or `"Health check storage probe failed"`.
 
 ## Background behaviour worth knowing
 

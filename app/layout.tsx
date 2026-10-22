@@ -26,8 +26,8 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: "SIKGU",
       images: [{
         url: `${origin}/og.png`,
-        width: 1718,
-        height: 911,
+        width: 1734,
+        height: 907,
         alt: "SIKGU — 혼자 넘기 어려운 최소 주문금액, 같이.",
       }],
     },

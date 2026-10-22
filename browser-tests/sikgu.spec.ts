@@ -1,5 +1,9 @@
 import {test,expect, type Page} from '@playwright/test';
 
+// The committed screenshots in verification/ change only when evidence is being
+// collected (SIKGU_EVIDENCE=1); an ordinary run writes them under test-results/.
+const shotDir=process.env.SIKGU_EVIDENCE==='1'?'verification':'test-results';
+
 const room = {id:'room_browser',restaurantId:'sinjeon',host:'테*트',pickup:'E3',pickupFull:'E3 택배보관함',closesAt:Date.now()+20*60000,total:15000,target:15000,people:2,capacity:4,apps:['baemin','coupang'],membership:'coupang',note:'테스트 주문방',myStatus:'approved',isHost:true,pendingCount:0};
 async function mockApi(page: Page, options: {failFirst?:boolean;messages?:number}={}) {
   let boots=0,accepted=0,sent=0;
@@ -83,11 +87,11 @@ for(const width of [360,390])test(`restaurant choices remain readable at ${width
   await expect(dialog).toBeVisible();
   await expect.poll(()=>page.locator('.restaurant-picker-copy strong').first().evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(14);
   await expect.poll(()=>page.locator('.restaurant-picker-copy small').first().evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(12);
-  await page.screenshot({path:`verification/mobile-${width}.png`,fullPage:true});
+  await page.screenshot({path:`${shotDir}/mobile-${width}.png`,fullPage:true});
   await page.evaluate(()=>{document.documentElement.style.fontSize='200%';});
   await expect.poll(()=>dialog.evaluate(el=>el.scrollWidth-el.clientWidth)).toBeLessThan(3);
   expect(await page.locator('.restaurant-picker-search input').evaluate(el=>el.getBoundingClientRect().bottom <= el.parentElement!.getBoundingClientRect().bottom)).toBe(true);
-  await page.screenshot({path:`verification/mobile-${width}-text-200.png`,fullPage:true});
+  await page.screenshot({path:`${shotDir}/mobile-${width}-text-200.png`,fullPage:true});
   const search=page.locator('.restaurant-picker-search input');
   await search.focus();await search.fill('신전');
   await search.dispatchEvent('keydown',{key:'Escape',code:'Escape',isComposing:true,keyCode:229});
@@ -276,4 +280,173 @@ test('D2: a feed poll that lands first does not discard a load-more page',async(
   release();
   await expect(page.locator('.pool-card')).toHaveCount(2);
   await expect(page.locator('.pool-card').nth(1)).toContainText('맘스터치');
+});
+
+// 2026-10-22 review: the room sheet, amounts, pending rooms and the phone layout.
+const reviewRoom = () => ({id:'room_browser',restaurantId:'sinjeon',host:'테*트',pickup:'E3',pickupFull:'E3 택배보관함',closesAt:Date.now()+20*60000,total:15000,target:15000,people:2,capacity:4,apps:['baemin','coupang'],membership:'coupang',note:'테스트 주문방',myStatus:'approved',isHost:true,pendingCount:0});
+
+test('a feed refresh behind the open room sheet does not reload it or steal focus',async({page})=>{
+  const room=reviewRoom();
+  let roomGets=0,boots=0;
+  await page.route('**/api/sikgu**',async route=>{
+    const req=route.request(),url=new URL(req.url());
+    if(req.method()==='POST')return route.fulfill({json:{ok:true}});
+    if(url.searchParams.get('action')==='room'){roomGets++;return route.fulfill({json:{room,members:[{display_name:'테*트',role:'host',status:'approved',created_at:0,mine:1,amount:5000}],messages:[],nextMessagesCursor:null}});}
+    boots++;
+    return route.fulfill({json:{user:{displayName:'테*트'},serverNow:Date.now(),rooms:[room],myRooms:[room],nextRoomsCursor:null,nextMyRoomsCursor:null}});
+  });
+  await page.goto('/');
+  await page.locator('.pool-card').first().click();
+  await page.getByRole('button',{name:/참여자 관리/}).click();
+  const composer=page.getByRole('textbox',{name:'채팅 메시지'});
+  await composer.click();await composer.fill('입력 중');
+  await expect.poll(()=>roomGets).toBeGreaterThan(0);
+  const gets=roomGets,feeds=boots;
+  await page.evaluate(()=>{(window as unknown as {flashes:number}).flashes=0;new MutationObserver(()=>{if(document.querySelector('.room-hub-loading'))(window as unknown as {flashes:number}).flashes++;}).observe(document.body,{subtree:true,childList:true});});
+  await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+  await expect.poll(()=>boots).toBeGreaterThan(feeds);
+  await page.waitForTimeout(1000);
+  expect(await page.evaluate(()=>(window as unknown as {flashes:number}).flashes)).toBe(0);
+  expect(roomGets-gets).toBeLessThanOrEqual(1); // the sheet's own poll also answers visibilitychange
+  await expect(composer).toBeFocused();
+  await expect(composer).toHaveValue('입력 중');
+});
+
+test('saving an amount field that was not edited keeps the amount',async({page})=>{
+  const room={...reviewRoom(),isHost:false,total:8000};
+  const members=[{display_name:'테*트',role:'host',status:'approved',created_at:0,amount:1000,mine:0},{member_ref:'b'.repeat(32),display_name:'나*',role:'member',status:'approved',created_at:1,amount:7000 as number|null,mine:1}];
+  const posted:unknown[]=[];
+  await page.route('**/api/sikgu**',async route=>{
+    const req=route.request(),url=new URL(req.url());
+    if(req.method()==='POST'){const b=req.postDataJSON();if(b.action==='set_amount'){posted.push(b.amount);members[1].amount=b.amount;}return route.fulfill({json:{ok:true}});}
+    if(url.searchParams.get('action')==='room')return route.fulfill({json:{room,members,messages:[],nextMessagesCursor:null}});
+    return route.fulfill({json:{user:{displayName:'나*'},serverNow:Date.now(),rooms:[room],myRooms:[room],nextRoomsCursor:null,nextMyRoomsCursor:null}});
+  });
+  await page.goto('/');
+  await page.locator('.pool-card').first().click();
+  await page.getByRole('button',{name:'채팅방 열기'}).click();
+  const dialog=page.getByRole('dialog',{name:'비공개 주문방 채팅'});
+  await expect(dialog.getByRole('spinbutton',{name:'내 주문 금액'})).toHaveValue('7000');
+  await dialog.getByRole('button',{name:'저장',exact:true}).click();
+  await expect.poll(()=>posted.length).toBe(1);
+  expect(posted[0]).toBe(7000);
+  await expect(dialog.locator('.member-list')).not.toContainText('금액 미입력');
+});
+
+test('a pending room opened from 내 정보 is shown open while a home search hides it',async({page})=>{
+  const pending={...reviewRoom(),id:'room_pending',isHost:false,myStatus:'requested'};
+  await page.route('**/api/sikgu**',async route=>{
+    const url=new URL(route.request().url());
+    const rooms=url.searchParams.has('searchRestaurants')?[]:[pending];
+    return route.fulfill({json:{user:{displayName:'나*'},serverNow:Date.now(),rooms,myRooms:[pending],nextRoomsCursor:null,nextMyRoomsCursor:null}});
+  });
+  await page.goto('/');
+  await expect(page.locator('.pool-card')).toHaveCount(1);
+  // Wait for the SERVER's filtered feed, not just the client-side filter: the
+  // bug needs the room to be missing from the feed the app holds.
+  const filtered=page.waitForResponse(r=>new URL(r.url()).searchParams.has('searchRestaurants'));
+  await page.getByRole('textbox',{name:'주문방 검색'}).fill('맘스터치');
+  await filtered;
+  await expect(page.locator('.pool-card')).toHaveCount(0);
+  await page.getByRole('navigation',{name:'모바일 주 메뉴'}).getByRole('button').last().click();
+  await page.locator('.my-room-list > button').first().click();
+  const dialog=page.getByRole('dialog',{name:'신전떡볶이 공동주문'});
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('.pool-unavailable')).toHaveCount(0);
+});
+
+for (const [width,height] of [[360,740],[390,844]]) {
+  test(`the member panel is not squeezed into a tiny scroll box at ${width}x${height}`,async({page})=>{
+    await page.setViewportSize({width,height});
+    const room={...reviewRoom(),pendingCount:1};
+    await page.route('**/api/sikgu**',async route=>{
+      const url=new URL(route.request().url());
+      if(url.searchParams.get('action')==='room')return route.fulfill({json:{room,members:[{display_name:'테*트',role:'host',status:'approved',created_at:0,mine:1,amount:8000},{member_ref:'c'.repeat(32),display_name:'김*수',role:'member',status:'approved',created_at:1,mine:0,amount:7000}],messages:[{id:'a',sender_name:'김*수',body:'안녕',created_at:Date.now(),mine:0}],nextMessagesCursor:null}});
+      return route.fulfill({json:{user:{displayName:'테*트'},serverNow:Date.now(),rooms:[room],myRooms:[room],nextRoomsCursor:null,nextMyRoomsCursor:null}});
+    });
+    await page.goto('/');
+    await page.locator('.pool-card').first().click();
+    await page.getByRole('button',{name:/참여자 관리/}).click();
+    await page.locator('.chat-messages article').first().waitFor();
+    const panel=await page.locator('.member-panel').evaluate(p=>({client:p.clientHeight,scroll:p.scrollHeight}));
+    expect(panel.client).toBeGreaterThanOrEqual(panel.scroll);
+  });
+}
+
+const listRoom=(i:number)=>({...reviewRoom(),id:`room_${i}`,apps:['baemin'],membership:'',myStatus:null,isHost:false});
+
+test('closing a dialog returns to the same place without scrolling from the top',async({page})=>{
+  const rooms=Array.from({length:12},(_,i)=>listRoom(i));
+  await page.route('**/api/sikgu**',route=>route.fulfill({json:{user:{displayName:'테*트'},serverNow:Date.now(),rooms,myRooms:[],nextRoomsCursor:null,nextMyRoomsCursor:null}}));
+  await page.goto('/');
+  await page.locator('.pool-card').nth(8).scrollIntoViewIfNeeded();
+  await page.waitForTimeout(800);
+  const before=await page.evaluate(()=>scrollY);
+  expect(before).toBeGreaterThan(200);
+  await page.locator('.pool-card').nth(8).click();
+  await expect(page.getByRole('button',{name:'공동주문 닫기'})).toBeVisible();
+  const frames=await page.evaluate(async()=>{const out:number[]=[];document.querySelector<HTMLButtonElement>('[aria-label="공동주문 닫기"]')!.click();for(let i=0;i<12;i++){await new Promise(r=>requestAnimationFrame(r));out.push(Math.round(scrollY));}return out;});
+  expect(Math.min(...frames)).toBe(before);
+});
+
+test('a long link in chat wraps instead of scrolling the chat sideways',async({page})=>{
+  const room={...listRoom(0),myStatus:'approved',isHost:true};
+  const link='https://web.coupangeats.com/share?storeId=123456&dishId=7890123&key=abcdefghijklmnopqrstu';
+  await page.route('**/api/sikgu**',route=>{const u=new URL(route.request().url());if(u.searchParams.get('action')==='room')return route.fulfill({json:{room,members:[],messages:[{id:'a',sender_name:'김*수',body:link,created_at:Date.now(),mine:0}],nextMessagesCursor:null}});return route.fulfill({json:{user:{displayName:'테*트'},serverNow:Date.now(),rooms:[room],myRooms:[],nextRoomsCursor:null,nextMyRoomsCursor:null}});});
+  await page.goto('/');await page.locator('.pool-card').first().click();await page.getByRole('button',{name:/참여자 관리/}).click();
+  await page.locator('.chat-messages article').first().waitFor();
+  const list=await page.locator('.chat-messages').evaluate(l=>({client:l.clientWidth,scroll:l.scrollWidth}));
+  expect(list.scroll).toBeLessThanOrEqual(list.client);
+});
+
+for (const width of [390,1280]) {
+  test(`fixed text colours pass contrast at ${width}px`,async({page})=>{
+    await page.setViewportSize({width,height:900});
+    const room={...reviewRoom(),total:9000,pendingCount:1};
+    await page.route('**/api/sikgu**',async route=>{
+      const url=new URL(route.request().url());
+      if(url.searchParams.get('action')==='room')return route.fulfill({json:{room:{...room,orderTotal:null,estimatedArrival:null,receiptUrl:null,extensions:0},members:[{display_name:'테*트',role:'host',status:'approved',created_at:0,mine:1,amount:5000}],messages:[],nextMessagesCursor:null}});
+      return route.fulfill({json:{user:{displayName:'테*트'},serverNow:Date.now(),rooms:[room],myRooms:[room],nextRoomsCursor:null,nextMyRoomsCursor:null}});
+    });
+    await page.goto('/');
+    await page.locator('.pool-card').first().waitFor();
+    await page.addScriptTag({path:'node_modules/axe-core/axe.min.js'});
+    const check=()=>page.evaluate(async()=>{
+      const axe=(window as unknown as {axe:{run:(c:unknown,o:unknown)=>Promise<{violations:{nodes:{target:string[]}[]}[]}>}}).axe;
+      const res=await axe.run(document,{runOnly:['color-contrast']});
+      return res.violations.flatMap(v=>v.nodes.map(n=>n.target.join(' '))).filter(t=>/host-note small|delete-room-trigger|smart-saving b/.test(t));
+    });
+    expect(await check()).toEqual([]);
+    await page.locator('.pool-card').first().click();
+    await page.waitForTimeout(500);
+    expect(await check()).toEqual([]);
+    await page.getByRole('button',{name:/참여자 관리/}).click();
+    await page.waitForTimeout(500);
+    expect(await check()).toEqual([]);
+  });
+}
+
+test('browser storage that throws (private mode, blocked site data) never breaks loading, picking a location or joining',async({page})=>{
+  await page.addInitScript(()=>{
+    const fail=()=>{throw new DOMException('blocked','SecurityError');};
+    Storage.prototype.getItem=fail;Storage.prototype.setItem=fail;Storage.prototype.removeItem=fail;
+  });
+  const errors:string[]=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  const room={...listRoom(0)};
+  const joins:string[]=[];
+  await page.route('**/api/sikgu**',async route=>{
+    const req=route.request();
+    if(req.method()==='POST'){const body=req.postDataJSON();if(body.action==='request_join')joins.push(body.roomId);return route.fulfill({json:{status:'requested'}});}
+    return route.fulfill({json:{user:{displayName:'나*'},serverNow:Date.now(),rooms:[room],myRooms:[],nextRoomsCursor:null,nextMyRoomsCursor:null}});
+  });
+  await page.goto('/');
+  await expect(page.locator('.pool-card')).toHaveCount(1);
+  const trigger=page.locator('.location-trigger:visible').first();
+  await trigger.click();
+  await page.locator('.location-option:visible').nth(1).click();
+  await page.locator('.pool-card').first().click();
+  await page.getByRole('button',{name:/참여 신청/}).first().click();
+  await expect.poll(()=>joins.length).toBe(1);
+  expect(errors).toEqual([]);
 });

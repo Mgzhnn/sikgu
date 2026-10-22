@@ -41,8 +41,12 @@ export default function Home() {
     pools, myRooms, now, search, setSearch, category, setCategory, filters, setFilters,
     nextRoomsCursor, nextMyRoomsCursor, loadingMore, loadMoreRooms, refreshRooms, retryBootstrap,
   } = feed;
+  // My Rooms as well as the home feed: the feed is filtered by search, category
+  // and the other filters, so a pending room opened from 내 정보 could be
+  // missing from it and was then shown as closed or deleted.
   const latestSelectedPool = selectedPool
-    ? pools.find((pool) => pool.id === selectedPool.id) || null
+    ? pools.find((pool) => pool.id === selectedPool.id)
+      || myRooms.find((pool) => pool.id === selectedPool.id) || null
     : null;
   const viewCopy = view === "restaurants" ? "가게 · 메뉴" : view === "profile" ? "내 정보" : "주문 모아보기";
 

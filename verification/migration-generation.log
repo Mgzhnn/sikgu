@@ -3,7 +3,7 @@
 > drizzle-kit generate --name history_indexes
 
 No config path provided, using default 'drizzle.config.ts'
-Reading config file '/Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/drizzle.config.ts'
+Reading config file '<repo>/drizzle.config.ts'
 5 tables
 room_blocks 3 columns 0 indexes 1 fks
 room_invites 7 columns 1 indexes 1 fks

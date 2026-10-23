@@ -3,7 +3,6 @@
 # SIKGU audit
 
 Audit date: 2026-09-03. Repository at commit `10fa317` on `main` (working tree clean at start).
-Auditor: Claude (Fable 5.1) following `/home/magzhan/projects/sikgu-audit-prompt.md`.
 
 ## Phase 0: environment and baseline
 

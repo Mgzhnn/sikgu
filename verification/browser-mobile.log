@@ -33,7 +33,7 @@ Running 7 tests using 1 worker
       89 |   await page.screenshot({path:`verification/mobile-${width}-text-200.png`,fullPage:true});
       90 |   const search=page.locator('.restaurant-picker-search input');
       91 |   await search.focus();await search.fill('신전');
-        at /Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/browser-tests/sikgu.spec.ts:88:77
+        at <repo>/browser-tests/sikgu.spec.ts:88:77
 
     Error Context: test-results/sikgu-restaurant-choices-r-f7d3f--at-360px-and-enlarged-text/error-context.md
 
@@ -62,7 +62,7 @@ Running 7 tests using 1 worker
       89 |   await page.screenshot({path:`verification/mobile-${width}-text-200.png`,fullPage:true});
       90 |   const search=page.locator('.restaurant-picker-search input');
       91 |   await search.focus();await search.fill('신전');
-        at /Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/browser-tests/sikgu.spec.ts:88:77
+        at <repo>/browser-tests/sikgu.spec.ts:88:77
 
     Error Context: test-results/sikgu-restaurant-choices-r-768fd--at-390px-and-enlarged-text/error-context.md
 
@@ -90,7 +90,7 @@ Running 7 tests using 1 worker
       111 |   await expect(page.locator('.my-room-list > button')).toHaveCount(2);
       112 |   await page.locator('.my-room-list > button').first().click();
       113 |   await page.getByRole('button',{name:'이전 메시지 더 보기'}).click();
-        at /Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/browser-tests/sikgu.spec.ts:110:66
+        at <repo>/browser-tests/sikgu.spec.ts:110:66
 
     Error Context: test-results/sikgu-history-pagination-i-5b2d1-rom-the-profile-and-room-UI/error-context.md
 

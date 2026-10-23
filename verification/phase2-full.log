@@ -10,25 +10,30 @@
   vinext build  (Vite 8.0.13)
 
 [1/5] analyze client references...
-[2Ktransforming...✓ 135 modules transformed.
+[2K
+transforming...✓ 135 modules transformed.
 rendering chunks...
 ✓ built in 570ms
 [2/5] analyze server references...
-[2Ktransforming...✓ 52 modules transformed.
+[2K
+transforming...✓ 52 modules transformed.
 rendering chunks...
 ✓ built in 84ms
 [3/5] build rsc environment...
-[2Ktransforming...✓ 141 modules transformed.
+[2K
+transforming...✓ 141 modules transformed.
 rendering chunks...
 computing gzip size...
 ✓ built in 997ms
 [4/5] build client environment...
-[2Ktransforming...✓ 60 modules transformed.
+[2K
+transforming...✓ 60 modules transformed.
 rendering chunks...
 computing gzip size...
 ✓ built in 162ms
 [5/5] build ssr environment...
-[2Ktransforming...✓ 58 modules transformed.
+[2K
+transforming...✓ 58 modules transformed.
 rendering chunks...
 computing gzip size...
 ✓ built in 177ms
@@ -554,13 +559,13 @@ ok 83 - the per-host open-room limit holds under concurrent create_room requests
   duration_ms: 6.089334
   type: 'test'
   ...
-# {"level":"error","reference":"979ac22c-cfa1-4a02-9e6b-c48c0931cb62","context":"Failed to update private order information","error":{"name":"Error","message":"영수증 저장소가 연결되지 않았습니다.","stack":"Error: 영수증 저장소가 연결되지 않았습니다.\\n    at uploadBucket (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/app/api/sikgu/route.ts:85:22)\\n    at Module.PUT (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/app/api/sikgu/route.ts:829:50)\\n    at async Object.call (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/helpers/api-harness.mjs:138:22)\\n    at async TestContext.<anonymous> (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/sikgu.test.mjs:656:20)\\n    at async Test.run (node:internal/test_runner/test:1054:7)\\n    at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)"}}
+# {"level":"error","reference":"979ac22c-cfa1-4a02-9e6b-c48c0931cb62","context":"Failed to update private order information","error":{"name":"Error","message":"영수증 저장소가 연결되지 않았습니다.","stack":"Error: 영수증 저장소가 연결되지 않았습니다.\\n    at uploadBucket (file://<repo>/app/api/sikgu/route.ts:85:22)\\n    at Module.PUT (file://<repo>/app/api/sikgu/route.ts:829:50)\\n    at async Object.call (file://<repo>/tests/helpers/api-harness.mjs:138:22)\\n    at async TestContext.<anonymous> (file://<repo>/tests/sikgu.test.mjs:656:20)\\n    at async Test.run (node:internal/test_runner/test:1054:7)\\n    at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)"}}
 # Receipt deletion must succeed before room deletion Error: 영수증 저장소가 연결되지 않았습니다.
-#     at uploadBucket (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/app/api/sikgu/route.ts:85:22)
-#     at deleteReceiptObjectsForRoom (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/app/api/sikgu/route.ts:110:18)
-#     at Module.DELETE (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/app/api/sikgu/route.ts:1024:13)
-#     at async Object.call (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/helpers/api-harness.mjs:138:22)
-#     at async TestContext.<anonymous> (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/sikgu.test.mjs:668:6)
+#     at uploadBucket (file://<repo>/app/api/sikgu/route.ts:85:22)
+#     at deleteReceiptObjectsForRoom (file://<repo>/app/api/sikgu/route.ts:110:18)
+#     at Module.DELETE (file://<repo>/app/api/sikgu/route.ts:1024:13)
+#     at async Object.call (file://<repo>/tests/helpers/api-harness.mjs:138:22)
+#     at async TestContext.<anonymous> (file://<repo>/tests/sikgu.test.mjs:668:6)
 #     at async Test.run (node:internal/test_runner/test:1054:7)
 #     at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
 # Subtest: a receipt upload without an R2 binding fails cleanly and releases the room's mutation lock

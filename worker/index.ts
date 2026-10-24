@@ -34,6 +34,10 @@ const SECURITY_HEADERS = {
   "Content-Security-Policy": CONTENT_SECURITY_POLICY,
   "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()",
   "Referrer-Policy": "strict-origin-when-cross-origin",
+  // One year of HTTPS-only for this host. Browsers ignore it over plain HTTP,
+  // so local development on http://localhost is unaffected. No `preload`: the
+  // host is a subdomain of a shared platform domain.
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
   "X-XSS-Protection": "0",

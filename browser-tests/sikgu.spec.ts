@@ -240,9 +240,23 @@ test('B3: every response from the worker carries the browser security headers',a
     expect(headers['x-frame-options'],path).toBe('DENY');
     expect(headers['referrer-policy'],path).toBe('strict-origin-when-cross-origin');
     expect(headers['permissions-policy'],path).toContain('camera=()');
+    // Security review 2026-10-24, F-10: HTTPS-only for a year.
+    expect(headers['strict-transport-security'],path).toBe('max-age=31536000; includeSubDomains');
   }
   const api=await page.request.get('/api/sikgu?action=health');
   expect(api.headers()['cache-control']).toBe('private, no-store');
+});
+
+// Security review 2026-10-24, F-5: forwarded host headers are client-controlled
+// and used to end up in og:url and og:image.
+test('link-preview metadata uses the canonical origin, never a forwarded host',async({page})=>{
+  const canonical='https://sikgu-dgist.ugrp44group.chatgpt.site';
+  const response=await page.request.get('/',{headers:{'x-forwarded-host':'evil.example','x-forwarded-proto':'http'}});
+  const html=await response.text();
+  expect(html).not.toContain('evil.example');
+  expect(html).toContain(`<meta property="og:url" content="${canonical}"`);
+  expect(html).toContain(`<meta property="og:image" content="${canonical}/og.png"`);
+  expect(html).toContain(`<meta name="twitter:image" content="${canonical}/og.png"`);
 });
 
 test('D2: an expired session inside the room sheet goes to sign-in instead of a retry loop',async({page})=>{

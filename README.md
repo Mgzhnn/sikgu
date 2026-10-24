@@ -75,6 +75,7 @@ app/
   order-estimates.mjs      # per-app minimum and delivery calculations
   api/sikgu/
     route.ts               # dispatcher: parses the action and delegates
+    health.ts              # health probe, cached 30 s per isolate
     shared.ts              # identity, limits, D1 retry, room serialization
     feed.ts                # bootstrap feed and private room read
     rooms.ts               # room creation, membership, amounts, deadline changes

@@ -53,9 +53,11 @@ test("D2: the health check reports a database outage as 503 with Retry-After", a
   const working = await api.get(undefined, "?action=health");
   assert.deepEqual(working.data, { ok: true, database: "ok", storage: "ok" });
 
-  // A broken receipt bucket is a 503 too (COMPLETION.md item C2).
+  // A broken receipt bucket is a 503 too (COMPLETION.md item C2). The probe
+  // result is cached for 30 seconds, so each swapped binding starts uncached.
   const realUploads = globalThis.__sikguEnv.UPLOADS;
   globalThis.__sikguEnv.UPLOADS = { async list() { throw new Error("R2 unavailable"); } };
+  api.resetHealthCache();
   try {
     const noStorage = await api.get(undefined, "?action=health");
     assert.equal(noStorage.status, 503);
@@ -71,6 +73,7 @@ test("D2: the health check reports a database outage as 503 with Retry-After", a
       throw new Error("D1_ERROR: storage caused object to be reset");
     },
   };
+  api.resetHealthCache();
   try {
     const down = await api.get(undefined, "?action=health");
     assert.equal(down.status, 503);

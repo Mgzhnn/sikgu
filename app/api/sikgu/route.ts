@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { sendMessage } from "./chat";
 import { bootstrap, readRoom } from "./feed";
+import { health } from "./health";
 import { createRoomInvite } from "./invites";
 import { InvalidCursorError } from "./pagination";
 import { deleteRoom, readReceipt, updateOrderInfo } from "./receipts";
@@ -27,7 +28,7 @@ import {
   sameOrigin,
   serverError,
   textField,
-  type Payload, uploadBucket } from "./shared";
+  type Payload } from "./shared";
 
 export const dynamic = "force-dynamic";
 
@@ -40,27 +41,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const action = url.searchParams.get("action") || "bootstrap";
 
-    if (action === "health") {
-      // Liveness plus a one-row database round trip and a one-key storage
-      // listing; no identity, no cache. Either dependency failing is a 503 so
-      // an uptime monitor sees a broken receipt bucket, not only a dead D1.
-      let database = "ok";
-      let storage = "ok";
-      try {
-        await env.DB.prepare("SELECT 1").first();
-      } catch (error) {
-        database = "unavailable";
-        console.error(JSON.stringify({ level: "error", context: "Health check database probe failed", error: String(error) }));
-      }
-      try {
-        await uploadBucket().list({ prefix: "receipts/", limit: 1 });
-      } catch (error) {
-        storage = "unavailable";
-        console.error(JSON.stringify({ level: "error", context: "Health check storage probe failed", error: String(error) }));
-      }
-      const ok = database === "ok" && storage === "ok";
-      return json({ ok, database, storage }, ok ? 200 : 503, ok ? {} : { "Retry-After": "30" });
-    }
+    if (action === "health") return await health();
 
     const user = await optionalUser();
 

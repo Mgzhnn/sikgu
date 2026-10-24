@@ -64,6 +64,13 @@
       "when": 1792808645363,
       "tag": "0008_message_sender_index",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1792808745643,
+      "tag": "0009_app_keys",
+      "breakpoints": true
     }
   ]
 }

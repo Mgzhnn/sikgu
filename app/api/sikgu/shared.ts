@@ -146,13 +146,52 @@ export async function displayName(user: { email: string; fullName: string | null
   if (candidate && !candidate.includes("@") && candidate.toLowerCase() !== user.email.toLowerCase()) {
     return candidate;
   }
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
+  // A keyed hash, not a plain one: an unsalted SHA-256 prefix let anyone with
+  // a list of campus addresses confirm who a label belongs to (security
+  // review 2026-10-24, F-4). The key stays in D1 and is never serialized.
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    await displayLabelKey(),
     new TextEncoder().encode(user.email.trim().toLowerCase()),
   );
-  const suffix = Array.from(new Uint8Array(digest).slice(0, 3), (byte) =>
+  const suffix = Array.from(new Uint8Array(signature).slice(0, 3), (byte) =>
     byte.toString(16).padStart(2, "0")).join("").toUpperCase();
   return `User-${suffix}`;
+}
+
+// One key per database binding, loaded once per isolate. A failed load is
+// forgotten so the next request retries instead of caching the failure.
+const displayLabelKeys = new WeakMap<object, Promise<CryptoKey>>();
+
+function displayLabelKey() {
+  const db = env.DB;
+  let key = displayLabelKeys.get(db);
+  if (!key) {
+    key = loadDisplayLabelKey(db);
+    displayLabelKeys.set(db, key);
+    key.catch(() => displayLabelKeys.delete(db));
+  }
+  return key;
+}
+
+async function loadDisplayLabelKey(db: D1Database) {
+  const read = () => withD1ReadRetry(() => db.prepare(
+    "SELECT value FROM app_keys WHERE name = 'display_label'",
+  ).first<{ value: string }>());
+  let row = await read();
+  if (!row) {
+    // Concurrent first requests race on the primary key; every one of them
+    // then reads back the single row that won.
+    const fresh = Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) =>
+      byte.toString(16).padStart(2, "0")).join("");
+    await db.prepare(
+      "INSERT OR IGNORE INTO app_keys (name, value, created_at) VALUES ('display_label', ?, ?)",
+    ).bind(fresh, Date.now()).run();
+    row = await read();
+  }
+  if (!row || !/^[0-9a-f]{64}$/.test(row.value)) throw new Error("Display label key is unavailable.");
+  const bytes = new Uint8Array(row.value.match(/../g)!.map((pair) => parseInt(pair, 16)));
+  return crypto.subtle.importKey("raw", bytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
 }
 
 export async function optionalUser(): Promise<AuthUser | null> {

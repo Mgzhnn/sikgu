@@ -113,6 +113,9 @@ export async function createApi({ uploads = r2() } = {}) {
   // Tasks scheduled with after() by earlier tests belong to their databases.
   globalThis.__sikguAfter = [];
   const route = await import("../../app/api/sikgu/route.ts");
+  // The health probe is cached per isolate (module); a new database starts uncached.
+  const { resetHealthCache } = await import("../../app/api/sikgu/health.ts");
+  resetHealthCache();
   async function call(method, identity, { query = "", body, form, sameOrigin = true } = {}) {
     globalThis.__sikguHeaders = identity || {};
     const headers = { ...(identity || {}) };
@@ -147,6 +150,7 @@ export async function createApi({ uploads = r2() } = {}) {
     post: (identity, body) => call("POST", identity, { body }),
     get: (identity, query) => call("GET", identity, { query, sameOrigin: false }),
     sql: (query, ...params) => db.prepare(query).all(...params.map(fix)),
+    resetHealthCache,
     runAfterTasks: async () => {
       const tasks = globalThis.__sikguAfter || [];
       globalThis.__sikguAfter = [];

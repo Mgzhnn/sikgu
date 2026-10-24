@@ -24,6 +24,12 @@ uptime monitor. This is a connectivity probe (`SELECT 1` plus `list`), not a
 schema, authentication or end-to-end readiness check. A missing migration can
 coexist with a green health response.
 
+Each Worker isolate reuses one probe result for 30 seconds (`healthCacheMs`
+in `app/api/sikgu/health.ts`), failures included, so an unauthenticated loop
+on the endpoint cannot multiply D1 queries and billed R2 list operations. An
+outage or a recovery therefore shows up within 30 seconds; probe no more often
+than that.
+
 External monitor (COMPLETION.md item C2): _not yet configured_. When set up,
 record here the monitor service, the probe URL, the interval and the alert
 recipient, so the next operator knows where alerts go.

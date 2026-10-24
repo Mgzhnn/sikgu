@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 
 export const apiModules = [
   "shared", "lock", "retention", "receipts", "feed", "rooms", "chat",
-  "invites", "pagination", "responses", "route",
+  "invites", "pagination", "responses", "route", "health",
 ];
 
 export async function readApiSource() {

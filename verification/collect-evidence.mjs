@@ -4,7 +4,8 @@ import {readFileSync, readdirSync, writeFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import vm from 'node:vm';
 import {restaurantMinimums} from '../app/sikgu-rules.mjs';
-const baseline='25804ae3bac5be6aa74b0ad39186fc3df10b7013';
+// Baseline of the ranked repairs; recorded as 25804ae3… before the history rewrite (RELEASE.md).
+const baseline='843991246877b98c1b1db48af205c088074736a7';
 const before=execFileSync('git',['show',`${baseline}:app/page.tsx`],{encoding:'utf8'});
 const segment=before.slice(before.indexOf('const appLabels:'),before.indexOf('function timeLeft('));
 const current=readFileSync('app/catalog.ts','utf8').replace(/^import .*;$/gm,'').replace(/^export /gm,'');

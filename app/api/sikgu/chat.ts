@@ -1,6 +1,15 @@
 import { env } from "cloudflare:workers";
 import { databaseNow, json } from "./responses";
-import { recentRoomWindowMs, roomForUser, type AuthUser, type Payload } from "./shared";
+import {
+  maxMessagesPerRoom,
+  maxMessagesPerSenderPerDay,
+  recentRoomWindowMs,
+  roomForUser,
+  senderMessageWindowMs,
+  withD1ReadRetry,
+  type AuthUser,
+  type Payload,
+} from "./shared";
 import { cleanText, maxChatMessageCharacters } from "../../sikgu-rules.mjs";
 
 export async function sendMessage(auth: AuthUser, id: string, payload: Payload) {
@@ -14,9 +23,10 @@ export async function sendMessage(auth: AuthUser, id: string, payload: Payload) 
   const body = cleanText(payload.body, maxChatMessageCharacters);
   if (!body) return json({ error: "메시지를 입력해 주세요." }, 400);
   const now = Date.now();
-  // Both rate-limit predicates live inside the INSERT so that parallel
-  // sends cannot all pass a separate SELECT: at most 30 per minute and at
-  // least 750 ms between messages from one member in one room.
+  // Every limit lives inside the INSERT so that parallel sends cannot all pass
+  // a separate SELECT: at most 30 per minute and at least 750 ms between
+  // messages from one member in one room, at most maxMessagesPerRoom in a
+  // room, and at most maxMessagesPerSenderPerDay from one account across rooms.
   const inserted = await env.DB.prepare(`
         INSERT INTO room_messages (id, room_id, sender_email, sender_name, body, created_at)
         SELECT ?, ?, ?, ?, ?, ?
@@ -32,16 +42,40 @@ export async function sendMessage(auth: AuthUser, id: string, payload: Payload) 
           SELECT MAX(created_at) FROM room_messages
           WHERE room_id = ? AND sender_email = ?
         ), 0) <= ?
+        AND (SELECT COUNT(*) FROM room_messages WHERE room_id = ?) < ?
+        AND (
+          SELECT COUNT(*) FROM room_messages
+          WHERE sender_email = ? AND created_at > ?
+        ) < ?
       `).bind(
     `msg_${crypto.randomUUID()}`, id, auth.email, auth.displayName, body, now,
     id, auth.email, recentRoomWindowMs,
     id, auth.email, now - 60_000,
     id, auth.email, now - 750,
+    id, maxMessagesPerRoom,
+    auth.email, now - senderMessageWindowMs, maxMessagesPerSenderPerDay,
   ).run();
   if (!inserted.meta.changes) {
     const current = await roomForUser(id, auth.email);
     if (!current || current.my_status !== 'approved' || Number(current.closes_at) <= Date.now() - recentRoomWindowMs) {
       return json({ error: "이 주문방에 메시지를 보낼 수 없습니다." }, 403);
+    }
+    const volume = await withD1ReadRetry(() => env.DB.prepare(`
+      SELECT
+        (SELECT COUNT(*) FROM room_messages WHERE room_id = ?) AS room_count,
+        (SELECT COUNT(*) FROM room_messages WHERE sender_email = ? AND created_at > ?) AS sender_count
+    `).bind(id, auth.email, Date.now() - senderMessageWindowMs).first<{ room_count: number; sender_count: number }>());
+    if (Number(volume?.room_count || 0) >= maxMessagesPerRoom) {
+      return json({
+        error: `이 주문방은 메시지가 ${maxMessagesPerRoom.toLocaleString("ko-KR")}개에 도달해 더 보낼 수 없어요.`,
+      }, 409);
+    }
+    if (Number(volume?.sender_count || 0) >= maxMessagesPerSenderPerDay) {
+      return json(
+        { error: `메시지는 하루에 ${maxMessagesPerSenderPerDay}개까지 보낼 수 있어요. 잠시 후 다시 시도해주세요.` },
+        429,
+        { "Retry-After": "3600" },
+      );
     }
     return json({ error: "메시지를 너무 빠르게 보내고 있어요. 잠시 후 다시 시도해주세요." }, 429, {
       "Retry-After": "1",

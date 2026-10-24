@@ -1,0 +1,1 @@
+CREATE INDEX `room_messages_sender_day_idx` ON `room_messages` (`sender_email`,`created_at`);

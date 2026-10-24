@@ -92,7 +92,7 @@ the header comment of `app/catalog.ts`.
 Every migration so far is additive (0004 adds `room_blocks`, 0005 adds
 indexes, 0006 adds the nullable `room_members.amount` column and
 `rooms.extensions` with a default of 0, 0007 adds the `join_requests`
-rate-limit log),
+rate-limit log, 0008 adds the `room_messages_sender_day_idx` index),
 so earlier code runs against the newer schema.
 Never undo a migration by editing history; if a migration itself is bad,
 write a new forward migration that reverses it.
@@ -168,7 +168,8 @@ Worked example. A student reports: "저장이 안 돼요. 서버 오류가 발�
   status `deleting` after a failed deletion is hidden from everyone and is
   reclaimed by the host's next delete attempt or by the sweep.
 - Rate limits: 5 open rooms per host, 5 active invite links per room, 30
-  chat messages per minute and 750 ms between messages per member, one
+  chat messages per minute and 750 ms between messages per member, 2,000
+  messages per room, 500 messages per account per 24 hours across rooms, one
   receipt replacement per 30 seconds. All are enforced inside SQL statements. Expired/exhausted links are pruned on creation. At the five-link cap the host receives an existing usable token; the limit is not a five-minute recovery promise.
 
 ## Cleanup monitoring and orphan recovery

@@ -57,6 +57,13 @@
       "when": 1792638151063,
       "tag": "0007_join_request_log",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1792808645363,
+      "tag": "0008_message_sender_index",
+      "breakpoints": true
     }
   ]
 }

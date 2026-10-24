@@ -86,6 +86,8 @@ export const roomMessages = sqliteTable("room_messages", {
 }, (table) => [
   index("room_messages_room_created_idx").on(table.roomId, table.createdAt, table.id),
   index("room_messages_sender_created_idx").on(table.roomId, table.senderEmail, table.createdAt),
+  // Backs the per-account daily message ceiling, which counts across rooms.
+  index("room_messages_sender_day_idx").on(table.senderEmail, table.createdAt),
 ]);
 
 /**

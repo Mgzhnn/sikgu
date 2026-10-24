@@ -11,25 +11,30 @@ Switched to a new branch 'codex/sikgu-repairs'
   vinext build  (Vite 8.0.13)
 
 [1/5] analyze client references...
-[2Ktransforming...✓ 135 modules transformed.
+[2K
+transforming...✓ 135 modules transformed.
 rendering chunks...
 ✓ built in 310ms
 [2/5] analyze server references...
-[2Ktransforming...✓ 50 modules transformed.
+[2K
+transforming...✓ 50 modules transformed.
 rendering chunks...
 ✓ built in 54ms
 [3/5] build rsc environment...
-[2Ktransforming...✓ 141 modules transformed.
+[2K
+transforming...✓ 141 modules transformed.
 rendering chunks...
 computing gzip size...
 ✓ built in 297ms
 [4/5] build client environment...
-[2Ktransforming...✓ 58 modules transformed.
+[2K
+transforming...✓ 58 modules transformed.
 rendering chunks...
 computing gzip size...
 ✓ built in 128ms
 [5/5] build ssr environment...
-[2Ktransforming...✓ 56 modules transformed.
+[2K
+transforming...✓ 56 modules transformed.
 rendering chunks...
 computing gzip size...
 ✓ built in 161ms
@@ -485,13 +490,13 @@ ok 72 - the per-host open-room limit holds under concurrent create_room requests
   duration_ms: 74.545576
   type: 'test'
   ...
-# {"level":"error","reference":"226e5f20-21a3-441a-b048-dba0bb8fd8f1","context":"Failed to update private order information","error":{"name":"Error","message":"영수증 저장소가 연결되지 않았습니다.","stack":"Error: 영수증 저장소가 연결되지 않았습니다.\\n    at uploadBucket (file:///home/magzhan/projects/sikgu/app/api/sikgu/route.ts:82:22)\\n    at Module.PUT (file:///home/magzhan/projects/sikgu/app/api/sikgu/route.ts:826:50)\\n    at async Object.call (file:///home/magzhan/projects/sikgu/tests/helpers/api-harness.mjs:135:22)\\n    at async TestContext.<anonymous> (file:///home/magzhan/projects/sikgu/tests/sikgu.test.mjs:661:20)\\n    at async Test.run (node:internal/test_runner/test:1054:7)\\n    at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)"}}
+# {"level":"error","reference":"226e5f20-21a3-441a-b048-dba0bb8fd8f1","context":"Failed to update private order information","error":{"name":"Error","message":"영수증 저장소가 연결되지 않았습니다.","stack":"Error: 영수증 저장소가 연결되지 않았습니다.\\n    at uploadBucket (file://<repo>/app/api/sikgu/route.ts:82:22)\\n    at Module.PUT (file://<repo>/app/api/sikgu/route.ts:826:50)\\n    at async Object.call (file://<repo>/tests/helpers/api-harness.mjs:135:22)\\n    at async TestContext.<anonymous> (file://<repo>/tests/sikgu.test.mjs:661:20)\\n    at async Test.run (node:internal/test_runner/test:1054:7)\\n    at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)"}}
 # Receipt deletion must succeed before room deletion Error: 영수증 저장소가 연결되지 않았습니다.
-#     at uploadBucket (file:///home/magzhan/projects/sikgu/app/api/sikgu/route.ts:82:22)
-#     at deleteReceiptObjectsForRoom (file:///home/magzhan/projects/sikgu/app/api/sikgu/route.ts:107:18)
-#     at Module.DELETE (file:///home/magzhan/projects/sikgu/app/api/sikgu/route.ts:1021:13)
-#     at async Object.call (file:///home/magzhan/projects/sikgu/tests/helpers/api-harness.mjs:135:22)
-#     at async TestContext.<anonymous> (file:///home/magzhan/projects/sikgu/tests/sikgu.test.mjs:673:6)
+#     at uploadBucket (file://<repo>/app/api/sikgu/route.ts:82:22)
+#     at deleteReceiptObjectsForRoom (file://<repo>/app/api/sikgu/route.ts:107:18)
+#     at Module.DELETE (file://<repo>/app/api/sikgu/route.ts:1021:13)
+#     at async Object.call (file://<repo>/tests/helpers/api-harness.mjs:135:22)
+#     at async TestContext.<anonymous> (file://<repo>/tests/sikgu.test.mjs:673:6)
 #     at async Test.run (node:internal/test_runner/test:1054:7)
 #     at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
 # Subtest: a receipt upload without an R2 binding fails cleanly and releases the room's mutation lock

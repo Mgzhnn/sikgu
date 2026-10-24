@@ -36,7 +36,7 @@ not ok 6 - R3/R6: invite expiry follows recruitment and hosts can recover a link
   ---
   duration_ms: 7.788833
   type: 'test'
-  location: '/Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/repairs-api.test.mjs:69:1'
+  location: '<repo>/tests/repairs-api.test.mjs:69:1'
   failureType: 'testCodeFailure'
   error: |-
     The expression evaluated to a falsy value:
@@ -49,7 +49,7 @@ not ok 6 - R3/R6: invite expiry follows recruitment and hosts can recover a link
   actual: false
   operator: '=='
   stack: |-
-    TestContext.<anonymous> (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/repairs-api.test.mjs:75:12)
+    TestContext.<anonymous> (file://<repo>/tests/repairs-api.test.mjs:75:12)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
   ...

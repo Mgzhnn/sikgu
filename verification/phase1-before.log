@@ -6,7 +6,7 @@ not ok 1 - R1: removal committed before a send prevents the message write
   ---
   duration_ms: 157.640334
   type: 'test'
-  location: '/Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/repairs-api.test.mjs:18:1'
+  location: '<repo>/tests/repairs-api.test.mjs:18:1'
   failureType: 'testCodeFailure'
   error: 'received 201'
   code: 'ERR_ASSERTION'
@@ -15,7 +15,7 @@ not ok 1 - R1: removal committed before a send prevents the message write
   actual: false
   operator: '=='
   stack: |-
-    TestContext.<anonymous> (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/repairs-api.test.mjs:32:10)
+    TestContext.<anonymous> (file://<repo>/tests/repairs-api.test.mjs:32:10)
     async Test.run (node:internal/test_runner/test:1054:7)
     async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
   ...
@@ -24,7 +24,7 @@ not ok 2 - R2: approval rechecks deleting at the write boundary
   ---
   duration_ms: 9.296542
   type: 'test'
-  location: '/Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/repairs-api.test.mjs:38:3'
+  location: '<repo>/tests/repairs-api.test.mjs:38:3'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -37,7 +37,7 @@ not ok 2 - R2: approval rechecks deleting at the write boundary
   actual: 200
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/repairs-api.test.mjs:47:12)
+    TestContext.<anonymous> (file://<repo>/tests/repairs-api.test.mjs:47:12)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
   ...
@@ -46,7 +46,7 @@ not ok 3 - R2: approval rechecks expired at the write boundary
   ---
   duration_ms: 3.983625
   type: 'test'
-  location: '/Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/repairs-api.test.mjs:38:3'
+  location: '<repo>/tests/repairs-api.test.mjs:38:3'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -59,17 +59,17 @@ not ok 3 - R2: approval rechecks expired at the write boundary
   actual: 200
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/repairs-api.test.mjs:47:12)
+    TestContext.<anonymous> (file://<repo>/tests/repairs-api.test.mjs:47:12)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
   ...
-# {"level":"error","reference":"c4699887-bbcc-45e4-a798-166b87e17c25","context":"Failed to mutate SIKGU data","error":{"name":"Error","message":"FOREIGN KEY constraint failed","stack":"Error: FOREIGN KEY constraint failed\\n    at Object.runSync (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/helpers/api-harness.mjs:65:42)\\n    at Object.run (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/helpers/api-harness.mjs:69:28)\\n    at s.run (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/repairs-api.test.mjs:59:154)\\n    at Module.POST (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/app/api/sikgu/route.ts:1200:70)\\n    at async call (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/helpers/api-harness.mjs:138:22)\\n    at async TestContext.<anonymous> (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/repairs-api.test.mjs:63:20)\\n    at async Test.run (node:internal/test_runner/test:1054:7)\\n    at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)"}}
+# {"level":"error","reference":"c4699887-bbcc-45e4-a798-166b87e17c25","context":"Failed to mutate SIKGU data","error":{"name":"Error","message":"FOREIGN KEY constraint failed","stack":"Error: FOREIGN KEY constraint failed\\n    at Object.runSync (file://<repo>/tests/helpers/api-harness.mjs:65:42)\\n    at Object.run (file://<repo>/tests/helpers/api-harness.mjs:69:28)\\n    at s.run (file://<repo>/tests/repairs-api.test.mjs:59:154)\\n    at Module.POST (file://<repo>/app/api/sikgu/route.ts:1200:70)\\n    at async call (file://<repo>/tests/helpers/api-harness.mjs:138:22)\\n    at async TestContext.<anonymous> (file://<repo>/tests/repairs-api.test.mjs:63:20)\\n    at async Test.run (node:internal/test_runner/test:1054:7)\\n    at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)"}}
 # Subtest: request_join cannot succeed after concurrent room deletion
 not ok 4 - request_join cannot succeed after concurrent room deletion
   ---
   duration_ms: 26.787667
   type: 'test'
-  location: '/Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/repairs-api.test.mjs:54:3'
+  location: '<repo>/tests/repairs-api.test.mjs:54:3'
   failureType: 'testCodeFailure'
   error: 'received 500'
   code: 'ERR_ASSERTION'
@@ -78,17 +78,17 @@ not ok 4 - request_join cannot succeed after concurrent room deletion
   actual: false
   operator: '=='
   stack: |-
-    TestContext.<anonymous> (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/repairs-api.test.mjs:64:12)
+    TestContext.<anonymous> (file://<repo>/tests/repairs-api.test.mjs:64:12)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
   ...
-# {"level":"error","reference":"8f19a343-9e27-4ddc-b3e3-394ce19f1c68","context":"Failed to mutate SIKGU data","error":{"name":"Error","message":"FOREIGN KEY constraint failed","stack":"Error: FOREIGN KEY constraint failed\\n    at Object.runSync (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/helpers/api-harness.mjs:65:42)\\n    at Object.batch (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/helpers/api-harness.mjs:81:64)\\n    at binding.batch (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/repairs-api.test.mjs:62:109)\\n    at Module.POST (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/app/api/sikgu/route.ts:1312:41)\\n    at async call (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/helpers/api-harness.mjs:138:22)\\n    at async TestContext.<anonymous> (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/repairs-api.test.mjs:63:20)\\n    at async Test.run (node:internal/test_runner/test:1054:7)\\n    at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)"}}
+# {"level":"error","reference":"8f19a343-9e27-4ddc-b3e3-394ce19f1c68","context":"Failed to mutate SIKGU data","error":{"name":"Error","message":"FOREIGN KEY constraint failed","stack":"Error: FOREIGN KEY constraint failed\\n    at Object.runSync (file://<repo>/tests/helpers/api-harness.mjs:65:42)\\n    at Object.batch (file://<repo>/tests/helpers/api-harness.mjs:81:64)\\n    at binding.batch (file://<repo>/tests/repairs-api.test.mjs:62:109)\\n    at Module.POST (file://<repo>/app/api/sikgu/route.ts:1312:41)\\n    at async call (file://<repo>/tests/helpers/api-harness.mjs:138:22)\\n    at async TestContext.<anonymous> (file://<repo>/tests/repairs-api.test.mjs:63:20)\\n    at async Test.run (node:internal/test_runner/test:1054:7)\\n    at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)"}}
 # Subtest: create_invite cannot succeed after concurrent room deletion
 not ok 5 - create_invite cannot succeed after concurrent room deletion
   ---
   duration_ms: 2.757542
   type: 'test'
-  location: '/Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/repairs-api.test.mjs:54:3'
+  location: '<repo>/tests/repairs-api.test.mjs:54:3'
   failureType: 'testCodeFailure'
   error: 'received 500'
   code: 'ERR_ASSERTION'
@@ -97,7 +97,7 @@ not ok 5 - create_invite cannot succeed after concurrent room deletion
   actual: false
   operator: '=='
   stack: |-
-    TestContext.<anonymous> (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/repairs-api.test.mjs:64:12)
+    TestContext.<anonymous> (file://<repo>/tests/repairs-api.test.mjs:64:12)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
   ...

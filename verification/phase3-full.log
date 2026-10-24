@@ -565,13 +565,13 @@ ok 83 - the per-host open-room limit holds under concurrent create_room requests
   duration_ms: 7.668208
   type: 'test'
   ...
-# {"level":"error","reference":"3343f57c-8b92-40f2-8c95-e798b37d293b","context":"Failed to update private order information","error":{"name":"Error","message":"영수증 저장소가 연결되지 않았습니다.","stack":"Error: 영수증 저장소가 연결되지 않았습니다.\\n    at uploadBucket (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/app/api/sikgu/route.ts:86:22)\\n    at Module.PUT (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/app/api/sikgu/route.ts:863:50)\\n    at async Object.call (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/helpers/api-harness.mjs:138:22)\\n    at async TestContext.<anonymous> (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/sikgu.test.mjs:656:20)\\n    at async Test.run (node:internal/test_runner/test:1054:7)\\n    at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)"}}
+# {"level":"error","reference":"3343f57c-8b92-40f2-8c95-e798b37d293b","context":"Failed to update private order information","error":{"name":"Error","message":"영수증 저장소가 연결되지 않았습니다.","stack":"Error: 영수증 저장소가 연결되지 않았습니다.\\n    at uploadBucket (file://<repo>/app/api/sikgu/route.ts:86:22)\\n    at Module.PUT (file://<repo>/app/api/sikgu/route.ts:863:50)\\n    at async Object.call (file://<repo>/tests/helpers/api-harness.mjs:138:22)\\n    at async TestContext.<anonymous> (file://<repo>/tests/sikgu.test.mjs:656:20)\\n    at async Test.run (node:internal/test_runner/test:1054:7)\\n    at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)"}}
 # Receipt deletion must succeed before room deletion Error: 영수증 저장소가 연결되지 않았습니다.
-#     at uploadBucket (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/app/api/sikgu/route.ts:86:22)
-#     at deleteReceiptObjectsForRoom (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/app/api/sikgu/route.ts:111:18)
-#     at Module.DELETE (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/app/api/sikgu/route.ts:1058:13)
-#     at async Object.call (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/helpers/api-harness.mjs:138:22)
-#     at async TestContext.<anonymous> (file:///Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs/tests/sikgu.test.mjs:668:6)
+#     at uploadBucket (file://<repo>/app/api/sikgu/route.ts:86:22)
+#     at deleteReceiptObjectsForRoom (file://<repo>/app/api/sikgu/route.ts:111:18)
+#     at Module.DELETE (file://<repo>/app/api/sikgu/route.ts:1058:13)
+#     at async Object.call (file://<repo>/tests/helpers/api-harness.mjs:138:22)
+#     at async TestContext.<anonymous> (file://<repo>/tests/sikgu.test.mjs:668:6)
 #     at async Test.run (node:internal/test_runner/test:1054:7)
 #     at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
 # Subtest: a receipt upload without an R2 binding fails cleanly and releases the room's mutation lock

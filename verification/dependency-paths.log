@@ -1,4 +1,4 @@
-site-creator-vinext-starter@0.1.0 /Users/magzanziabek/Documents/ChatGPT/extra/sikgu-repairs
+site-creator-vinext-starter@0.1.0 <repo>
 ├─┬ drizzle-kit@0.31.10
 │ ├─┬ @esbuild-kit/esm-loader@2.6.5
 │ │ └─┬ @esbuild-kit/core-utils@3.3.2

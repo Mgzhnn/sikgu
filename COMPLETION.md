@@ -1,6 +1,6 @@
 # SIKGU completion plan — fixed scope
 
-Written 2026-10-05 from the full audit of commit `f964b71`. This list is closed:
+Written 2026-10-05 from the full audit of commit `6640ad8`. This list is closed:
 when every box below is ticked, the project is finished. Nothing found later is
 added here; it goes to a separate backlog that does not block completion.
 
@@ -185,8 +185,9 @@ completes the item.
 
 ## Status on 2026-10-06
 
-Deployed: Sites version 28 from `e42a53c` on 2026-10-06, migration 0006 applied,
-probe passed. Open: C1, C2 (monitor), C3, D3, G2, then the tag.
+Deployed: Sites version 28 from `674d757` on 2026-10-06, migration 0006 applied,
+probe passed. Open: C1, C2 (monitor), C3, D3, G2, then the tag (scheme and
+retroactive `sites-v26`/`sites-v28` tags in RELEASE.md).
 
 18 of 24 items done (every code and documentation item). The six open items
 are owner actions that need production access or GitHub settings: C1, C2

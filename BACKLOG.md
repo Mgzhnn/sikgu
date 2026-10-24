@@ -33,9 +33,10 @@ Fixed:
 
 Open:
 
-- [ ] **Deploy:** the next Sites release must apply migration
-  `0007_join_request_log` (one new table). Until then production keeps the old
-  join limit.
+- [ ] **Deploy:** the next Sites release must apply migrations
+  `0007_join_request_log`, `0008_message_sender_index` and `0009_app_keys`
+  (two tables, one index). Until then production keeps the old join limit and
+  none of the 2026-10-24 security fixes. Checklist: [RELEASE.md](RELEASE.md).
 - [ ] **Evidence:** regenerate `verification/` with `SIKGU_EVIDENCE=1` (see
   verification/README.md) at the next release; the committed inventories
   predate this branch.

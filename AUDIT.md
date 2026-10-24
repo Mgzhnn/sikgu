@@ -1,8 +1,10 @@
 > Historical audit. For the subsequent ranked repairs and current verification limits, see [REPAIRS.md](REPAIRS.md). The results below describe their original audit state.
+>
+> **Commit hashes.** The repository history was rewritten after this record was written. The starting commit is given with its current hash (`ed047a1`). The per-finding fix hashes below (for example `88cea55`, `77183f3`) are the original ones and no longer resolve. The same fixes are the 2026-09-03 commits from `02555d2` to `8439912`, one per finding as the commit subjects say (`git log --reverse --since=2026-09-03 --until=2026-09-04 --oneline`). [RELEASE.md](RELEASE.md) maps the hashes that the other records cite.
 
 # SIKGU audit
 
-Audit date: 2026-09-03. Repository at commit `10fa317` on `main` (working tree clean at start).
+Audit date: 2026-09-03. Repository at commit `ed047a1` on `main` (working tree clean at start).
 
 ## Phase 0: environment and baseline
 
@@ -86,7 +88,7 @@ Method. I read every source file, test, migration, and config in full myself, th
 
 Severity scale: critical = exploitable by any student for money, privacy, or takeover; high = a real user hits it in normal use or a hostile student can break an invariant the README promises; medium = limit bypass, wrong state that self-heals, or a failure path that misbehaves; low = correctness or robustness gap with a narrow trigger.
 
-Line numbers refer to commit `10fa317`.
+Line numbers refer to commit `ed047a1`.
 
 ### Category 1: authentication and authorization
 
@@ -223,7 +225,7 @@ Config facts with no finding: `strict` is on; the single `eslint-disable` (`page
 
 ## Phase 2: fixes
 
-All fixes live on branch `audit-2026-09-03`, branched from `main` at `10fa317`; nothing was pushed. Twenty-four commits, one per finding or tightly related pair, each verified by the full gate before the next; the gate log with every "before fix" failure and "after fix" pass is in the session scratchpad (`phase2/gate-log.txt`). New behavioural API tests run the real `app/api/sikgu/route.ts` in-process against `node:sqlite` with the real migrations through `tests/helpers/api-harness.mjs` (Node 22 strips the TypeScript types natively; only `cloudflare:workers`, `next/headers`, `next/server`, and `next/navigation` are stubbed). One new migration, `drizzle/0004_room_blocks.sql`, was produced by `npm run db:generate`; `drizzle/meta` was touched only by that generator.
+All fixes live on branch `audit-2026-09-03`, branched from `main` at `ed047a1`; nothing was pushed. Twenty-four commits, one per finding or tightly related pair, each verified by the full gate before the next; the gate log with every "before fix" failure and "after fix" pass is in the session scratchpad (`phase2/gate-log.txt`). New behavioural API tests run the real `app/api/sikgu/route.ts` in-process against `node:sqlite` with the real migrations through `tests/helpers/api-harness.mjs` (Node 22 strips the TypeScript types natively; only `cloudflare:workers`, `next/headers`, `next/server`, and `next/navigation` are stubbed). One new migration, `drizzle/0004_room_blocks.sql`, was produced by `npm run db:generate`; `drizzle/meta` was touched only by that generator.
 
 Six existing assertions were changed rather than removed, each keeping or strengthening its meaning (the Phase 5 diff review counted them): the ordering check `uploadBucket().put(newReceiptKey` became `receiptBucket.put(newReceiptKey` (3073b50); the chat bound `.trim().slice(0, 1000)` became `cleanText(payload.body, 1000)` (ceaa4be); the deadline window checks became `roomDurations.includes(minutes)` plus the server-side computation (efe1744); and the sweep's `claimed.results.map((room) =>` became the `for (const room of claimed.results)` loop (404bd38); in Phase 4 the two assertions pinning the exact rules import line became a regex requiring both rule names (50570ca). Existing test payloads switched from a client `closesAt` to `minutes: 30` because that is now the contract. Two commit messages overstate slightly and are corrected here rather than by rewriting history: ee791d2 says the 429 fallback copy reuses existing server copy, but "요청이 너무 잦아요. 잠시 후 다시 시도해주세요." is new; 8e39383's clear rule was later replaced (cd756df) because it left sent text behind when the student kept typing.
 

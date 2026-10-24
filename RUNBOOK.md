@@ -44,13 +44,15 @@ Record the date it was enabled here: _not yet enabled_.
 
 ## Deploy
 
+For a release, work through the checklist in [RELEASE.md](RELEASE.md); the steps below are the procedure it follows.
+
 1. Run `npm ci`, `npm test`, `npm run lint`, and `npm run test:browser` (install Playwright Chromium first). CI runs the same set plus `npm audit --omit=dev --audit-level=high`; merge only on a green run. For development-only audit entries use the per-advisory reasoning in `REPAIRS.md`.
 2. After the deploy, run `npm run probe -- https://<origin>` and commit its output under `verification/` as `identity-probe-<date>.log`; it must print `"summary":"PASS"`. Keep production data untouched during local verification.
 3. Prepare and push the verified source, build/package its Sites artifact, save a version and deploy that explicit version through Sites. A GitHub push does not itself verify or perform this release workflow. The build packages `.openai/hosting.json` and generated migrations in `dist/.openai/`; verify the expected migration is in the artifact and applied by the platform.
 4. Check migration/schema readiness through the platform's database tools (expected tables, columns and indexes), then probe health. In an authorized test room verify create, join, approve, chat, upload/read a receipt as a member, and delete. Verify the deleted receipt object is gone from R2.
 5. Old tabs should reload after a contract change. This repair returns absolute `expiresAt` for invitation creation instead of `expiresInHours`; stale clients must not continue advertising 24 hours. New pagination fields are additive and optional cursor parameters preserve first-page behavior. Do not claim compatibility of stale cached UI just because the API still responds.
 
-Last deploy: 2026-10-06, commit `e42a53c` as Sites version 28, saved and deployed by Codex on the server with the Sites tools from a clean clone of `main`. Sites applied migration 0006 (two additive columns). Health answered `database: "ok"`, `storage: "ok"` and the identity probe passed. Previous: 2026-10-05, `e5e77d7` as version 26 (migrations 0004 and 0005 on empty tables). The owning ChatGPT account must be the one Codex is logged in as, or Sites reports the project as not found.
+Last deploy: 2026-10-06, commit `674d757` (to be tagged `sites-v28`, see RELEASE.md) as Sites version 28, saved and deployed by Codex on the server with the Sites tools from a clean clone of `main`. Sites applied migration 0006 (two additive columns). Health answered `database: "ok"`, `storage: "ok"` and the identity probe passed. Previous: 2026-10-05, `1ea9eae` as version 26 (migrations 0004 and 0005 on empty tables). The owning ChatGPT account must be the one Codex is logged in as, or Sites reports the project as not found.
 
 ## Catalog: adding or updating a restaurant or pickup point
 

@@ -13,7 +13,7 @@ npm audit --json > verification/dependency-final.json
 node verification/collect-evidence.mjs
 ```
 
-An audit exit code of 1 is expected until the residual advisories in REPAIRS.md are addressed. It is not a test/build success. `SIKGU_EVIDENCE=1` is what makes the build write `modules-*.json` and the browser tests write `mobile-*.png` here; without it they are skipped or go to `test-results/`, so ordinary builds leave the tree clean. The evidence collector requires all three fresh module inventories from the build and checks catalog, hosting manifest and applied migration preservation against `25804ae`.
+An audit exit code of 1 is expected until the residual advisories in REPAIRS.md are addressed. It is not a test/build success. `SIKGU_EVIDENCE=1` is what makes the build write `modules-*.json` and the browser tests write `mobile-*.png` here; without it they are skipped or go to `test-results/`, so ordinary builds leave the tree clean. The evidence collector requires all three fresh module inventories from the build and checks catalog, hosting manifest and applied migration preservation against `8439912`.
 
 | Evidence | Meaning |
 | --- | --- |
@@ -40,6 +40,6 @@ node --test tests/pagination.test.mjs tests/message-history.test.mjs tests/polli
 npm run test:browser
 ```
 
-Before-fix logs were captured by running the correctness regressions against the original implementation (or the then-current intermediate implementation). To repeat a baseline comparison, use an isolated checkout of `25804ae`, copy the relevant regression plus the request-local harness, and run it there. Never run the original review's assertions of wrong behavior as a green acceptance gate.
+Before-fix logs were captured by running the correctness regressions against the original implementation (or the then-current intermediate implementation). To repeat a baseline comparison, use an isolated checkout of `8439912`, copy the relevant regression plus the request-local harness, and run it there. Never run the original review's assertions of wrong behavior as a green acceptance gate.
 
 The SQLite harness executes the real route and generated migrations, with D1/R2/platform adapters. Browser tests execute the app UI and replace local API responses. Neither verifies authentication at the real proxy, actual mobile hardware or production D1/R2 operation. Module inclusion plus call-site inspection supports the dependency disposition; a dependency's package category alone does not.

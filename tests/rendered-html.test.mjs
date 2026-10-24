@@ -466,7 +466,7 @@ test("masks Korean and English display names consistently", async () => {
   assert.match(page, /maskDisplayName\(member\.display_name\)/);
   assert.match(page, /maskDisplayName\(item\.sender_name\)/);
   assert.match(api, /displayName: maskDisplayName\(await displayName\(user\)\)/);
-  assert.match(api, /crypto\.subtle\.digest\([\s\S]*return `User-\$\{suffix\}`/);
+  assert.match(api, /crypto\.subtle\.sign\(\s*"HMAC"[\s\S]*return `User-\$\{suffix\}`/);
   assert.match(api, /function publicDisplayName\(value: unknown\)/);
   assert.match(api, /name\.includes\("@"\) \? "\uC0AC\uC6A9\uC790" : maskDisplayName\(name\)/);
   assert.match(api, /host: publicDisplayName\(row\.host_name\)/);

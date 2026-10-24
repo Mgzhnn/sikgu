@@ -104,3 +104,14 @@ export const joinRequests = sqliteTable("join_requests", {
   index("join_requests_user_created_idx").on(table.userEmail, table.createdAt),
   index("join_requests_created_idx").on(table.createdAt),
 ]);
+
+/**
+ * Server-generated keys that never leave the database, created on first use.
+ * `display_label` keys the HMAC behind `User-XXXXXX` labels, so a label cannot
+ * be recomputed from a guessed email address.
+ */
+export const appKeys = sqliteTable("app_keys", {
+  name: text("name").primaryKey(),
+  value: text("value").notNull(),
+  createdAt: integer("created_at").notNull(),
+});

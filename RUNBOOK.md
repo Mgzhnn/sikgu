@@ -98,7 +98,8 @@ the header comment of `app/catalog.ts`.
 Every migration so far is additive (0004 adds `room_blocks`, 0005 adds
 indexes, 0006 adds the nullable `room_members.amount` column and
 `rooms.extensions` with a default of 0, 0007 adds the `join_requests`
-rate-limit log, 0008 adds the `room_messages_sender_day_idx` index),
+rate-limit log, 0008 adds the `room_messages_sender_day_idx` index, 0009 adds
+the `app_keys` table),
 so earlier code runs against the newer schema.
 Never undo a migration by editing history; if a migration itself is bad,
 write a new forward migration that reverses it.
@@ -169,6 +170,11 @@ Worked example. A student reports: "저장이 안 돼요. 서버 오류가 발�
   reopen the chat and receipt. A sweep runs at most once an hour per Worker
   isolate, triggered by the first feed load after the hour, and deletes up to
   50 expired rooms per run, one at a time, receipt objects before the row. This is best-effort physical deletion, not a 30-day deletion SLA. API read authorization still ends at the 30-day cutoff. No traffic means no sweep; isolates do not share a global schedule.
+- Display-label key: accounts without a profile name are shown as
+  `User-XXXXXX`, an HMAC of the email under a random key the Worker creates
+  in `app_keys` (`display_label`) on first use. It never leaves D1. Deleting
+  or replacing it changes every such label for new writes; rows already
+  written keep the old label until their room is purged.
 - Mutation lock: receipt updates and room deletion take a per-room lock
   (`rooms.mutation_token`) that goes stale after 2 minutes. A room stuck in
   status `deleting` after a failed deletion is hidden from everyone and is

@@ -67,6 +67,14 @@ export const extensionGraceMs = 10 * 60 * 1000;
 /** Join requests per user across all rooms, enforced inside the INSERT. */
 export const maxJoinRequestsPerWindow = 10;
 export const joinRequestWindowMs = 10 * 60 * 1000;
+/**
+ * Chat volume ceilings, enforced inside the message INSERT. The per-member
+ * rate limits bound speed only; without these one account chatting in its own
+ * rooms could keep writing for 30 days after each deadline and fill D1.
+ */
+export const maxMessagesPerRoom = 2000;
+export const maxMessagesPerSenderPerDay = 500;
+export const senderMessageWindowMs = 24 * 60 * 60 * 1000;
 export const receiptTypes = new Set(["image/png"]);
 export function uploadBucket() {
   const bucket = (env as unknown as { UPLOADS?: UploadBucket }).UPLOADS;

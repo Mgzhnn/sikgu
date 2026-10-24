@@ -1,4 +1,0 @@
-
-> site-creator-vinext-starter@0.1.0 lint
-> eslint . --ignore-pattern dist --ignore-pattern .next
-

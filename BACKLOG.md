@@ -33,13 +33,13 @@ Fixed:
 
 Open:
 
-- [ ] **Deploy:** the next Sites release must apply migrations
-  `0007_join_request_log`, `0008_message_sender_index` and `0009_app_keys`
-  (two tables, one index). Until then production keeps the old join limit and
-  none of the 2026-10-24 security fixes. Checklist: [RELEASE.md](RELEASE.md).
-- [ ] **Evidence:** regenerate `verification/` with `SIKGU_EVIDENCE=1` (see
-  verification/README.md) at the next release; the committed inventories
-  predate this branch.
+- [x] **Deploy:** Sites version 29 (`sites-v29`) shipped migrations 0007–0009
+  on 2026-10-24 ([RELEASE.md](RELEASE.md) release log). Still open from that
+  release: observing the three new indexes, alternate origins (D3) and the log
+  check (D5).
+- [x] **Evidence:** module inventories, dependency reachability and catalog
+  preservation regenerated from `sites-v29` on 2026-10-24. Screenshots were
+  not regenerated (browser tests run in CI, not on the shared server).
 - [ ] **Structural tests:** 45 tests in `tests/rendered-html.test.mjs` and
   `tests/sikgu.test.mjs` assert on source text while their names describe
   behaviour. Convert the ones guarding user-visible behaviour to browser tests

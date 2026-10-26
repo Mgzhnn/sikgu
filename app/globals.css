@@ -3804,12 +3804,11 @@ button:disabled { cursor: not-allowed; opacity: 0.56; }
 }
 
 /* Completion plan group 2: member amounts, deadline actions, pending state, privacy notice. */
-.member-list > div { flex-wrap: wrap; }
+/* A member row is a three-column grid; the amount form takes a full row of its own. */
 .amount-editor {
   display: flex;
-  flex-basis: 100%;
+  grid-column: 1 / -1;
   gap: 6px;
-  margin-top: 6px;
 }
 .amount-editor label { flex: 1; min-width: 0; }
 .amount-editor input {

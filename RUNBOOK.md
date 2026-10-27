@@ -52,7 +52,7 @@ For a release, work through the checklist in [RELEASE.md](RELEASE.md); the steps
 4. Check migration/schema readiness through the platform's database tools (expected tables, columns and indexes), then probe health. In an authorized test room verify create, join, approve, chat, upload/read a receipt as a member, and delete. Verify the deleted receipt object is gone from R2.
 5. Old tabs should reload after a contract change. This repair returns absolute `expiresAt` for invitation creation instead of `expiresInHours`; stale clients must not continue advertising 24 hours. New pagination fields are additive and optional cursor parameters preserve first-page behavior. Do not claim compatibility of stale cached UI just because the API still responds.
 
-Last deploy: 2026-10-24, tag `sites-v29` (`db0861a`) as Sites version 29, saved and deployed by Codex with the Sites tools from a clean clone, through the Sites release merge `5ca240d` (RELEASE.md, step C). Migrations 0007–0009 shipped. Health answered `database: "ok"`, `storage: "ok"`, the identity probe passed and the smoke test passed. Previous: 2026-10-06, `sites-v28` (`674d757`) as version 28 (migration 0006); 2026-10-05, `sites-v26` (`1ea9eae`) as version 26 (migrations 0004 and 0005 on empty tables). Every release needs a fresh release merge with the Sites head; see RELEASE.md. The owning ChatGPT account must be the one Codex is logged in as, or Sites reports the project as not found.
+Last deploy: 2026-10-27, tag `sites-v30` (`a8ab12f`) as Sites version 30, saved and deployed by Codex with the Sites tools from a clean clone, through the Sites release merge `853607a` (RELEASE.md, step C). No migrations. Health answered `database: "ok"`, `storage: "ok"` and the identity probe passed; the smoke test is still to run. Previous: 2026-10-24, `sites-v29` (`db0861a`) as version 29 (migrations 0007–0009); 2026-10-06, `sites-v28` (`674d757`) as version 28 (migration 0006); 2026-10-05, `sites-v26` (`1ea9eae`) as version 26 (migrations 0004 and 0005 on empty tables). Every release needs a fresh release merge with the Sites head; see RELEASE.md. The owning ChatGPT account must be the one Codex is logged in as, or Sites reports the project as not found.
 
 ## Catalog: adding or updating a restaurant or pickup point
 
@@ -189,6 +189,14 @@ Worked example. A student reports: "저장이 안 돼요. 서버 오류가 발�
 ## Cleanup monitoring and orphan recovery
 
 Each attempted sweep emits a structured `retention_sweep` event containing selected, claimed, deleted and failed counts, pending room count, oldest overdue age and duration. No emails, names, tokens or message content are included. A backlog-query outage emits `backlog: "unavailable"`. Pending counts include all deletion tombstones, even a recently active deletion, so a single nonzero reading is not necessarily an outage.
+
+Observed in production on 2026-10-27, through Codex reading the Sites logs about ten minutes after the version 30 deploy (COMPLETION.md C1): three sweeps, none cut short, the latest at 02:21:36Z:
+
+```json
+{"level":"info","event":"retention_sweep","selected":0,"claimed":0,"deleted":0,"failed":0,"joinRequestsDeleted":0,"durationMs":131,"pending":0,"oldestOverdueMs":0}
+```
+
+The other two had durations of 515 ms and 148 ms. The limit stays at `LIMIT 50`: no sweep has hit a subrequest limit. These sweeps had nothing to delete, so revisit the limit if a sweep with a real backlog fails or logs `failed` > 0. Sites offers no scheduled trigger for this project (see below), so the sweep remains request-driven.
 
 Investigate repeated failures, increasing pending counts, or no successful sweep while expired data remains. Look for R2/D1 errors and stale mutation tokens; the next eligible sweep or a host deletion retry recovers tombstones. A request-triggered batch of 50 is not enough evidence that a large backlog has drained. The new metrics test injects a storage failure for one of three expired rooms: two are deleted and one remains observable and hidden.
 

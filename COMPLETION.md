@@ -77,7 +77,7 @@ Each item: acceptance check, size (S ≤ half a day, M ≤ 2 days, L ≤ a week)
 
 ## C. Reliability and operations
 
-- [ ] **C1 · Retention sweep proven in production** (S)
+- [x] **C1 · Retention sweep proven in production** (S) — observed 2026-10-27 after the version 30 deploy; RUNBOOK "Cleanup monitoring" records the line, `LIMIT 50` kept
   After a deploy, a `retention_sweep` log line is observed in the Sites log
   viewer. If the sweep is cut short by subrequest limits, `LIMIT 50` becomes
   `LIMIT 10`. If Sites offers a scheduled trigger, the sweep moves there.
@@ -194,3 +194,9 @@ are owner actions that need production access or GitHub settings: C1, C2
 (monitor half), C3, D3, G2, plus the closing deploy, probe, README version
 line and the `v1.0.0` tag. Nothing has been added to this list since it was
 written; nothing will be.
+
+## Status on 2026-10-27
+
+Deployed: Sites version 30 (`sites-v30`, `a8ab12f`), probe passed. C1 done
+(retention sweep observed in the production logs). 19 of 24 items done; open:
+C2 (monitor), C3, D3, G2, then the `v1.0.0` tag.

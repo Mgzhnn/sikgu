@@ -2,7 +2,7 @@
 
 How a commit on `main` becomes the live site, and how each live version is tied back to the commit it was built from. The general procedure is in [RUNBOOK.md](RUNBOOK.md) "Deploy". This file holds the release checklist, the record of each release, the tag scheme, and the map from commit hashes in older records to the current history.
 
-**Live:** Sites version 29, tag `sites-v29` (`db0861a`), deployed 2026-10-24. See the [release log](#release-log).
+**Live:** Sites version 30, tag `sites-v30` (`a8ab12f`), deployed 2026-10-27. See the [release log](#release-log).
 
 ## Release checklist
 
@@ -51,24 +51,31 @@ Run on the server, in a fresh directory outside `~/projects/sikgu`, so the worki
 
 ### C. Join the Sites history, save and deploy (Codex, Sites tools)
 
-Sites keeps its own git copy of the site source and publishes only when its current head is an ancestor of the commit being published. That head is the **release merge** from the previous release. Release merges exist only on Sites, never on GitHub: the GitHub history was rewritten to remove AI-authored commits and trailers, and the original Sites history still contains them. So every release needs its own release merge first.
+Sites keeps its own git copy of the site source, and saves a version only from the commit that is the current head of that copy's `main`. That head is the **release merge** from the previous release. Release merges exist only on Sites, never on GitHub: the GitHub history was rewritten to remove AI-authored commits and trailers, and the original Sites history still contains them. So every release needs its own release merge, pushed to the Sites copy, before the save.
 
-- [ ] **C1.** Ask Codex to save a new Sites version from the `sikgu-release` checkout. It stops with *"Local and remote Site history diverged. Reconcile the changes before retrying; no history was overwritten."* That is expected. It has fetched the Sites head into `.git/FETCH_HEAD`.
+Saving the A1 commit directly is refused with *"Commit … is not the current HEAD of appgprj_…@main. Observed remote HEAD: …"*; the observed head is the previous release merge.
+
+To drive Codex from a shell, run it inside `sikgu-release` as `~/.local/bin/codex exec -s danger-full-access "<prompt>" < /dev/null`. Its `workspace-write` sandbox has no network and a read-only `.git`, so the fetch and push fail there, and without `< /dev/null` it waits on standard input. In every prompt, tell Codex never to write the source credential to a file, git config, remote or log.
+
+- [ ] **C1.** Ask Codex to create a source write credential (`sites.create_source_repository_write_credential`) and fetch the Sites `main` into a local ref, nothing else:
+  ```bash
+  git fetch <Sites source repository URL> +main:refs/sites/head
+  ```
 - [ ] **C2.** Check that the Sites head holds exactly the source of the live version; this command must print nothing:
   ```bash
-  git diff sites-v<N-1> "$(awk '{print $1; exit}' .git/FETCH_HEAD)"
+  git diff sites-v<N-1> refs/sites/head
   ```
   If it prints a difference, stop. Sites holds source that is not tagged; find out where it came from before going on.
 - [ ] **C3.** Create the release merge. It keeps the files of the A1 commit and adds the Sites head as a second parent:
   ```bash
-  git merge -s ours --no-ff --allow-unrelated-histories "$(awk '{print $1; exit}' .git/FETCH_HEAD)" -m "Release merge for Sites version <N>: join the Sites source history to <A1 commit>"
+  git merge -s ours --no-ff --allow-unrelated-histories refs/sites/head -m "Release merge for Sites version <N>: join the Sites source history to <A1 commit>"
   ```
   Confirm the tree is unchanged; this must print nothing:
   ```bash
   git diff <commit from A1> HEAD
   ```
   **Never push this merge to GitHub.** The clone's `origin` is GitHub; nothing in this checklist pushes to it.
-- [ ] **C4.** Ask Codex to save the Sites version again from this checkout, then deploy **that explicit version** publicly, not "latest". Record the version number and the release merge hash.
+- [ ] **C4.** Ask Codex to push the release merge to the Sites source repository's `main` as a fast-forward (no force) with a fresh credential, save a Sites version from that commit, and deploy **that explicit version** publicly, not "latest". Record the version number, the deployment id and the release merge hash.
 - [ ] **C5.** Check that the release's migrations were applied. The Sites tools show a list of user tables but cannot run SQL. New tables can be checked there; new indexes cannot. Record which objects you could and could not observe. If the Sites Database view in the browser can run SQL, this query lists everything:
   ```sql
   SELECT type, name FROM sqlite_master WHERE type IN ('table', 'index') ORDER BY name;
@@ -115,6 +122,33 @@ If D1–D4 fail and a fix is not immediate, roll back (RUNBOOK "Rollback"): rede
 
 ## Release log
 
+### Sites version 30 — 2026-10-27
+
+| | |
+| --- | --- |
+| Source on GitHub | `a8ab12f`, tag `sites-v30` |
+| Sites source | release merge `853607a` (parents `a8ab12f`, `5ca240d`; tree identical to `a8ab12f`), pushed to the Sites source `main` as a fast-forward from `5ca240d` |
+| Sites version / deployment | `appgver_d9f96357…` / `appgdep_6ae00a6c…`, status succeeded 2026-10-27T02:20:47Z |
+| Rolled back from / to | none; version 29 (`sites-v29`) stays the rollback target |
+| Migrations | none |
+
+Shipped since version 29: `Strict-Transport-Security` and link-preview metadata fixed to the canonical origin (#16, review F-10 and F-5); the member amount field, which had rendered about 22px wide since version 28, and the 2026-10-26 review backlog (#17); and the version 29 release record (#15).
+
+| Step | Result |
+| --- | --- |
+| A1–B3 | Pass. CI green on `a8ab12f` including Playwright, 28/28; fresh clone; `npm test` 131/131, 0 skipped; lint clean; production audit 0; all ten migrations in the artifact |
+| C1–C3 | Saving `a8ab12f` was refused because the Sites head was `5ca240d`; the checklist above now describes this flow. Codex fetched that head into `refs/sites/head`; it showed no difference from `sites-v29`. Release merge `853607a` was created in the release clone; nothing was pushed to GitHub |
+| C4 | Release merge pushed to the Sites source `main`; version 30 saved from it and deployed publicly by version id |
+| C5 | Nothing to check: no new migrations |
+| D1 | Pass: HTTP 200 `{"ok":true,"database":"ok","storage":"ok"}`. `Strict-Transport-Security: max-age=31536000; includeSubDomains` on the page and the API; `og:url` is the canonical origin; the served CSS has `.amount-editor{grid-column:1/-1;…}` |
+| D2 | Pass, 3/3 (`verification/identity-probe-2026-10-27.log`) |
+| D3 | Could not verify, as for version 29 |
+| D4 | Not run yet: needs the owner's two accounts |
+| D5 | Not run |
+| E | Tag `sites-v30` pushed; evidence regenerated from `sites-v30` |
+
+Open after this release: D3, D4, D5.
+
 ### Sites version 29 — 2026-10-24
 
 | | |
@@ -151,6 +185,7 @@ Each Sites version that is deployed publicly gets an annotated tag `sites-v<vers
 | `sites-v26` | `1ea9eae` | REPAIRS.md: version 26 was "Raise Next.js to 16.3.8", deployed 2026-10-05 (recorded as `e5e77d7` before the history was rewritten). Tagged retroactively |
 | `sites-v28` | `674d757` | The Sites source head for version 28 is `e42a53c`, whose tree is identical to `674d757`; `dcb46d5` says the same. Tagged retroactively |
 | `sites-v29` | `db0861a` | Sites version 29 records source tree `e557a5e5…`, identical to `db0861a`, built through release merge `5ca240d` |
+| `sites-v30` | `a8ab12f` | Sites version 30 saved from release merge `853607a`, whose tree is identical to `a8ab12f` |
 
 ## Commit hashes in older records
 

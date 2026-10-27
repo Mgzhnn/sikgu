@@ -62,7 +62,8 @@ Fixed:
   flex rules (`flex-basis: 100%`) do nothing in a grid, so the form fell into
   the avatar column. The A1 browser test passed because `fill()` works on a
   box that small. The form now spans the row (`grid-column: 1 / -1`), and a
-  browser test measures it at 360px and 1280px.
+  browser test measures it at 360px and 1280px. Deployed in Sites version 30
+  (`sites-v30`) on 2026-10-27.
 
 Open, server:
 

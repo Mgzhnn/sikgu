@@ -1,0 +1,4 @@
+{"check":"anonymous bootstrap answers user: null","origin":"https://sikgu-dgist.ugrp44group.chatgpt.site","status":200,"pass":true,"user":null,"durationMs":415,"at":"2026-10-27T02:21:22.123Z"}
+{"check":"forged identity headers are stripped on bootstrap","origin":"https://sikgu-dgist.ugrp44group.chatgpt.site","status":200,"pass":true,"user":null,"durationMs":224,"at":"2026-10-27T02:21:22.347Z"}
+{"check":"forged create_room is refused with 401","origin":"https://sikgu-dgist.ugrp44group.chatgpt.site","status":401,"pass":true,"durationMs":68,"at":"2026-10-27T02:21:22.415Z"}
+{"summary":"PASS","origin":"https://sikgu-dgist.ugrp44group.chatgpt.site","checks":3,"passed":3,"at":"2026-10-27T02:21:22.416Z"}

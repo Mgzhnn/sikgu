@@ -387,6 +387,33 @@ for (const [width,height] of [[360,740],[390,844]]) {
   });
 }
 
+// 2026-10-26 review: a member row is a three-column grid, so the amount form
+// fell into the 34px avatar column and the input was about 22px wide. fill()
+// still works on a box that small, which is why the A1 test passed.
+for (const width of [360,1280]) {
+  test(`the member amount field takes the full width of its row at ${width}px`,async({page})=>{
+    await page.setViewportSize({width,height:844});
+    const room=reviewRoom();
+    await page.route('**/api/sikgu**',async route=>{
+      const url=new URL(route.request().url());
+      if(url.searchParams.get('action')==='room')return route.fulfill({json:{room,members:[{display_name:'테*트',role:'host',status:'approved',created_at:0,mine:1,amount:8000},{member_ref:'c'.repeat(32),display_name:'김*수',role:'member',status:'approved',created_at:1,mine:0,amount:null}],messages:[],nextMessagesCursor:null}});
+      return route.fulfill({json:{user:{displayName:'테*트'},serverNow:Date.now(),rooms:[room],myRooms:[room],nextRoomsCursor:null,nextMyRoomsCursor:null}});
+    });
+    await page.goto('/');
+    await page.locator('.pool-card').first().click();
+    await page.getByRole('button',{name:/참여자 관리/}).click();
+    const rows=page.locator('.member-list > div');
+    await expect(rows.locator('.amount-editor')).toHaveCount(2);
+    for (let i=0;i<2;i++) {
+      const row=(await rows.nth(i).boundingBox())!;
+      const input=(await rows.nth(i).locator('.amount-editor input').boundingBox())!;
+      const save=(await rows.nth(i).locator('.amount-editor button').boundingBox())!;
+      expect(input.width).toBeGreaterThan(row.width*0.6);
+      expect(save.height).toBeLessThanOrEqual(40); // 저장 stays on one line
+    }
+  });
+}
+
 const listRoom=(i:number)=>({...reviewRoom(),id:`room_${i}`,apps:['baemin'],membership:'',myStatus:null,isHost:false});
 
 test('closing a dialog returns to the same place without scrolling from the top',async({page})=>{

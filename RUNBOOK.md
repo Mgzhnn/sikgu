@@ -190,6 +190,14 @@ Worked example. A student reports: "저장이 안 돼요. 서버 오류가 발�
 
 Each attempted sweep emits a structured `retention_sweep` event containing selected, claimed, deleted and failed counts, pending room count, oldest overdue age and duration. No emails, names, tokens or message content are included. A backlog-query outage emits `backlog: "unavailable"`. Pending counts include all deletion tombstones, even a recently active deletion, so a single nonzero reading is not necessarily an outage.
 
+Observed in production on 2026-10-27, through Codex reading the Sites logs about ten minutes after the version 30 deploy (COMPLETION.md C1): three sweeps, none cut short, the latest at 02:21:36Z:
+
+```json
+{"level":"info","event":"retention_sweep","selected":0,"claimed":0,"deleted":0,"failed":0,"joinRequestsDeleted":0,"durationMs":131,"pending":0,"oldestOverdueMs":0}
+```
+
+The other two had durations of 515 ms and 148 ms. The limit stays at `LIMIT 50`: no sweep has hit a subrequest limit. These sweeps had nothing to delete, so revisit the limit if a sweep with a real backlog fails or logs `failed` > 0. Sites offers no scheduled trigger for this project (see below), so the sweep remains request-driven.
+
 Investigate repeated failures, increasing pending counts, or no successful sweep while expired data remains. Look for R2/D1 errors and stale mutation tokens; the next eligible sweep or a host deletion retry recovers tombstones. A request-triggered batch of 50 is not enough evidence that a large backlog has drained. The new metrics test injects a storage failure for one of three expired rooms: two are deleted and one remains observable and hidden.
 
 No recurring Worker trigger is configured, and the available Sites manifest/tools did not establish a supported scheduling capability for this project. Do not add a fictitious cron or describe scheduled deletion as deployed. Before introducing a platform-supported scheduler, reuse the same fenced, bounded cleanup logic and test overlapping executions.

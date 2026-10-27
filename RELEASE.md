@@ -142,12 +142,12 @@ Shipped since version 29: `Strict-Transport-Security` and link-preview metadata 
 | C5 | Nothing to check: no new migrations |
 | D1 | Pass: HTTP 200 `{"ok":true,"database":"ok","storage":"ok"}`. `Strict-Transport-Security: max-age=31536000; includeSubDomains` on the page and the API; `og:url` is the canonical origin; the served CSS has `.amount-editor{grid-column:1/-1;…}` |
 | D2 | Pass, 3/3 (`verification/identity-probe-2026-10-27.log`) |
-| D3 | Could not verify, as for version 29 |
+| D3 | Could not verify. Sites returned only the public URL: no preview URLs, no custom domains, and no `workers.dev` route inventory |
 | D4 | Not run yet: needs the owner's two accounts |
-| D5 | Not run |
+| D5 | Pass. About ten minutes after the deploy Codex read 16 log events since 02:20:47Z: 0 `"level":"error"` lines, and three `retention_sweep` lines (recorded in RUNBOOK for COMPLETION.md C1) |
 | E | Tag `sites-v30` pushed; evidence regenerated from `sites-v30` |
 
-Open after this release: D3, D4, D5.
+Open after this release: D3, D4.
 
 ### Sites version 29 — 2026-10-24
 
